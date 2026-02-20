@@ -113,7 +113,7 @@ export const Dashboard = () => {
                                 return (
                                     <div key={entry.id} className="flex gap-4">
                                         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs ring-4 ring-white">
-                                            {engineer?.name.charAt(0)}
+                                            {engineer?.name?.charAt(0) || '?'}
                                         </div>
                                         <div className="flex-1 min-w-0 pb-6 border-b border-slate-50 last:border-0 last:pb-0">
                                             <p className="text-sm font-medium text-slate-900">

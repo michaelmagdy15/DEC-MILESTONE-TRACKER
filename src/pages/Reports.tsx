@@ -155,7 +155,7 @@ export const Reports: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                                                    {stat.name.charAt(0)}
+                                                    {stat.name?.charAt(0) || '?'}
                                                 </div>
                                                 <div>
                                                     <div className="font-medium text-slate-900">{stat.name}</div>

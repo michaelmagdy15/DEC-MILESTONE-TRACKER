@@ -66,7 +66,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 engineerId: e.engineer_id,
                 date: e.date,
                 taskDescription: e.task_description,
-                softwareUsed: e.software_used,
+                softwareUsed: e.software_used || [],
                 timeSpent: e.time_spent,
                 milestone: e.milestone
             })));
