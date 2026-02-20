@@ -1,3 +1,5 @@
+// ... Removed useLocation since it threw a warning, returning back to previous imports
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -46,6 +48,7 @@ function App() {
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/projects" element={<ProtectedRoute requireAdmin><Projects /></ProtectedRoute>} />
                     <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
+                    {/* Fallback for authenticated users */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

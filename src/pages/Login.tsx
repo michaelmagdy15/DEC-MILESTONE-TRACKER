@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const Login: React.FC = () => {
     const { user } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [name, setName] = useState('');
+    const [role, setRole] = useState('Engineer');
+    const [hourlyRate, setHourlyRate] = useState('');
+    const [weeklyGoalHours, setWeeklyGoalHours] = useState('40');
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState<'login' | 'signup'>('login');
     const [error, setError] = useState<string | null>(null);
@@ -22,9 +27,19 @@ export const Login: React.FC = () => {
 
         try {
             if (mode === 'signup') {
+                if (!name.trim()) throw new Error('Full Name is required for signup.');
+
                 const { error } = await supabase.auth.signUp({
                     email,
                     password,
+                    options: {
+                        data: {
+                            name: name.trim(),
+                            role,
+                            hourly_rate: parseFloat(hourlyRate) || 0,
+                            weekly_goal_hours: parseInt(weeklyGoalHours, 10) || 40,
+                        }
+                    }
                 });
                 if (error) throw error;
                 // Since this is a restricted app, normally we'd create the engineer profile here or in a trigger.
@@ -52,35 +67,101 @@ export const Login: React.FC = () => {
                     </h2>
                 </div>
                 <form className="mt-8 space-y-6" onSubmit={handleAuth}>
-                    <div className="rounded-md shadow-sm -space-y-px">
+                    <div className="space-y-4">
                         <div>
-                            <label htmlFor="email-address" className="sr-only">Email address</label>
+                            <label htmlFor="email-address" className="block text-sm font-medium text-slate-700 mb-1">Email address</label>
                             <input
                                 id="email-address"
                                 name="email"
                                 type="email"
                                 autoComplete="email"
                                 required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                                className="appearance-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                                 placeholder="Email address"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label htmlFor="password" className="sr-only">Password</label>
+                            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">Password</label>
                             <input
                                 id="password"
                                 name="password"
                                 type="password"
                                 autoComplete="current-password"
                                 required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                                className="appearance-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                                 placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+
+                        <AnimatePresence>
+                            {mode === 'signup' && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="space-y-4 pt-4 border-t border-slate-100 overflow-hidden"
+                                >
+                                    <div>
+                                        <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                                        <input
+                                            id="name"
+                                            type="text"
+                                            required={mode === 'signup'}
+                                            className="appearance-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            placeholder="e.g. John Doe"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-1">Role / Type of Engineer</label>
+                                        <select
+                                            id="role"
+                                            value={role}
+                                            onChange={(e) => setRole(e.target.value)}
+                                            className="appearance-none relative block w-full px-3 py-2 border border-slate-300 text-slate-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
+                                        >
+                                            <option value="Engineer">Engineer</option>
+                                            <option value="Senior Engineer">Senior Engineer</option>
+                                            <option value="Architect">Architect</option>
+                                            <option value="Project Manager">Project Manager</option>
+                                            <option value="Draftsman">Draftsman</option>
+                                        </select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor="hourly-rate" className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate (AED)</label>
+                                            <input
+                                                id="hourly-rate"
+                                                type="number"
+                                                className="appearance-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                                placeholder="e.g. 50"
+                                                min="0"
+                                                step="0.01"
+                                                value={hourlyRate}
+                                                onChange={(e) => setHourlyRate(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="weekly-goal" className="block text-sm font-medium text-slate-700 mb-1">Weekly Goal (Hrs)</label>
+                                            <input
+                                                id="weekly-goal"
+                                                type="number"
+                                                className="appearance-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                                placeholder="e.g. 40"
+                                                min="0"
+                                                value={weeklyGoalHours}
+                                                onChange={(e) => setWeeklyGoalHours(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {error && (

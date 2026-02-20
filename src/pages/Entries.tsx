@@ -114,7 +114,7 @@ export const Entries: React.FC = () => {
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     required
                                 />
                             </div>
@@ -123,7 +123,7 @@ export const Entries: React.FC = () => {
                                 <select
                                     value={engineerId}
                                     onChange={(e) => setEngineerId(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     required
                                 >
                                     <option value="">Select Engineer...</option>
@@ -137,7 +137,7 @@ export const Entries: React.FC = () => {
                                 <select
                                     value={projectId}
                                     onChange={(e) => setProjectId(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     required
                                 >
                                     <option value="">Select Project...</option>
@@ -150,7 +150,7 @@ export const Entries: React.FC = () => {
                                     type="number"
                                     value={timeSpent}
                                     onChange={(e) => setTimeSpent(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     placeholder="e.g. 4.5"
                                     step="0.25"
                                     min="0"
@@ -165,7 +165,7 @@ export const Entries: React.FC = () => {
                             <textarea
                                 value={taskDescription}
                                 onChange={(e) => setTaskDescription(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[100px]"
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[100px]"
                                 placeholder="What did you work on?"
                                 required
                             />
@@ -200,7 +200,7 @@ export const Entries: React.FC = () => {
                                 type="text"
                                 value={milestone}
                                 onChange={(e) => setMilestone(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                 placeholder="e.g. 50% Draft, Submission, etc."
                             />
                         </div>
