@@ -21,8 +21,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUserRole = async (userId: string) => {
         try {
-            // Assume the engineers table id matches auth.uid(), or we map it via auth user id.
-            // For now, let's query the engineers table where the email matches or where id = auth.uid()
             const { data, error } = await supabase
                 .from('engineers')
                 .select('id, role')
@@ -30,54 +28,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .single();
 
             if (error) {
-                // If no profile found, maybe it's a completely new user.
                 console.warn('Could not fetch role for user:', error.message);
-                setRole('engineer'); // Default restriction
+                setRole('engineer');
                 setEngineerId(null);
             } else if (data) {
                 setRole(data.role);
                 setEngineerId(data.id);
             }
         } catch (err) {
-            console.error(err);
-        } finally {
-            // ensure we map correctly
+            console.error('fetchUserRole Error:', err);
+            setRole('engineer');
+            setEngineerId(null);
         }
     };
 
     useEffect(() => {
-        // Initialize Auth Session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                setUser(session.user);
-                fetchUserRole(session.user.id).finally(() => setIsLoadingAuth(false));
-            } else {
-                setUser(null);
-                setRole(null);
-                setIsLoadingAuth(false);
+        let mounted = true;
+
+        const initializeAuth = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+
+                if (session?.user) {
+                    if (mounted) setUser(session.user);
+                    await fetchUserRole(session.user.id);
+                } else {
+                    if (mounted) {
+                        setUser(null);
+                        setRole(null);
+                    }
+                }
+            } catch (err) {
+                console.error("Auth Session Error:", err);
+                if (mounted) {
+                    setUser(null);
+                    setRole(null);
+                }
+            } finally {
+                if (mounted) setIsLoadingAuth(false);
             }
-        });
+        };
+
+        initializeAuth();
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
-                if (session?.user) {
-                    setUser(session.user);
-                    await fetchUserRole(session.user.id);
-                } else {
-                    setUser(null);
-                    setRole(null);
-                    setEngineerId(null);
+                if (!mounted) return;
+
+                try {
+                    if (session?.user) {
+                        setUser(session.user);
+                        await fetchUserRole(session.user.id);
+                    } else {
+                        setUser(null);
+                        setRole(null);
+                        setEngineerId(null);
+                    }
+                } catch (err) {
+                    console.error("Auth state change error:", err);
+                } finally {
+                    if (mounted) setIsLoadingAuth(false);
                 }
-                setIsLoadingAuth(false);
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signOut = async () => {
-        await supabase.auth.signOut();
+        try {
+            await supabase.auth.signOut();
+        } catch (err) {
+            console.error('Sign Out Error:', err);
+            // Force local state clear if remote signout fails
+            setUser(null);
+            setRole(null);
+            setEngineerId(null);
+            setIsLoadingAuth(false);
+        }
     };
 
     return (
