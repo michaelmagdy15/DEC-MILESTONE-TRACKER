@@ -1,8 +1,9 @@
 import React from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
+import { useAuth } from '../context/AuthContext';
 
 const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) => {
     const location = useLocation();
@@ -26,6 +27,7 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+    const { role, signOut, user } = useAuth();
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
@@ -49,16 +51,27 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
                     <nav className="space-y-2 flex-1">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                        <NavItem to="/projects" icon={FolderKanban} label="Projects" />
-                        <NavItem to="/engineers" icon={Users} label="Engineers" />
+                        {role === 'admin' && <NavItem to="/projects" icon={FolderKanban} label="Projects" />}
+                        {role === 'admin' && <NavItem to="/engineers" icon={Users} label="Engineers" />}
                         <NavItem to="/entries" icon={FileText} label="Daily Entries" />
+                        <NavItem to="/attendance" icon={CalendarCheck} label="Attendance" />
                         <NavItem to="/reports" icon={PieChart} label="Reports" />
                     </nav>
 
-                    <div className="pt-6 border-t border-slate-100">
+                    <div className="pt-6 border-t border-slate-100 flex flex-col space-y-4">
                         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-500/20">
                             <p className="text-xs font-semibold opacity-80 mb-1">DEC Engineering</p>
                             <p className="text-sm font-medium">Milestone Tracking System</p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm text-slate-600">
+                            <div className="flex flex-col">
+                                <span className="font-semibold">{user?.email?.split('@')[0] || 'User'}</span>
+                                <span className="text-xs text-slate-400 capitalize">{role || 'Engineer'}</span>
+                            </div>
+                            <button onClick={signOut} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Sign Out">
+                                <LogOut className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
                 </div>

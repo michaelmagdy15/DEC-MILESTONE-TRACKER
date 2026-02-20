@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Users, X, Check } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import type { Engineer } from '../types';
 import { motion } from 'framer-motion';
 
@@ -13,6 +14,9 @@ export const Engineers = () => {
     // Form State
     const [name, setName] = useState('');
     const [role, setRole] = useState('Engineer');
+    const [hourlyRate, setHourlyRate] = useState<number>(0);
+    const [weeklyGoalHours, setWeeklyGoalHours] = useState<number>(40);
+    const { role: currentUserRole } = useAuth(); // To check if current user is admin
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,6 +26,8 @@ export const Engineers = () => {
             id: editingId || crypto.randomUUID(),
             name,
             role,
+            hourlyRate,
+            weeklyGoalHours
         };
 
         if (editingId) {
@@ -37,6 +43,8 @@ export const Engineers = () => {
         setEditingId(engineer.id);
         setName(engineer.name);
         setRole(engineer.role || 'Engineer');
+        setHourlyRate(engineer.hourlyRate || 0);
+        setWeeklyGoalHours(engineer.weeklyGoalHours || 40);
         setIsAdding(true);
     };
 
@@ -45,6 +53,8 @@ export const Engineers = () => {
         setEditingId(null);
         setName('');
         setRole('Engineer');
+        setHourlyRate(0);
+        setWeeklyGoalHours(40);
     };
 
     const handleDelete = (id: string) => {
@@ -108,6 +118,30 @@ export const Engineers = () => {
                                 <option value="Draftsman">Draftsman</option>
                             </select>
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate (AED)</label>
+                                <input
+                                    type="number"
+                                    value={hourlyRate}
+                                    onChange={(e) => setHourlyRate(Number(e.target.value))}
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    min="0"
+                                    step="0.01"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Weekly Goal (Hrs)</label>
+                                <input
+                                    type="number"
+                                    value={weeklyGoalHours}
+                                    onChange={(e) => setWeeklyGoalHours(Number(e.target.value))}
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    min="0"
+                                    step="1"
+                                />
+                            </div>
+                        </div>
                         <div className="flex justify-end space-x-3 pt-2">
                             <button
                                 type="button"
@@ -144,10 +178,19 @@ export const Engineers = () => {
                                 <div className="bg-indigo-50 p-2.5 rounded-xl text-indigo-600">
                                     <Users className="w-6 h-6" />
                                 </div>
-                                <h3 className="font-semibold text-lg text-slate-900">{engineer.name}</h3>
-                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                                    {engineer.role || 'Engineer'}
-                                </span>
+                                <div>
+                                    <h3 className="font-semibold text-lg text-slate-900">{engineer.name}</h3>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                            {engineer.role || 'Engineer'}
+                                        </span>
+                                        {currentUserRole === 'admin' && (
+                                            <span className="text-xs text-slate-500">
+                                                {engineer.hourlyRate} AED/hr • {engineer.weeklyGoalHours}h goal
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button

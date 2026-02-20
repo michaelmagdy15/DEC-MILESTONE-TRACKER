@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Engineer, LogEntry } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface DataContextType {
     projects: Project[];
     engineers: Engineer[];
     entries: LogEntry[];
+    attendance: AttendanceRecord[];
     addProject: (project: Project) => Promise<void>;
     updateProject: (project: Project) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
@@ -15,6 +16,9 @@ interface DataContextType {
     addEntry: (entry: LogEntry) => Promise<void>;
     updateEntry: (entry: LogEntry) => Promise<void>;
     deleteEntry: (id: string) => Promise<void>;
+    addAttendance: (record: AttendanceRecord) => Promise<void>;
+    updateAttendance: (record: AttendanceRecord) => Promise<void>;
+    deleteAttendance: (id: string) => Promise<void>;
     isLoading: boolean;
 }
 
@@ -24,20 +28,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [projects, setProjects] = useState<Project[]>([]);
     const [engineers, setEngineers] = useState<Engineer[]>([]);
     const [entries, setEntries] = useState<LogEntry[]>([]);
+    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const [projectsRes, engineersRes, entriesRes] = await Promise.all([
+            const [projectsRes, engineersRes, entriesRes, attendanceRes] = await Promise.all([
                 supabase.from('projects').select('*').order('created_at', { ascending: false }),
                 supabase.from('engineers').select('*').order('created_at', { ascending: false }),
-                supabase.from('entries').select('*').order('date', { ascending: false })
+                supabase.from('entries').select('*').order('date', { ascending: false }),
+                supabase.from('attendance').select('*').order('date', { ascending: false })
             ]);
 
             if (projectsRes.error) throw projectsRes.error;
             if (engineersRes.error) throw engineersRes.error;
             if (entriesRes.error) throw entriesRes.error;
+            if (attendanceRes.error) throw attendanceRes.error;
 
             setProjects(projectsRes.data.map((p: any) => ({
                 id: p.id,
@@ -48,7 +55,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEngineers(engineersRes.data.map((e: any) => ({
                 id: e.id,
                 name: e.name,
-                role: e.role
+                role: e.role,
+                hourlyRate: e.hourly_rate,
+                weeklyGoalHours: e.weekly_goal_hours
             })));
 
             setEntries(entriesRes.data.map((e: any) => ({
@@ -60,6 +69,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 softwareUsed: e.software_used,
                 timeSpent: e.time_spent,
                 milestone: e.milestone
+            })));
+
+            setAttendance(attendanceRes.data.map((a: any) => ({
+                id: a.id,
+                engineerId: a.engineer_id,
+                date: a.date,
+                status: a.status
             })));
 
         } catch (error) {
@@ -87,6 +103,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'entries' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'attendance' },
                 () => { fetchData() }
             )
             .subscribe();
@@ -134,7 +155,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.from('engineers').insert({
             id: engineer.id,
             name: engineer.name,
-            role: engineer.role
+            role: engineer.role,
+            hourly_rate: engineer.hourlyRate,
+            weekly_goal_hours: engineer.weeklyGoalHours
         });
         if (error) {
             console.error('Error adding engineer:', error);
@@ -145,7 +168,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateEngineer = async (engineer: Engineer) => {
         const { error } = await supabase.from('engineers').update({
             name: engineer.name,
-            role: engineer.role
+            role: engineer.role,
+            hourly_rate: engineer.hourlyRate,
+            weekly_goal_hours: engineer.weeklyGoalHours
         }).eq('id', engineer.id);
         if (error) {
             console.error('Error updating engineer:', error);
@@ -204,11 +229,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    // Attendance
+    const addAttendance = async (record: AttendanceRecord) => {
+        const { error } = await supabase.from('attendance').insert({
+            id: record.id,
+            engineer_id: record.engineerId,
+            date: record.date,
+            status: record.status
+        });
+        if (error) {
+            console.error('Error adding attendance:', error);
+            alert('Failed to add attendance (do you already have a record for this date?)');
+        }
+    };
+
+    const updateAttendance = async (record: AttendanceRecord) => {
+        const { error } = await supabase.from('attendance').update({
+            status: record.status
+        }).eq('id', record.id);
+        if (error) {
+            console.error('Error updating attendance:', error);
+            alert('Failed to update attendance');
+        }
+    };
+
+    const deleteAttendance = async (id: string) => {
+        const { error } = await supabase.from('attendance').delete().eq('id', id);
+        if (error) {
+            console.error('Error deleting attendance:', error);
+            alert('Failed to delete attendance');
+        }
+    };
+
     return (
         <DataContext.Provider value={{
             projects,
             engineers,
             entries,
+            attendance,
             addProject,
             updateProject,
             deleteProject,
@@ -218,6 +276,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addEntry,
             updateEntry,
             deleteEntry,
+            addAttendance,
+            updateAttendance,
+            deleteAttendance,
             isLoading
         }}>
             {children}

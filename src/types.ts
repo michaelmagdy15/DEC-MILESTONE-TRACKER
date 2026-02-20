@@ -8,6 +8,15 @@ export interface Engineer {
     id: string;
     name: string;
     role: string;
+    hourlyRate?: number;
+    weeklyGoalHours?: number;
+}
+
+export interface AttendanceRecord {
+    id: string;
+    engineerId: string;
+    date: string; // ISO string YYYY-MM-DD
+    status: 'Present' | 'Absent' | 'Half-Day';
 }
 
 export interface LogEntry {
@@ -25,4 +34,5 @@ export interface AppData {
     projects: Project[];
     engineers: Engineer[];
     entries: LogEntry[];
+    attendance: AttendanceRecord[];
 }

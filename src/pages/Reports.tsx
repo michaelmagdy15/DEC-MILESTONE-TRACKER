@@ -2,12 +2,12 @@
 
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { DollarSign, LayoutGrid, Users, Clock } from 'lucide-react';
+import { DollarSign, LayoutGrid, Users } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 
 export const Reports: React.FC = () => {
-    const { projects, engineers, entries } = useData();
+    const { projects, engineers, entries, attendance } = useData();
     const [view, setView] = useState<'projects' | 'engineers'>('projects');
 
     // Calculate Project Stats
@@ -36,7 +36,21 @@ export const Reports: React.FC = () => {
             .filter(e => new Date(e.date) >= oneWeekAgo)
             .reduce((sum, e) => sum + e.timeSpent, 0);
 
-        return { ...engineer, totalHours, projectCount, weeklyHours };
+        // Calculate weekly absences
+        const weeklyAbsences = attendance.filter(a =>
+            a.engineerId === engineer.id &&
+            a.status === 'Absent' &&
+            new Date(a.date) >= oneWeekAgo
+        ).length;
+
+        const hourlyRate = engineer.hourlyRate || 0;
+        const weeklyGoal = engineer.weeklyGoalHours || 0;
+
+        const expectedPayment = weeklyGoal * hourlyRate;
+        const deduction = weeklyAbsences * 8 * hourlyRate;
+        const weeklyPayment = Math.max(0, expectedPayment - deduction);
+
+        return { ...engineer, totalHours, projectCount, weeklyHours, weeklyAbsences, weeklyPayment };
     });
 
     return (
@@ -104,7 +118,7 @@ export const Reports: React.FC = () => {
                                     <div className="bg-emerald-50 rounded-xl p-3">
                                         <p className="text-xs text-emerald-600 font-medium uppercase tracking-wider mb-1">Est. Cost</p>
                                         <p className="text-xl font-bold text-emerald-700">
-                                            ${stat.cost.toFixed(2)}
+                                            {stat.cost.toFixed(2)} AED
                                         </p>
                                     </div>
                                 </div>
@@ -115,7 +129,7 @@ export const Reports: React.FC = () => {
                                         {stat.uniqueEngineers} Engineers involved
                                     </div>
                                     {stat.hourlyRate && (
-                                        <span className="text-slate-400">Rate: ${stat.hourlyRate}/hr</span>
+                                        <span className="text-slate-400">Rate: {stat.hourlyRate} AED/hr</span>
                                     )}
                                 </div>
                             </div>
@@ -131,8 +145,8 @@ export const Reports: React.FC = () => {
                                     <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Engineer</th>
                                     <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Active Projects</th>
                                     <th className="px-6 py-4 font-semibold text-slate-700 text-sm">This Week (Hrs)</th>
-                                    <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Total Logged (Hrs)</th>
-                                    <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Status</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-center">Absences (7d)</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-right">Weekly Payout (AED)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -165,16 +179,24 @@ export const Reports: React.FC = () => {
                                                 {stat.weeklyHours.toFixed(1)} hrs
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-1.5 text-slate-700">
-                                                <Clock className="w-4 h-4 text-slate-400" />
-                                                {stat.totalHours.toFixed(1)}
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="inline-flex items-center justify-center p-1.5 rounded-lg bg-slate-50 border border-slate-100">
+                                                <span className={clsx(
+                                                    "font-medium text-sm",
+                                                    stat.weeklyAbsences > 0 ? "text-red-600" : "text-slate-600"
+                                                )}>
+                                                    {stat.weeklyAbsences}
+                                                </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className={clsx("w-2 h-2 rounded-full", stat.weeklyHours > 0 ? "bg-emerald-500 animate-pulse" : "bg-slate-300")} />
-                                                <span className="text-xs text-slate-500">{stat.weeklyHours > 0 ? 'Active' : 'Idle'}</span>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex flex-col items-end">
+                                                <span className="font-bold text-slate-900">{stat.weeklyPayment.toFixed(2)} AED</span>
+                                                {stat.weeklyAbsences > 0 && (
+                                                    <span className="text-xs text-red-500 font-medium">
+                                                        -{((stat.weeklyAbsences * 8) * (stat.hourlyRate || 0)).toFixed(2)} AED deduction
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
