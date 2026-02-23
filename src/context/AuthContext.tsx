@@ -45,42 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         let mounted = true;
 
-        const initializeAuth = async () => {
-            try {
-                // Add a timeout to prevent getSession from hanging indefinitely
-                const sessionPromise = supabase.auth.getSession();
-                const timeoutPromise = new Promise<{ data: { session: any }, error: any }>((_, reject) =>
-                    setTimeout(() => reject(new Error('Auth session fetch timeout')), 5000)
-                );
-
-                const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
-                if (error) throw error;
-
-                if (session?.user) {
-                    if (mounted) setUser(session.user);
-                    await fetchUserRole(session.user.id);
-                } else {
-                    if (mounted) {
-                        setUser(null);
-                        setRole(null);
-                        setEngineerId(null);
-                    }
-                }
-            } catch (err) {
-                console.error("Auth Session Error:", err);
-                if (mounted) {
-                    setUser(null);
-                    setRole(null);
-                    setEngineerId(null);
-                }
-            } finally {
+        // Fallback timeout to ensure we never get stuck on the "Loading session..." screen indefinitely
+        const timeoutId = setTimeout(() => {
+            if (mounted && isLoadingAuth) {
                 setIsLoadingAuth(false);
             }
-        };
+        }, 2000);
 
-        initializeAuth();
-
-        // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
                 if (!mounted) return;
@@ -96,14 +67,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                 } catch (err) {
                     console.error("Auth state change error:", err);
+                    setUser(null);
+                    setRole(null);
+                    setEngineerId(null);
                 } finally {
-                    setIsLoadingAuth(false);
+                    clearTimeout(timeoutId);
+                    if (mounted) setIsLoadingAuth(false);
                 }
             }
         );
 
         return () => {
             mounted = false;
+            clearTimeout(timeoutId); // Clear timeout on unmount as well
             subscription.unsubscribe();
         };
     }, []);
