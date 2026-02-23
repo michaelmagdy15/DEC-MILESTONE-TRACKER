@@ -1,8 +1,7 @@
 
-
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { DollarSign, LayoutGrid, Users, Download, BarChart2 } from 'lucide-react';
+import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -35,14 +34,12 @@ export const Reports: React.FC = () => {
         const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0);
         const projectCount = new Set(engineerEntries.map(e => e.projectId)).size;
 
-        // Calculate weekly hours (last 7 days)
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const weeklyHours = engineerEntries
             .filter(e => new Date(e.date) >= oneWeekAgo)
             .reduce((sum, e) => sum + e.timeSpent, 0);
 
-        // Calculate weekly absences
         const weeklyAbsences = attendance.filter(a =>
             a.engineerId === engineer.id &&
             a.status === 'Absent' &&
@@ -59,72 +56,43 @@ export const Reports: React.FC = () => {
         return { ...engineer, totalHours, projectCount, weeklyHours, weeklyAbsences, weeklyPayment };
     });
 
-    const exportProjectsCSV = () => {
-        const headers = ['Project Name', 'Total Hours', 'Total Cost (AED)', 'Unique Engineers Involved', 'Last Activity'];
+    const exportCSV = (data: any[], fileName: string) => {
+        const headers = view === 'projects'
+            ? ['Project Name', 'Total Hours', 'Total Cost (AED)', 'Engineers', 'Last Activity']
+            : ['Engineer Name', 'Role', 'Projects', 'Total Hours', 'Weekly Payment (AED)'];
+
         const csvContent = [
             headers.join(','),
-            ...projectStats.map(p => [
-                `"${p.name}"`,
-                p.totalHours.toFixed(2),
-                p.cost.toFixed(2),
-                p.uniqueEngineers,
-                p.lastActivity ? p.lastActivity.toISOString().split('T')[0] : 'Never'
-            ].join(','))
+            ...data.map(item => view === 'projects'
+                ? [`"${item.name}"`, item.totalHours.toFixed(2), item.cost.toFixed(2), item.uniqueEngineers, item.lastActivity?.toISOString().split('T')[0] || 'N/A']
+                : [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, item.totalHours.toFixed(2), item.weeklyPayment.toFixed(2)]
+            ).map(row => row.join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `project_stats_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
-    };
-
-    const exportEngineersCSV = () => {
-        // ... (existing csv Content logic untouched)
-        const headers = ['Engineer Name', 'Role', 'Active Projects', 'Total Hours', 'Weekly Hours (Last 7d)', 'Weekly Absences', 'Weekly Payout (AED)'];
-        const csvContent = [
-            headers.join(','),
-            ...engineerStats.map(e => [
-                `"${e.name}"`,
-                `"${e.role || 'Engineer'}"`,
-                e.projectCount,
-                e.totalHours.toFixed(2),
-                e.weeklyHours.toFixed(2),
-                e.weeklyAbsences,
-                e.weeklyPayment.toFixed(2)
-            ].join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `engineer_stats_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `${fileName}_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     };
 
     const handleDownloadInvoice = async (stat: any) => {
         setGeneratingInvoiceFor(stat.id);
-
-        // Give React a frame to render the hidden template
         setTimeout(async () => {
             if (!invoiceRef.current) {
                 setGeneratingInvoiceFor(null);
                 return;
             }
-
             try {
-                const canvas = await html2canvas(invoiceRef.current, { scale: 2, useCORS: true });
+                const canvas = await html2canvas(invoiceRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
                 const imgData = canvas.toDataURL('image/png');
-
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`Invoice_${stat.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+                pdf.save(`Invoice_${stat.name.replace(/\s+/g, '_')}.pdf`);
             } catch (error) {
                 console.error("Error generating invoice:", error);
-                alert("Failed to generate invoice.");
             } finally {
                 setGeneratingInvoiceFor(null);
             }
@@ -135,224 +103,190 @@ export const Reports: React.FC = () => {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
             className="space-y-8"
         >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-slate-800">Reports & Analytics</h2>
-
-                <div className="bg-slate-100 p-1 rounded-xl inline-flex">
-                    <button
-                        onClick={() => setView('projects')}
-                        className={clsx(
-                            "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
-                            view === 'projects' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                        )}
-                    >
-                        <LayoutGrid className="w-4 h-4" />
-                        Projects
-                    </button>
-                    <button
-                        onClick={() => setView('engineers')}
-                        className={clsx(
-                            "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
-                            view === 'engineers' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                        )}
-                    >
-                        <Users className="w-4 h-4" />
-                        Engineers & Tracking
-                    </button>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                <div>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
+                        Intelligence <span className="text-indigo-400">Reports</span>
+                    </h2>
+                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <p className="text-slate-500 font-medium tracking-wide">High-fidelity analytics and performance auditing.</p>
                 </div>
 
-                <button
-                    onClick={view === 'projects' ? exportProjectsCSV : exportEngineersCSV}
-                    className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors shadow-sm ml-auto md:ml-0 text-sm font-medium"
-                >
-                    <Download className="w-4 h-4" />
-                    <span>Export CSV</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="bg-white/5 p-1.5 rounded-2xl border border-white/5 flex backdrop-blur-3xl">
+                        <button
+                            onClick={() => setView('projects')}
+                            className={clsx(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
+                                view === 'projects' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
+                            )}
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                            Projects
+                        </button>
+                        <button
+                            onClick={() => setView('engineers')}
+                            className={clsx(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
+                                view === 'engineers' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
+                            )}
+                        >
+                            <Users className="w-4 h-4" />
+                            Engineers
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={() => exportCSV(view === 'projects' ? projectStats : engineerStats, view)}
+                        className="flex items-center justify-center space-x-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3.5 rounded-2xl transition-all duration-300 shadow-xl shadow-indigo-600/20 font-bold uppercase tracking-widest text-[10px]"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span>Export Intelligence</span>
+                    </button>
+                </div>
             </div>
 
-            {view === 'projects' ? (
-                <div className="flex flex-col gap-6">
-                    {/* Charts Section */}
-                    {projectStats.length > 0 && (
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-                                <BarChart2 className="w-5 h-5 mr-2 text-blue-500" />
-                                Project Hours & Costs
-                            </h3>
-                            <div className="h-72 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={projectStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                        <RechartsTooltip cursor={{ fill: '#F8FAFC' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                        <Legend />
-                                        <Bar yAxisId="left" dataKey="totalHours" name="Total Hours" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                                        <Bar yAxisId="right" dataKey="cost" name="Est. Cost (AED)" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+            {/* CHARTS SECTION */}
+            <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-indigo-600/10 transition-colors"></div>
+                <div className="flex items-center justify-between mb-10 relative z-10">
+                    <div>
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                            <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                                <BarChart2 className="w-6 h-6 text-indigo-400" />
                             </div>
-                        </div>
-                    )}
+                            Performance Calibration
+                        </h3>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">Visualizing Resource Distribution</p>
+                    </div>
+                </div>
 
-                    {/* Project Cards */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {projectStats.map(stat => (
-                            <div key={stat.id} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col h-full">
-                                <div className="flex justify-between items-start mb-4">
+                <div className="h-[400px] w-full relative z-10">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={view === 'projects' ? projectStats : engineerStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                            <XAxis
+                                dataKey="name"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                                dy={20}
+                            />
+                            <YAxis
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                            />
+                            <RechartsTooltip
+                                cursor={{ fill: '#ffffff05' }}
+                                contentStyle={{
+                                    backgroundColor: '#0f0f0f',
+                                    border: '1px solid #ffffff10',
+                                    borderRadius: '16px',
+                                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                }}
+                                itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
+                                labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
+                            />
+                            <Legend
+                                wrapperStyle={{ paddingTop: '40px' }}
+                                iconType="circle"
+                                formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>}
+                            />
+                            <Bar
+                                dataKey={view === 'projects' ? "totalHours" : "weeklyHours"}
+                                name={view === 'projects' ? "Resource Hours" : "Weekly Activity"}
+                                fill="#6366f1"
+                                radius={[10, 10, 0, 0]}
+                                maxBarSize={40}
+                            />
+                            {view === 'projects' && (
+                                <Bar
+                                    dataKey="cost"
+                                    name="Fiscal Value (AED)"
+                                    fill="#10b981"
+                                    radius={[10, 10, 0, 0]}
+                                    maxBarSize={40}
+                                />
+                            )}
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* DATA CARDS/TABLE */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {(view === 'projects' ? projectStats : engineerStats).map((stat, idx) => (
+                    <motion.div
+                        key={stat.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="group bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 hover:border-indigo-500/30 transition-all duration-500 backdrop-blur-3xl shadow-xl relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                        <div className="flex flex-col h-full relative z-10">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-indigo-500/20 group-hover:bg-indigo-500/10 transition-all duration-500">
+                                    {view === 'projects' ? <LayoutGrid className="w-8 h-8 text-slate-500 group-hover:text-indigo-400" /> : <Users className="w-8 h-8 text-slate-500 group-hover:text-indigo-400" />}
+                                </div>
+                                <button
+                                    onClick={() => view === 'projects' ? handleDownloadInvoice(stat) : null}
+                                    disabled={generatingInvoiceFor === stat.id}
+                                    className={clsx(
+                                        "p-3 rounded-xl border transition-all",
+                                        view === 'projects'
+                                            ? "bg-white/5 text-slate-500 hover:text-white border-white/5 hover:bg-indigo-600 hover:border-indigo-600"
+                                            : "bg-white/5 text-slate-700 border-white/5 cursor-not-allowed opacity-30"
+                                    )}
+                                >
+                                    <FileText className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1">
+                                <h3 className="text-xl font-black text-white tracking-tight mb-2 group-hover:text-indigo-400 transition-colors">{(stat as any).name}</h3>
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-indigo-500/20 group-hover:text-indigo-400">
+                                        {view === 'projects' ? 'Project' : ((stat as any).role || 'Operative')}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 py-6 border-y border-white/5">
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-900">{stat.name}</h3>
-                                        <p className="text-sm text-slate-500">
-                                            Last active: {stat.lastActivity ? stat.lastActivity.toLocaleDateString() : 'Never'}
-                                        </p>
+                                        <div className="text-2xl font-black text-white">
+                                            {(stat as any).totalHours.toFixed(1)}
+                                            <span className="text-[10px] ml-1 text-slate-600">H</span>
+                                        </div>
+                                        <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Total Hours</div>
                                     </div>
-                                    <div className={clsx(
-                                        "p-2 rounded-lg",
-                                        stat.hourlyRate ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-400"
-                                    )}>
-                                        <DollarSign className="w-5 h-5" />
+                                    <div>
+                                        <div className="text-2xl font-black text-white">
+                                            {view === 'projects' ? (stat as any).cost.toLocaleString() : (stat as any).projectCount}
+                                            <span className="text-[10px] ml-1 text-slate-600">{view === 'projects' ? 'AED' : 'VNT'}</span>
+                                        </div>
+                                        <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Est. Cost' : 'Active Ventures'}</div>
                                     </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div className="bg-slate-50 rounded-xl p-3">
-                                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Time Logged</p>
-                                        <p className="text-xl font-bold text-slate-800 flex items-center gap-1">
-                                            {stat.totalHours.toFixed(1)} <span className="text-sm font-normal text-slate-500">hrs</span>
-                                        </p>
-                                    </div>
-                                    <div className="bg-emerald-50 rounded-xl p-3">
-                                        <p className="text-xs text-emerald-600 font-medium uppercase tracking-wider mb-1">Est. Cost</p>
-                                        <p className="text-xl font-bold text-emerald-700">
-                                            {stat.cost.toFixed(2)} AED
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-auto pt-4 border-t border-slate-50 flex justify-between items-center text-sm">
-                                    <div className="flex items-center text-slate-500">
-                                        <Users className="w-4 h-4 mr-2" />
-                                        {stat.uniqueEngineers} Engineers involved
-                                    </div>
-                                    <button
-                                        onClick={() => handleDownloadInvoice(stat)}
-                                        disabled={generatingInvoiceFor === stat.id || stat.totalHours === 0}
-                                        className={clsx(
-                                            "flex items-center px-3 py-1.5 rounded-lg font-medium transition-colors",
-                                            stat.totalHours === 0
-                                                ? "bg-slate-50 text-slate-400 cursor-not-allowed"
-                                                : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                        )}
-                                    >
-                                        <Download className="w-4 h-4 mr-1.5" />
-                                        {generatingInvoiceFor === stat.id ? 'Generating...' : 'Invoice'}
-                                    </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-6">
-                    {/* Charts Section */}
-                    {engineerStats.length > 0 && (
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-                                <BarChart2 className="w-5 h-5 mr-2 text-indigo-500" />
-                                Engineer Weekly Metrics
-                            </h3>
-                            <div className="h-72 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={engineerStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                        <RechartsTooltip cursor={{ fill: '#F8FAFC' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                        <Legend />
-                                        <Bar dataKey="weeklyHours" name="Weekly Hours" fill="#6366F1" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                                        <Bar dataKey="totalHours" name="Total Hours All Time" fill="#94A3B8" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+
+                            <div className="mt-6 flex items-center justify-between">
+                                <div className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                                    <Calendar className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                                    {view === 'projects'
+                                        ? `Audit: ${(stat as any).lastActivity ? (stat as any).lastActivity.toLocaleDateString() : 'Baseline'}`
+                                        : `Payout: ${(stat as any).weeklyPayment.toLocaleString()} AED`}
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
                             </div>
                         </div>
-                    )}
+                    </motion.div>
+                ))}
+            </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-100">
-                                        <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Engineer</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Active Projects</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 text-sm">This Week (Hrs)</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-center">Absences (7d)</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-right">Weekly Payout (AED)</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {engineerStats.map(stat => (
-                                        <tr key={stat.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                                                        {stat.name?.charAt(0) || '?'}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-medium text-slate-900">{stat.name}</div>
-                                                        <div className="text-xs text-slate-500">{stat.role || 'Engineer'}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <LayoutGrid className="w-4 h-4 text-slate-400" />
-                                                    <span className="text-slate-600">{stat.projectCount}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={clsx(
-                                                    "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-                                                    stat.weeklyHours > 40 ? "bg-red-100 text-red-700" :
-                                                        stat.weeklyHours > 30 ? "bg-emerald-100 text-emerald-700" :
-                                                            "bg-slate-100 text-slate-600"
-                                                )}>
-                                                    {stat.weeklyHours.toFixed(1)} hrs
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="inline-flex items-center justify-center p-1.5 rounded-lg bg-slate-50 border border-slate-100">
-                                                    <span className={clsx(
-                                                        "font-medium text-sm",
-                                                        stat.weeklyAbsences > 0 ? "text-red-600" : "text-slate-600"
-                                                    )}>
-                                                        {stat.weeklyAbsences}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className="font-bold text-slate-900">{stat.weeklyPayment.toFixed(2)} AED</span>
-                                                    {stat.weeklyAbsences > 0 && (
-                                                        <span className="text-xs text-red-500 font-medium">
-                                                            -{((stat.weeklyAbsences * 8) * (stat.hourlyRate || 0)).toFixed(2)} AED deduction
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Hidden wrapper for the invoice generator */}
+            {/* Hidden Invoice Wrapper */}
             {generatingInvoiceFor && (
                 <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
                     {(() => {

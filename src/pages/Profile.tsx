@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import { User, Mail, Shield, Save, Key, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Shield, Save, Key, AlertCircle, CheckCircle2, DollarSign, Target, Award, ShieldCheck } from 'lucide-react';
 
 export const Profile: React.FC = () => {
     const { user, role, engineerId } = useAuth();
@@ -24,7 +25,6 @@ export const Profile: React.FC = () => {
     const [success, setSuccess] = useState<string | null>(null);
 
     useEffect(() => {
-        console.log('Profile Mount - State:', { engineerId, engineer, engineersCount: engineers.length });
         if (engineer) {
             setName(engineer.name);
             setHourlyRate(engineer.hourlyRate?.toString() || '');
@@ -34,40 +34,30 @@ export const Profile: React.FC = () => {
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Profile update started', { engineerId, name, hourlyRate, weeklyGoal });
         setLoading(true);
         setError(null);
         setSuccess(null);
 
         try {
             if (!name.trim()) throw new Error('Name is required');
-
-            console.log('Checking engineerId', engineerId);
             if (engineerId) {
-                console.log('Updating engineer in DataContext...');
                 await updateEngineer({
                     ...engineer!,
                     name: name.trim(),
                     hourlyRate: parseFloat(hourlyRate) || 0,
                     weeklyGoalHours: parseInt(weeklyGoal, 10) || 40
                 });
-                console.log('Engineer update successful in DataContext');
 
-                // Also update user metadata in auth
-                console.log('Updating auth user metadata...');
                 const { error: authError } = await supabase.auth.updateUser({
                     data: { name: name.trim() }
                 });
                 if (authError) throw authError;
-                console.log('Auth user metadata update successful');
 
                 setSuccess('Profile updated successfully!');
             } else {
-                console.error('No engineerId found!');
                 setError('Could not identify your engineer profile. Please log in again.');
             }
         } catch (err: any) {
-            console.error('Profile update error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -81,17 +71,12 @@ export const Profile: React.FC = () => {
         setSuccess(null);
 
         try {
-            if (newPassword !== confirmPassword) {
-                throw new Error('New passwords do not match');
-            }
-            if (newPassword.length < 6) {
-                throw new Error('Password must be at least 6 characters');
-            }
+            if (newPassword !== confirmPassword) throw new Error('New passwords do not match');
+            if (newPassword.length < 6) throw new Error('Password must be at least 6 characters');
 
             const { error: passError } = await supabase.auth.updateUser({
                 password: newPassword
             });
-
             if (passError) throw passError;
 
             setSuccess('Password updated successfully!');
@@ -108,115 +93,134 @@ export const Profile: React.FC = () => {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto space-y-8"
+            className="space-y-8"
         >
-            <div className="flex items-center space-x-4 mb-8">
-                <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                    <User className="w-8 h-8 text-blue-400" />
-                </div>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-white">My Profile</h2>
-                    <p className="text-slate-400">Manage your account settings and preferences</p>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
+                        Operative <span className="text-indigo-400">Profile</span>
+                    </h2>
+                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <p className="text-slate-500 font-medium tracking-wide">Managing specialist credentials and security clearance.</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Profile Information */}
-                <div className="lg:col-span-2 space-y-6">
-                    <section className="bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-8 opacity-5">
-                            <Shield className="w-32 h-32" />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                {/* LEFT COLUMN: Main Profile Settings */}
+                <div className="xl:col-span-2 space-y-8">
+                    {/* General Settings */}
+                    <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-indigo-600/10 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-8 relative z-10">
+                            <div>
+                                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                                    <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                                        <ShieldCheck className="w-6 h-6 text-indigo-400" />
+                                    </div>
+                                    General Intel
+                                </h3>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">Core specialist identification</p>
+                            </div>
                         </div>
 
-                        <h3 className="text-xl font-bold text-white mb-6 flex items-center">
-                            <Shield className="w-5 h-5 mr-2 text-blue-400" />
-                            General Information
-                        </h3>
-
-                        <form onSubmit={handleUpdateProfile} className="space-y-6 relative z-10">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Full Name</label>
+                        <form onSubmit={handleUpdateProfile} className="space-y-8 relative z-10">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Full Name</label>
                                     <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                        <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                                         <input
                                             type="text"
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
                                             placeholder="John Doe"
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Email Address</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Terminal</label>
                                     <div className="relative">
-                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                        <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                                         <input
                                             type="email"
                                             value={user?.email || ''}
                                             disabled
-                                            className="w-full bg-slate-800/30 border border-slate-700/50 rounded-xl py-2.5 pl-10 pr-4 text-slate-400 cursor-not-allowed"
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-slate-500 cursor-not-allowed font-medium opacity-50"
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Hourly Rate (AED)</label>
-                                    <input
-                                        type="number"
-                                        value={hourlyRate}
-                                        onChange={(e) => setHourlyRate(e.target.value)}
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                                    />
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Hourly Compensation (AED)</label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                        <input
+                                            type="number"
+                                            value={hourlyRate}
+                                            onChange={(e) => setHourlyRate(e.target.value)}
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Weekly Goal (Hrs)</label>
-                                    <input
-                                        type="number"
-                                        value={weeklyGoal}
-                                        onChange={(e) => setWeeklyGoal(e.target.value)}
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                                    />
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Weekly Operation Goal (Hrs)</label>
+                                    <div className="relative">
+                                        <Target className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                        <input
+                                            type="number"
+                                            value={weeklyGoal}
+                                            onChange={(e) => setWeeklyGoal(e.target.value)}
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                                className="px-10 py-4 bg-white text-black hover:bg-indigo-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[10px] disabled:opacity-50"
                             >
-                                <Save className="w-4 h-4" />
-                                <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                                <Save className="w-4 h-4 mr-3 inline-block" />
+                                <span>{loading ? 'Transmitting...' : 'Update Credentials'}</span>
                             </button>
                         </form>
-                    </section>
+                    </div>
 
-                    {/* Change Password */}
-                    <section className="bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-3xl p-8">
-                        <h3 className="text-xl font-bold text-white mb-6 flex items-center">
-                            <Key className="w-5 h-5 mr-2 text-purple-400" />
-                            Security
-                        </h3>
+                    {/* Security Settings */}
+                    <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full -ml-16 -mt-16 blur-3xl group-hover:bg-purple-500/10 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-8 relative z-10">
+                            <div>
+                                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                                    <div className="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20">
+                                        <Key className="w-6 h-6 text-purple-400" />
+                                    </div>
+                                    Security Protocol
+                                </h3>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">Access key synchronization</p>
+                            </div>
+                        </div>
 
-                        <form onSubmit={handleChangePassword} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">New Password</label>
+                        <form onSubmit={handleChangePassword} className="space-y-8 relative z-10">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">New Access Key</label>
                                     <input
                                         type="password"
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all outline-none"
+                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all font-medium"
                                         placeholder="••••••••"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Confirm New Password</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Confirm Access Key</label>
                                     <input
                                         type="password"
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2.5 px-4 text-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all outline-none"
+                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all font-medium"
                                         placeholder="••••••••"
                                     />
                                 </div>
@@ -225,44 +229,62 @@ export const Profile: React.FC = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl transition-all border border-slate-700 disabled:opacity-50"
+                                className="px-10 py-4 bg-purple-600/10 text-purple-400 hover:bg-purple-600 hover:text-white border border-purple-600/20 rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[10px] disabled:opacity-50"
                             >
-                                <Key className="w-4 h-4" />
-                                <span>{loading ? 'Updating...' : 'Update Password'}</span>
+                                <Key className="w-4 h-4 mr-3 inline-block" />
+                                <span>{loading ? 'Re-keying...' : 'Update Protocol'}</span>
                             </button>
                         </form>
-                    </section>
+                    </div>
                 </div>
 
-                {/* Account Status / Help */}
-                <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/5 rounded-3xl p-6">
-                        <h4 className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Account Metrics</h4>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                                <span className="text-slate-400 text-sm">Role</span>
-                                <span className="text-blue-400 text-sm font-semibold capitalize">{role}</span>
+                {/* RIGHT COLUMN: Info Metrics */}
+                <div className="space-y-8">
+                    <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-8">Service Metrics</h4>
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center pb-6 border-b border-white/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-indigo-500/10 rounded-xl">
+                                        <Award className="w-5 h-5 text-indigo-400" />
+                                    </div>
+                                    <span className="text-slate-400 text-sm font-medium">Clearance Level</span>
+                                </div>
+                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">{role}</span>
                             </div>
-                            <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                                <span className="text-slate-400 text-sm">Joined</span>
-                                <span className="text-white text-sm">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span>
+                            <div className="flex justify-between items-center pb-6 border-b border-white/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                                        <Award className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <span className="text-slate-400 text-sm font-medium">Activation Date</span>
+                                </div>
+                                <span className="text-white text-sm font-bold">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Baseline'}</span>
                             </div>
                         </div>
+
+                        {(error || success) && (
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className={clsx(
+                                    "mt-8 p-6 rounded-3xl border flex items-start gap-4",
+                                    error ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                )}
+                            >
+                                {error ? <AlertCircle className="w-6 h-6 flex-shrink-0" /> : <CheckCircle2 className="w-6 h-6 flex-shrink-0" />}
+                                <span className="text-sm font-bold uppercase tracking-widest text-[10px] leading-relaxed">{error || success}</span>
+                            </motion.div>
+                        )}
                     </div>
 
-                    {(error || success) && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className={clsx(
-                                "p-4 rounded-2xl border flex items-start space-x-3",
-                                error ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                            )}
-                        >
-                            {error ? <AlertCircle className="w-5 h-5 flex-shrink-0" /> : <CheckCircle2 className="w-5 h-5 flex-shrink-0" />}
-                            <span className="text-sm">{error || success}</span>
-                        </motion.div>
-                    )}
+                    <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-white/5 rounded-[40px] p-8 text-center">
+                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5">
+                            <Shield className="w-8 h-8 text-indigo-400" />
+                        </div>
+                        <h4 className="text-white font-black uppercase tracking-tight mb-2">Security Compliance</h4>
+                        <p className="text-slate-500 text-xs font-medium leading-relaxed">Your account is secured with Grade-A encryption. Ensure your access keys are rotated periodically.</p>
+                    </div>
                 </div>
             </div>
         </motion.div>

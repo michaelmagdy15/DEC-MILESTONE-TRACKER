@@ -20,7 +20,14 @@ const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin }: { ch
   const { user, role, isLoadingAuth } = useAuth();
 
   if (isLoadingAuth) {
-    return <div className="min-h-screen flex items-center justify-center">Loading session...</div>;
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Synchronizing Session</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {

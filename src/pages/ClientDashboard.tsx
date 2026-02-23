@@ -1,5 +1,6 @@
+
 import { useData } from '../context/DataContext';
-import { FolderKanban, Activity, Briefcase } from 'lucide-react';
+import { FolderKanban, Activity, Briefcase, Calendar, ChevronRight, Award } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
@@ -27,32 +28,48 @@ export const ClientDashboard = () => {
             transition={{ duration: 0.5 }}
             className="space-y-8"
         >
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800">Client Portal</h2>
-                <p className="text-slate-500">Welcome to your project tracking dashboard.</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
+                        Partner <span className="text-indigo-400">Portal</span>
+                    </h2>
+                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <p className="text-slate-500 font-medium tracking-wide">Real-time oversight of your strategic engineering ventures.</p>
+                </div>
+                <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-3xl flex items-center gap-4">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Feed Synchronized</span>
+                </div>
             </div>
 
             {/* Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-                    <div className="relative z-10">
-                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-                            <FolderKanban className="w-5 h-5" />
+                <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                    <div className="relative z-10 flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all duration-500">
+                            <FolderKanban className="w-8 h-8 text-slate-500 group-hover:text-indigo-400" />
                         </div>
-                        <p className="text-slate-500 font-medium text-sm mb-1">Active Projects</p>
-                        <p className="text-3xl font-bold text-slate-900">{activeProjectsCount} <span className="text-sm font-normal text-slate-400">/ {projects.length}</span></p>
+                        <div>
+                            <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1">Active Ventures</p>
+                            <p className="text-4xl font-black text-white tracking-tighter">
+                                {activeProjectsCount}
+                                <span className="text-sm font-bold text-slate-700 ml-3">/ {projects.length} Total</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-                    <div className="relative z-10">
-                        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
-                            <Activity className="w-5 h-5" />
+                <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-500/10 transition-colors"></div>
+                    <div className="relative z-10 flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/20 transition-all duration-500">
+                            <Activity className="w-8 h-8 text-slate-500 group-hover:text-emerald-400" />
                         </div>
-                        <p className="text-slate-500 font-medium text-sm mb-1">Recent Updates</p>
-                        <p className="text-3xl font-bold text-slate-900">{recentEntries.length}</p>
+                        <div>
+                            <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1">Recent Intelligence</p>
+                            <p className="text-4xl font-black text-white tracking-tighter">{recentEntries.length}</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -60,42 +77,63 @@ export const ClientDashboard = () => {
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity */}
-                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-blue-500" />
-                            Project Activity Feed
+                <div className="lg:col-span-2 bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl p-8 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-indigo-600/10 transition-colors"></div>
+
+                    <div className="flex items-center justify-between mb-10 relative z-10">
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                            <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                                <Activity className="w-6 h-6 text-indigo-400" />
+                            </div>
+                            Operation Feed
                         </h3>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Latest Project Updates</p>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4 relative z-10">
                         {recentEntries.length === 0 ? (
-                            <p className="text-slate-500 text-center py-8">No recent activity.</p>
+                            <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[32px]">
+                                <Activity className="w-12 h-12 text-slate-800 mx-auto mb-4" />
+                                <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">No recent orbital data</p>
+                            </div>
                         ) : (
-                            recentEntries.map(entry => {
+                            recentEntries.map((entry, idx) => {
                                 const project = projects.find(p => p.id === entry.projectId);
-
                                 return (
-                                    <div key={entry.id} className="flex gap-4">
-                                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs ring-4 ring-white">
-                                            {project?.name?.charAt(0) || '?'}
-                                        </div>
-                                        <div className="flex-1 min-w-0 pb-6 border-b border-slate-50 last:border-0 last:pb-0">
-                                            <p className="text-sm font-medium text-slate-900">
-                                                Update on {project?.name}
-                                            </p>
-                                            <p className="text-sm text-slate-500 truncate">{entry.taskDescription}</p>
-                                            <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-                                                <span>{format(new Date(entry.date), 'MMM d, yyyy')}</span>
-                                                {entry.milestone && (
-                                                    <>
-                                                        <span>•</span>
-                                                        <span className="text-indigo-600 font-medium">Milestone: {entry.milestone}</span>
-                                                    </>
-                                                )}
+                                    <motion.div
+                                        key={entry.id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="p-6 bg-white/[0.02] hover:bg-white/[0.05] rounded-[32px] border border-white/5 hover:border-indigo-500/20 transition-all duration-300 group/item"
+                                    >
+                                        <div className="flex gap-6 items-start">
+                                            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-indigo-400 font-black text-sm border border-white/5 group-hover/item:border-indigo-500/20 transition-all">
+                                                {project?.name?.charAt(0) || '?'}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="text-md font-black text-white uppercase tracking-tight group-hover/item:text-indigo-400 transition-colors">
+                                                        {project?.name}
+                                                    </h4>
+                                                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{format(new Date(entry.date), 'MMM d, yyyy')}</span>
+                                                </div>
+                                                <p className="text-slate-400 text-sm font-medium leading-relaxed mb-4">{entry.taskDescription}</p>
+                                                <div className="flex items-center gap-4">
+                                                    {entry.milestone && (
+                                                        <div className="flex items-center gap-2 px-3 py-1 bg-indigo-500/10 rounded-full border border-indigo-500/20">
+                                                            <div className="w-1 h-1 bg-indigo-400 rounded-full"></div>
+                                                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Phase: {entry.milestone}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
+                                                        <Calendar className="w-3 h-3 text-slate-500" />
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Logged Update</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 );
                             })
                         )}
@@ -103,21 +141,38 @@ export const ClientDashboard = () => {
                 </div>
 
                 {/* Quick Actions / Side Panel */}
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <Briefcase className="w-4 h-4 text-slate-400" />
-                            Your Projects
+                <div className="space-y-8">
+                    <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-500/5 rounded-full -ml-16 -mt-16 blur-3xl group-hover:bg-emerald-500/10 transition-colors"></div>
+                        <h3 className="text-xl font-black text-white tracking-tight uppercase mb-8 flex items-center gap-4">
+                            <Briefcase className="w-5 h-5 text-slate-500" />
+                            Venture Registry
                         </h3>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {projects.map(p => (
-                                <div key={p.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer">
-                                    <span className="text-sm font-medium text-slate-700">{p.name}</span>
-                                    <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">Active</span>
+                                <div key={p.id} className="flex items-center justify-between p-5 bg-white/5 hover:bg-indigo-600/10 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all duration-300 cursor-pointer group/card">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                        <span className="text-sm font-black text-slate-300 group-hover/card:text-white uppercase tracking-tight">{p.name}</span>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-slate-700 group-hover/card:text-indigo-400 group-hover/card:translate-x-1 transition-all" />
                                 </div>
                             ))}
-                            {projects.length === 0 && <p className="text-sm text-slate-500">No projects yet.</p>}
+                            {projects.length === 0 && (
+                                <div className="text-center py-8">
+                                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">No active deployments</p>
+                                </div>
+                            )}
                         </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-white/5 rounded-[40px] p-8 text-center relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5 relative z-10">
+                            <Award className="w-8 h-8 text-indigo-400" />
+                        </div>
+                        <h4 className="text-white font-black uppercase tracking-tight mb-2 relative z-10">Executive Oversight</h4>
+                        <p className="text-slate-500 text-xs font-medium leading-relaxed relative z-10">Providing transparent metrics and high-fidelity reporting for all partner stakeholders.</p>
                     </div>
                 </div>
             </div>
