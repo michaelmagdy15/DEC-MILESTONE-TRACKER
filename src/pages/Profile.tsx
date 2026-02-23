@@ -38,11 +38,27 @@ export const Profile: React.FC = () => {
         setError(null);
         setSuccess(null);
 
+        console.log("Profile Update Trace:");
+        console.log("- engineerId from useAuth:", engineerId);
+        console.log("- user from useAuth:", !!user, user?.id);
+        console.log("- engineers array length in useData:", engineers.length);
+        console.log("- resulting matched engineer object:", !!engineer, engineer?.id);
+
         try {
             if (!name.trim()) throw new Error('Name is required');
             if (engineerId) {
+                // If a record exists in state, spread it; else use minimum object.
+                // updateEngineer in DataContext handles the upsert logic.
+                const engineerData = engineer || {
+                    id: engineerId,
+                    name: name.trim() || user?.email?.split('@')[0] || 'User',
+                    role: role || 'engineer',
+                    hourlyRate: 0,
+                    weeklyGoalHours: 40
+                };
+
                 await updateEngineer({
-                    ...engineer!,
+                    ...engineerData,
                     name: name.trim(),
                     hourlyRate: parseFloat(hourlyRate) || 0,
                     weeklyGoalHours: parseInt(weeklyGoal, 10) || 40
@@ -58,6 +74,7 @@ export const Profile: React.FC = () => {
                 setError('Could not identify your engineer profile. Please log in again.');
             }
         } catch (err: any) {
+            console.error("Profile: Error during update:", err);
             setError(err.message);
         } finally {
             setLoading(false);

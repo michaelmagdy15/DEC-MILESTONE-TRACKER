@@ -78,6 +78,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const engineersRes = await supabase.from('engineers').select('*').order('created_at', { ascending: false });
             if (engineersRes.error) console.error('Error fetching engineers:', engineersRes.error);
             else {
+                console.log("DataContext: Fetched", engineersRes.data.length, "engineers. IDs:", engineersRes.data.map((e: any) => e.id));
                 setEngineers(engineersRes.data.map((e: any) => ({
                     id: e.id,
                     name: e.name,

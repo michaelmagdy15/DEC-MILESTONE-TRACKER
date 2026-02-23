@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import logo from '../assets/logo.png';
 
 export const Login: React.FC = () => {
     const { user, isLoadingAuth } = useAuth();
@@ -59,12 +60,12 @@ export const Login: React.FC = () => {
                 });
                 if (signInError) throw signInError;
             } else if (mode === 'forgot-password') {
-                const { data, error: resetError } = await supabase.functions.invoke('reset-password-email', {
-                    body: { email }
+                const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/reset-password`,
                 });
 
                 if (resetError) throw resetError;
-                setMessage(data.message || 'If an account exists, a new password has been sent to your email.');
+                setMessage('If an account with that email exists, a password reset link has been sent.');
             }
         } catch (err: any) {
             setError(err.message);
@@ -85,7 +86,7 @@ export const Login: React.FC = () => {
                 <div className="flex flex-col items-center">
                     <div className="w-24 h-24 mb-8 relative">
                         <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full"></div>
-                        <img src="/assets/logo.png" alt="DEC Logo" className="w-full h-full object-contain relative z-10 animate-pulse-slow" />
+                        <img src={logo} alt="DEC Logo" className="w-full h-full object-contain relative z-10 animate-pulse-slow" />
                     </div>
                     <h2 className="text-center text-3xl font-extrabold text-white tracking-tight">
                         {mode === 'login' ? 'Welcome Back' :
