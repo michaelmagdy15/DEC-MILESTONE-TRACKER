@@ -32,11 +32,12 @@ ON projects
 FOR ALL
 USING (is_admin());
 
--- Engineer: can read all projects (assuming engineers need to select projects)
-CREATE POLICY "Engineers can view projects"
+-- All users: can read/write all projects (per final requirement)
+CREATE POLICY "All users can manage projects"
 ON projects
-FOR SELECT
-USING (true);
+FOR ALL
+USING (true)
+WITH CHECK (true);
 
 
 -- ==========================================

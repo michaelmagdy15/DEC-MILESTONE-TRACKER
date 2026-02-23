@@ -46,7 +46,7 @@ function App() {
                     <Route path="/entries" element={<Entries />} />
                     <Route path="/attendance" element={<Attendance />} />
                     <Route path="/reports" element={<ProtectedRoute requireAdmin><Reports /></ProtectedRoute>} />
-                    <Route path="/projects" element={<ProtectedRoute requireAdmin><Projects /></ProtectedRoute>} />
+                    <Route path="/projects" element={<Projects />} />
                     <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
                     {/* Fallback for authenticated users */}
                     <Route path="*" element={<Navigate to="/" replace />} />

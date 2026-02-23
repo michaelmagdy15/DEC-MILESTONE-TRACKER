@@ -51,7 +51,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
                     <nav className="space-y-2 flex-1">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                        {role === 'admin' && <NavItem to="/projects" icon={FolderKanban} label="Projects" />}
+                        <NavItem to="/projects" icon={FolderKanban} label="Projects" />
                         {role === 'admin' && <NavItem to="/engineers" icon={Users} label="Engineers" />}
                         <NavItem to="/entries" icon={FileText} label="Daily Entries" />
                         <NavItem to="/attendance" icon={CalendarCheck} label="Attendance" />
