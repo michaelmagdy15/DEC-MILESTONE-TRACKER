@@ -159,10 +159,16 @@ export const Projects: React.FC = () => {
                         </div>
                         <h3 className="font-semibold text-lg text-slate-900 mb-1">{project.name}</h3>
                         {project.hourlyRate && (
-                            <p className="text-slate-500 text-sm">
+                            <p className="text-slate-500 text-sm mb-4">
                                 <span className="font-medium text-slate-700">${project.hourlyRate.toFixed(2)}</span> / hour
                             </p>
                         )}
+                        <button
+                            onClick={() => window.location.href = `/projects/${project.id}`}
+                            className="w-full mt-2 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
+                        >
+                            View Board & Tasks
+                        </button>
                     </div>
                 ))}
             </div>

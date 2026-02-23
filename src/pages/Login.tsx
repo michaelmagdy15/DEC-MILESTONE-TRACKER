@@ -39,6 +39,7 @@ export const Login: React.FC = () => {
                     email,
                     password,
                     options: {
+                        emailRedirectTo: window.location.origin,
                         data: {
                             name: name.trim(),
                             role,

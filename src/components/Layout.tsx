@@ -1,9 +1,10 @@
-import React from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
 import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 
 const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) => {
     const location = useLocation();
@@ -26,8 +27,62 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
 };
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { role, signOut, user } = useAuth();
+    const { projects, engineers, tasks, entries } = useData();
+    const navigate = useNavigate();
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setIsSearchOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const searchResults = React.useMemo(() => {
+        if (!searchQuery.trim()) return [];
+
+        const q = searchQuery.toLowerCase();
+        const results: Array<{ type: string; title: string; subtitle?: string; id: string; url: string; icon: React.ElementType }> = [];
+
+        // Search Projects
+        projects.forEach(p => {
+            if (p.name.toLowerCase().includes(q)) {
+                results.push({ type: 'Project', title: p.name, id: p.id, url: `/projects/${p.id}`, icon: FolderKanban });
+            }
+        });
+
+        // Search Engineers
+        engineers.forEach(e => {
+            if (e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q)) {
+                results.push({ type: 'Engineer', title: e.name, subtitle: e.role, id: e.id, url: `/engineers`, icon: Users });
+            }
+        });
+
+        // Search Tasks
+        tasks.forEach(t => {
+            if (t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)) {
+                const project = projects.find(p => p.id === t.projectId);
+                results.push({ type: 'Task', title: t.title, subtitle: `In ${project?.name || 'Unknown'}`, id: t.id, url: `/projects/${t.projectId}`, icon: LayoutDashboard });
+            }
+        });
+
+        // Search Entries
+        entries.forEach(e => {
+            if (e.taskDescription.toLowerCase().includes(q) || e.tags?.some(tag => tag.toLowerCase().includes(q))) {
+                results.push({ type: 'Entry', title: e.taskDescription.length > 40 ? e.taskDescription.slice(0, 40) + '...' : e.taskDescription, subtitle: `Log Entry`, id: e.id, url: `/entries`, icon: FileText });
+            }
+        });
+
+        return results.slice(0, 8);
+    }, [searchQuery, projects, engineers, tasks, entries]);
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
@@ -78,7 +133,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
                 {/* Mobile Header */}
                 <div className="lg:hidden bg-white/80 backdrop-blur-md border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-40">
                     <div className="flex items-center">
@@ -92,7 +147,63 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </button>
                 </div>
 
-                <div className="w-full h-full p-6 lg:p-8">
+                {/* Top Desktop Bar (Search & Notifications placeholder) */}
+                <div className="hidden lg:flex items-center justify-between p-6 pb-0">
+                    <div ref={searchRef} className="relative w-full max-w-md z-30">
+                        <div className="bg-white px-4 py-2.5 rounded-xl text-slate-400 border border-slate-200 flex items-center w-full shadow-sm opacity-60 focus-within:opacity-100 transition-opacity">
+                            <Search className="w-5 h-5 mr-3" />
+                            <input
+                                type="text"
+                                placeholder="Search projects, engineers, entries (or tags)..."
+                                className="bg-transparent w-full outline-none text-slate-700 placeholder-slate-400"
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setIsSearchOpen(true);
+                                }}
+                                onFocus={() => setIsSearchOpen(true)}
+                            />
+                        </div>
+
+                        {isSearchOpen && searchQuery.trim() && (
+                            <div className="absolute top-14 left-0 w-full bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
+                                {searchResults.length === 0 ? (
+                                    <div className="p-4 text-center text-slate-500 text-sm">No results found for "{searchQuery}"</div>
+                                ) : (
+                                    <div className="max-h-96 overflow-y-auto py-2">
+                                        {searchResults.map((result, idx) => {
+                                            const Icon = result.icon;
+                                            return (
+                                                <button
+                                                    key={`${result.type}-${result.id}-${idx}`}
+                                                    onClick={() => {
+                                                        navigate(result.url);
+                                                        setIsSearchOpen(false);
+                                                        setSearchQuery('');
+                                                    }}
+                                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-start transition-colors"
+                                                >
+                                                    <div className="bg-slate-100 p-2 rounded-lg mr-3 text-slate-500">
+                                                        <Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-800 text-sm">{result.title}</p>
+                                                        <div className="flex items-center text-xs text-slate-500 mt-0.5">
+                                                            <span className="font-medium text-blue-600 mr-2">{result.type}</span>
+                                                            {result.subtitle && <span>• {result.subtitle}</span>}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="w-full h-full p-6 lg:p-8 overflow-y-auto">
                     {children}
                 </div>
             </main>

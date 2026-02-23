@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Engineer, LogEntry, AttendanceRecord } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface DataContextType {
@@ -7,6 +7,10 @@ interface DataContextType {
     engineers: Engineer[];
     entries: LogEntry[];
     attendance: AttendanceRecord[];
+    milestones: Milestone[];
+    tasks: Task[];
+    leaveRequests: LeaveRequest[];
+    notifications: Notification[];
     addProject: (project: Project) => Promise<void>;
     updateProject: (project: Project) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
@@ -19,6 +23,23 @@ interface DataContextType {
     addAttendance: (record: AttendanceRecord) => Promise<void>;
     updateAttendance: (record: AttendanceRecord) => Promise<void>;
     deleteAttendance: (id: string) => Promise<void>;
+
+    // New Feature Methods
+    addMilestone: (milestone: Milestone) => Promise<void>;
+    updateMilestone: (milestone: Milestone) => Promise<void>;
+    deleteMilestone: (id: string) => Promise<void>;
+
+    addTask: (task: Task) => Promise<void>;
+    updateTask: (task: Task) => Promise<void>;
+    deleteTask: (id: string) => Promise<void>;
+
+    addLeaveRequest: (request: LeaveRequest) => Promise<void>;
+    updateLeaveRequest: (request: LeaveRequest) => Promise<void>;
+    deleteLeaveRequest: (id: string) => Promise<void>;
+
+    addNotification: (notification: Notification) => Promise<void>;
+    markNotificationRead: (id: string) => Promise<void>;
+
     isLoading: boolean;
 }
 
@@ -29,22 +50,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [engineers, setEngineers] = useState<Engineer[]>([]);
     const [entries, setEntries] = useState<LogEntry[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [milestones, setMilestones] = useState<Milestone[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const [projectsRes, engineersRes, entriesRes, attendanceRes] = await Promise.all([
+            const [
+                projectsRes, engineersRes, entriesRes, attendanceRes,
+                milestonesRes, tasksRes, leaveRequestsRes, notificationsRes
+            ] = await Promise.all([
                 supabase.from('projects').select('*').order('created_at', { ascending: false }),
                 supabase.from('engineers').select('*').order('created_at', { ascending: false }),
                 supabase.from('entries').select('*').order('date', { ascending: false }),
-                supabase.from('attendance').select('*').order('date', { ascending: false })
+                supabase.from('attendance').select('*').order('date', { ascending: false }),
+                supabase.from('milestones').select('*').order('created_at', { ascending: false }),
+                supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+                supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
+                supabase.from('notifications').select('*').order('created_at', { ascending: false })
             ]);
 
             if (projectsRes.error) throw projectsRes.error;
             if (engineersRes.error) throw engineersRes.error;
             if (entriesRes.error) throw entriesRes.error;
             if (attendanceRes.error) throw attendanceRes.error;
+            if (milestonesRes.error) throw milestonesRes.error;
+            if (tasksRes.error) throw tasksRes.error;
+            if (leaveRequestsRes.error) throw leaveRequestsRes.error;
+            if (notificationsRes.error) throw notificationsRes.error;
 
             setProjects(projectsRes.data.map((p: any) => ({
                 id: p.id,
@@ -68,7 +105,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 taskDescription: e.task_description,
                 softwareUsed: e.software_used || [],
                 timeSpent: e.time_spent,
-                milestone: e.milestone
+                milestone: e.milestone,
+                tags: e.tags || []
             })));
 
             setAttendance(attendanceRes.data.map((a: any) => ({
@@ -76,6 +114,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 engineerId: a.engineer_id,
                 date: a.date,
                 status: a.status
+            })));
+
+            setMilestones(milestonesRes.data.map((m: any) => ({
+                id: m.id,
+                projectId: m.project_id,
+                name: m.name,
+                targetDate: m.target_date,
+                completedPercentage: m.completed_percentage || 0,
+                createdAt: m.created_at
+            })));
+
+            setTasks(tasksRes.data.map((t: any) => ({
+                id: t.id,
+                projectId: t.project_id,
+                milestoneId: t.milestone_id,
+                engineerId: t.engineer_id,
+                title: t.title,
+                description: t.description,
+                status: t.status,
+                dueDate: t.due_date,
+                createdAt: t.created_at
+            })));
+
+            setLeaveRequests(leaveRequestsRes.data.map((l: any) => ({
+                id: l.id,
+                engineerId: l.engineer_id,
+                startDate: l.start_date,
+                endDate: l.end_date,
+                reason: l.reason,
+                status: l.status,
+                createdAt: l.created_at
+            })));
+
+            setNotifications(notificationsRes.data.map((n: any) => ({
+                id: n.id,
+                engineerId: n.engineer_id,
+                message: n.message,
+                isRead: n.is_read,
+                createdAt: n.created_at
             })));
 
         } catch (error) {
@@ -108,6 +185,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'attendance' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'milestones' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'tasks' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'leave_requests' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'notifications' },
                 () => { fetchData() }
             )
             .subscribe();
@@ -196,7 +293,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             task_description: entry.taskDescription,
             software_used: entry.softwareUsed,
             time_spent: entry.timeSpent,
-            milestone: entry.milestone
+            milestone: entry.milestone,
+            tags: entry.tags
         });
         if (error) {
             console.error('Error adding entry:', error);
@@ -212,7 +310,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             task_description: entry.taskDescription,
             software_used: entry.softwareUsed,
             time_spent: entry.timeSpent,
-            milestone: entry.milestone
+            milestone: entry.milestone,
+            tags: entry.tags
         }).eq('id', entry.id);
 
         if (error) {
@@ -261,12 +360,117 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    // Milestones
+    const addMilestone = async (milestone: Milestone) => {
+        const { error } = await supabase.from('milestones').insert({
+            id: milestone.id,
+            project_id: milestone.projectId,
+            name: milestone.name,
+            target_date: milestone.targetDate,
+            completed_percentage: milestone.completedPercentage
+        });
+        if (error) console.error('Error adding milestone:', error);
+    };
+
+    const updateMilestone = async (milestone: Milestone) => {
+        const { error } = await supabase.from('milestones').update({
+            name: milestone.name,
+            target_date: milestone.targetDate,
+            completed_percentage: milestone.completedPercentage
+        }).eq('id', milestone.id);
+        if (error) console.error('Error updating milestone:', error);
+    };
+
+    const deleteMilestone = async (id: string) => {
+        const { error } = await supabase.from('milestones').delete().eq('id', id);
+        if (error) console.error('Error deleting milestone:', error);
+    };
+
+    // Tasks
+    const addTask = async (task: Task) => {
+        const { error } = await supabase.from('tasks').insert({
+            id: task.id,
+            project_id: task.projectId,
+            milestone_id: task.milestoneId,
+            engineer_id: task.engineerId,
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            due_date: task.dueDate
+        });
+        if (error) console.error('Error adding task:', error);
+    };
+
+    const updateTask = async (task: Task) => {
+        const { error } = await supabase.from('tasks').update({
+            milestone_id: task.milestoneId,
+            engineer_id: task.engineerId,
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            due_date: task.dueDate
+        }).eq('id', task.id);
+        if (error) console.error('Error updating task:', error);
+    };
+
+    const deleteTask = async (id: string) => {
+        const { error } = await supabase.from('tasks').delete().eq('id', id);
+        if (error) console.error('Error deleting task:', error);
+    };
+
+    // Leave Requests
+    const addLeaveRequest = async (request: LeaveRequest) => {
+        const { error } = await supabase.from('leave_requests').insert({
+            id: request.id,
+            engineer_id: request.engineerId,
+            start_date: request.startDate,
+            end_date: request.endDate,
+            reason: request.reason,
+            status: request.status
+        });
+        if (error) console.error('Error adding leave request:', error);
+    };
+
+    const updateLeaveRequest = async (request: LeaveRequest) => {
+        const { error } = await supabase.from('leave_requests').update({
+            status: request.status
+        }).eq('id', request.id);
+        if (error) console.error('Error updating leave request:', error);
+    };
+
+    const deleteLeaveRequest = async (id: string) => {
+        const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+        if (error) console.error('Error deleting leave request:', error);
+    };
+
+    // Notifications
+    const addNotification = async (notification: Notification) => {
+        const { error } = await supabase.from('notifications').insert({
+            id: notification.id,
+            engineer_id: notification.engineerId,
+            message: notification.message,
+            is_read: notification.isRead
+        });
+        if (error) console.error('Error adding notification:', error);
+    };
+
+    const markNotificationRead = async (id: string) => {
+        const { error } = await supabase.from('notifications').update({
+            is_read: true
+        }).eq('id', id);
+        if (error) console.error('Error updating notification:', error);
+    };
+
     return (
         <DataContext.Provider value={{
             projects,
             engineers,
             entries,
             attendance,
+            milestones,
+            tasks,
+            leaveRequests,
+            notifications,
             addProject,
             updateProject,
             deleteProject,
@@ -279,6 +483,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addAttendance,
             updateAttendance,
             deleteAttendance,
+            addMilestone,
+            updateMilestone,
+            deleteMilestone,
+            addTask,
+            updateTask,
+            deleteTask,
+            addLeaveRequest,
+            updateLeaveRequest,
+            deleteLeaveRequest,
+            addNotification,
+            markNotificationRead,
             isLoading
         }}>
             {children}

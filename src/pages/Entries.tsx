@@ -23,11 +23,28 @@ export const Entries: React.FC = () => {
     const [softwareUsed, setSoftwareUsed] = useState<string[]>([]);
     const [timeSpent, setTimeSpent] = useState('');
     const [milestone, setMilestone] = useState('');
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
 
     const toggleSoftware = (sw: string) => {
         setSoftwareUsed(prev =>
             prev.includes(sw) ? prev.filter(s => s !== sw) : [...prev, sw]
         );
+    };
+
+    const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const newTag = tagInput.trim().toLowerCase();
+            if (newTag && !tags.includes(newTag)) {
+                setTags([...tags, newTag]);
+            }
+            setTagInput('');
+        }
+    };
+
+    const removeTag = (tagToRemove: string) => {
+        setTags(tags.filter(t => t !== tagToRemove));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -43,6 +60,7 @@ export const Entries: React.FC = () => {
             softwareUsed,
             timeSpent: parseFloat(timeSpent),
             milestone,
+            tags
         };
 
         addEntry(entry);
@@ -55,6 +73,8 @@ export const Entries: React.FC = () => {
         setSoftwareUsed([]);
         setTimeSpent('');
         setMilestone('');
+        setTags([]);
+        setTagInput('');
         // Keep date, project, engineer as they might be entering multiple for same day/person
     };
 
@@ -197,16 +217,37 @@ export const Entries: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Milestone/Status */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Milestone / Status (Optional)</label>
-                            <input
-                                type="text"
-                                value={milestone}
-                                onChange={(e) => setMilestone(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                placeholder="e.g. 50% Draft, Submission, etc."
-                            />
+                        {/* Milestone/Status & Tags */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Milestone / Status (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={milestone}
+                                    onChange={(e) => setMilestone(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    placeholder="e.g. 50% Draft, Submission, etc."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Tags (Press Enter to add)</label>
+                                <div className="w-full p-2 rounded-lg border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all flex flex-wrap gap-2 items-center min-h-[42px]">
+                                    {tags.map(tag => (
+                                        <span key={tag} className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-sm font-medium">
+                                            #{tag}
+                                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-amber-600"><X className="w-3 h-3" /></button>
+                                        </span>
+                                    ))}
+                                    <input
+                                        type="text"
+                                        value={tagInput}
+                                        onChange={(e) => setTagInput(e.target.value)}
+                                        onKeyDown={handleTagInput}
+                                        className="flex-1 min-w-[120px] outline-none bg-transparent py-0.5 text-sm"
+                                        placeholder="e.g. bugfix, urgent..."
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
@@ -277,7 +318,12 @@ export const Entries: React.FC = () => {
                                                 )}
                                             </div>
                                             <p className="text-slate-600 text-sm mb-2">{entry.taskDescription}</p>
-                                            <div className="flex flex-wrap gap-1.5">
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {entry.tags?.map(tag => (
+                                                    <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                        #{tag}
+                                                    </span>
+                                                ))}
                                                 {entry.softwareUsed.map(sw => (
                                                     <span key={sw} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
                                                         <Wrench className="w-3 h-3 mr-1 opacity-50" />
