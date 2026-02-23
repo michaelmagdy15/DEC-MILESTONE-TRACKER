@@ -12,8 +12,9 @@ import { Entries } from './pages/Entries';
 import { Reports } from './pages/Reports';
 import { Attendance } from './pages/Attendance';
 import { Login } from './pages/Login';
+import { ClientDashboard } from './pages/ClientDashboard';
 
-const ProtectedRoute = ({ children, requireAdmin }: { children: React.ReactNode, requireAdmin?: boolean }) => {
+const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin }: { children: React.ReactNode, requireAdmin?: boolean, requireEngineerOrAdmin?: boolean }) => {
   const { user, role, isLoadingAuth } = useAuth();
 
   if (isLoadingAuth) {
@@ -28,7 +29,17 @@ const ProtectedRoute = ({ children, requireAdmin }: { children: React.ReactNode,
     return <Navigate to="/" replace />;
   }
 
+  if (requireEngineerOrAdmin && role === 'client') {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
+};
+
+const HomeRoute = () => {
+  const { role } = useAuth();
+  if (role === 'client') return <ClientDashboard />;
+  return <Dashboard />;
 };
 
 function App() {
@@ -43,11 +54,11 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/entries" element={<Entries />} />
-                    <Route path="/attendance" element={<Attendance />} />
+                    <Route path="/" element={<HomeRoute />} />
+                    <Route path="/entries" element={<ProtectedRoute requireEngineerOrAdmin><Entries /></ProtectedRoute>} />
+                    <Route path="/attendance" element={<ProtectedRoute requireEngineerOrAdmin><Attendance /></ProtectedRoute>} />
                     <Route path="/reports" element={<ProtectedRoute requireAdmin><Reports /></ProtectedRoute>} />
-                    <Route path="/projects" element={<Projects />} />
+                    <Route path="/projects" element={<ProtectedRoute requireEngineerOrAdmin><Projects /></ProtectedRoute>} />
                     <Route path="/projects/:id" element={<ProjectDetails />} />
                     <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
                     {/* Fallback for authenticated users */}

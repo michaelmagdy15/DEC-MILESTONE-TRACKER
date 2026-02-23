@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification } from '../types';
 import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
     projects: Project[];
@@ -56,6 +57,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
+    const { user } = useAuth();
 
     const fetchData = async () => {
         try {
@@ -164,6 +166,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
+        if (!user) return;
+
         fetchData();
 
         const channels = supabase.channel('custom-all-channel')
@@ -212,7 +216,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => {
             supabase.removeChannel(channels);
         };
-    }, []);
+    }, [user]);
 
     // Projects
     const addProject = async (project: Project) => {

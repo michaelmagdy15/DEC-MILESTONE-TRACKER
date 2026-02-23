@@ -2,14 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: dark;
+  color: #f1f5f9;
+  /* text-slate-100 */
+  background-color: #0B1121;
+  /* Dark theme background */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -20,20 +35,12 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f8fafc;
-  /* slate-50 to match app theme */
+  background-color: #0B1121;
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
 }
 
 @media print {

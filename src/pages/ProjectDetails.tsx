@@ -9,8 +9,8 @@ import type { Task } from '../types';
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { projects, milestones, tasks, engineers, addMilestone, addTask, updateTask, deleteTask } = useData();
-    const { role } = useAuth();
+    const { projects, milestones, tasks, engineers, addMilestone, addTask, updateTask, deleteTask, addNotification } = useData();
+    const { role, engineerId: currentEngineerId } = useAuth();
 
     const project = projects.find(p => p.id === id);
     const projectMilestones = milestones.filter(m => m.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
@@ -55,6 +55,16 @@ export const ProjectDetails: React.FC = () => {
             description: taskDesc,
             status: 'todo'
         });
+
+        if (taskEngineer && taskEngineer !== currentEngineerId) {
+            addNotification({
+                id: crypto.randomUUID(),
+                engineerId: taskEngineer,
+                message: `You've been assigned a new task: "${taskTitle}" in ${project.name}`,
+                isRead: false
+            });
+        }
+
         setTaskTitle('');
         setTaskDesc('');
         setTaskEngineer('');
@@ -63,6 +73,16 @@ export const ProjectDetails: React.FC = () => {
 
     const handleStatusMove = (task: Task, newStatus: 'todo' | 'in_progress' | 'done') => {
         updateTask({ ...task, status: newStatus });
+
+        if (task.engineerId && task.engineerId !== currentEngineerId) {
+            const statusLabel = newStatus.replace('_', ' ');
+            addNotification({
+                id: crypto.randomUUID(),
+                engineerId: task.engineerId,
+                message: `Status of your task "${task.title}" was changed to ${statusLabel}.`,
+                isRead: false
+            });
+        }
     };
 
     return (
@@ -150,9 +170,11 @@ export const ProjectDetails: React.FC = () => {
                                             <div className="w-2 h-2 rounded-full bg-slate-400 mr-2" />
                                             To Do ({todoTasks.length})
                                         </h4>
-                                        <button onClick={() => setIsAddingTask(milestone.id)} className="p-1 text-slate-400 hover:bg-slate-200 rounded">
-                                            <Plus className="w-4 h-4" />
-                                        </button>
+                                        {role !== 'client' && (
+                                            <button onClick={() => setIsAddingTask(milestone.id)} className="p-1 text-slate-400 hover:bg-slate-200 rounded">
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        )}
                                     </div>
                                     <div className="space-y-3">
                                         {isAddingTask === milestone.id && (
@@ -177,10 +199,12 @@ export const ProjectDetails: React.FC = () => {
                                                         {engineers.find(e => e.id === task.engineerId)?.name}
                                                     </div>
                                                 )}
-                                                <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleStatusMove(task, 'in_progress')} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">Start</button>
-                                                    {role === 'admin' && <button onClick={() => deleteTask(task.id)} className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded ml-auto">Delete</button>}
-                                                </div>
+                                                {role !== 'client' && (
+                                                    <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleStatusMove(task, 'in_progress')} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">Start</button>
+                                                        {role === 'admin' && <button onClick={() => deleteTask(task.id)} className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded ml-auto">Delete</button>}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -202,10 +226,12 @@ export const ProjectDetails: React.FC = () => {
                                                         {engineers.find(e => e.id === task.engineerId)?.name}
                                                     </div>
                                                 )}
-                                                <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleStatusMove(task, 'done')} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Complete</button>
-                                                    <button onClick={() => handleStatusMove(task, 'todo')} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Back</button>
-                                                </div>
+                                                {role !== 'client' && (
+                                                    <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleStatusMove(task, 'done')} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Complete</button>
+                                                        <button onClick={() => handleStatusMove(task, 'todo')} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Back</button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -221,10 +247,12 @@ export const ProjectDetails: React.FC = () => {
                                         {doneTasks.map(task => (
                                             <div key={task.id} className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 opacity-75 group text-sm">
                                                 <div className="line-through text-slate-500 mb-2">{task.title}</div>
-                                                <div className="flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleStatusMove(task, 'in_progress')} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Reopen</button>
-                                                    {role === 'admin' && <button onClick={() => deleteTask(task.id)} className="text-xs text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>}
-                                                </div>
+                                                {role !== 'client' && (
+                                                    <div className="flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleStatusMove(task, 'in_progress')} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Reopen</button>
+                                                        {role === 'admin' && <button onClick={() => deleteTask(task.id)} className="text-xs text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
