@@ -216,7 +216,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => {
             supabase.removeChannel(channels);
         };
-    }, [user]);
+    }, [user?.id]);
 
     // Projects
     const addProject = async (project: Project) => {
@@ -267,15 +267,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateEngineer = async (engineer: Engineer) => {
-        const { error } = await supabase.from('engineers').update({
+        console.log('DataContext: updateEngineer called', engineer);
+        // Using upsert to handle cases where the engineer record might be missing
+        const { error } = await supabase.from('engineers').upsert({
+            id: engineer.id,
             name: engineer.name,
             role: engineer.role,
             hourly_rate: engineer.hourlyRate,
             weekly_goal_hours: engineer.weeklyGoalHours
-        }).eq('id', engineer.id);
+        });
+
         if (error) {
-            console.error('Error updating engineer:', error);
-            alert('Failed to update engineer');
+            console.error('DataContext: Error updating engineer:', error);
+            alert('Failed to update engineer: ' + error.message);
+        } else {
+            console.log('DataContext: updateEngineer successful');
         }
     };
 

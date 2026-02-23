@@ -15,16 +15,18 @@
   }
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Manrope', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: dark;
-  color: #f1f5f9;
-  /* text-slate-100 */
-  background-color: #0B1121;
-  /* Dark theme background */
+  color: #f3f3f3;
+  /* Corporate text color */
+  background-color: #0f0f0f;
+  /* Corporate background color */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -35,7 +37,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #0B1121;
+  background-color: #0f0f0f;
+  color: #f3f3f3;
+  font-family: 'Manrope', sans-serif;
 }
 
 h1 {

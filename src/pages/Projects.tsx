@@ -57,118 +57,138 @@ export const Projects: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-6"
+            className="space-y-8"
         >
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-slate-800">Projects</h2>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
+                        Project <span className="text-indigo-400">Library</span>
+                    </h2>
+                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <p className="text-slate-500 font-medium tracking-wide">Manage and monitor all active DEC engineering ventures.</p>
+                </div>
                 <button
                     onClick={() => setIsAdding(true)}
                     disabled={isAdding}
-                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center space-x-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
                 >
                     <Plus className="w-4 h-4" />
-                    <span>Add Project</span>
+                    <span>Initiate Project</span>
                 </button>
             </div>
 
             {isAdding && (
-                <div className="bg-white p-6 rounded-2xl shadow-lg border border-blue-100 ring-1 ring-blue-500/10 animate-in fade-in slide-in-from-top-4">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-slate-800">
-                            {editingId ? 'Edit Project' : 'New Project'}
-                        </h3>
-                        <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">
-                            <X className="w-5 h-5" />
+                <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h3 className="text-xl font-black text-white tracking-tight">
+                                {editingId ? 'Refine Project Details' : 'Configure New Venture'}
+                            </h3>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Strategic Planning</p>
+                        </div>
+                        <button onClick={resetForm} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
+                            <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Project Name</label>
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Project Identity</label>
                                 <input
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    placeholder="e.g. Villa Design"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                    placeholder="e.g. Al Reem Tower Redesign"
                                     autoFocus
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate (Optional)</label>
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Hourly Benchmark (USD)</label>
                                 <input
                                     type="number"
                                     value={hourlyRate}
                                     onChange={(e) => setHourlyRate(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    placeholder="0.00"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                    placeholder="85.00"
                                     min="0"
                                     step="0.01"
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end space-x-3 pt-2">
+                        <div className="flex justify-end space-x-4 pt-4 border-t border-white/5">
                             <button
                                 type="button"
                                 onClick={resetForm}
-                                className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                                className="px-8 py-4 text-slate-500 hover:text-white font-bold uppercase tracking-widest text-[11px] transition-all"
                             >
-                                Cancel
+                                Discard
                             </button>
                             <button
                                 type="submit"
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2 shadow-sm"
+                                className="px-10 py-4 bg-white text-black hover:bg-indigo-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-bold uppercase tracking-widest text-[11px]"
                             >
                                 <Check className="w-4 h-4" />
-                                <span>Save Project</span>
+                                <span>{editingId ? 'Update Identity' : 'Establish Project'}</span>
                             </button>
                         </div>
                     </form>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {projects.length === 0 && !isAdding && (
-                    <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300">
-                        <Folder className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                        <p className="text-slate-500 font-medium">No projects yet</p>
-                        <p className="text-slate-400 text-sm">Create your first project to get started</p>
+                    <div className="col-span-full text-center py-32 bg-[#1a1a1a]/20 rounded-[40px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center">
+                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                            <Folder className="w-10 h-10 text-slate-700" />
+                        </div>
+                        <p className="text-slate-400 font-black text-xl tracking-tight mb-2">The library is empty</p>
+                        <p className="text-slate-600 text-sm font-bold uppercase tracking-widest">Awaiting first venture initiation</p>
                     </div>
                 )}
 
                 {projects.map((project) => (
-                    <div key={project.id} className="group bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md hover:border-slate-200 transition-all">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600">
+                    <div key={project.id} className="group bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 hover:border-indigo-500/30 backdrop-blur-3xl shadow-2xl transition-all duration-500 hover:-translate-y-2 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover:bg-indigo-500/10 transition-all duration-500"></div>
+                        <div className="flex justify-between items-start mb-8 relative z-10">
+                            <div className="w-14 h-14 bg-white/5 text-white rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-indigo-500 group-hover:text-white group-hover:border-indigo-500 transition-all duration-500 shadow-lg">
                                 <Folder className="w-6 h-6" />
                             </div>
-                            <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
                                 <button
                                     onClick={() => startEdit(project)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    className="p-2.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"
                                 >
                                     <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button
                                     onClick={() => handleDelete(project.id)}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
-                        <h3 className="font-semibold text-lg text-slate-900 mb-1">{project.name}</h3>
-                        {project.hourlyRate && (
-                            <p className="text-slate-500 text-sm mb-4">
-                                <span className="font-medium text-slate-700">${project.hourlyRate.toFixed(2)}</span> / hour
-                            </p>
-                        )}
-                        <button
-                            onClick={() => window.location.href = `/projects/${project.id}`}
-                            className="w-full mt-2 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
-                        >
-                            View Board & Tasks
-                        </button>
+                        <div className="relative z-10">
+                            <h3 className="font-black text-xl text-white mb-2 tracking-tight group-hover:text-indigo-400 transition-colors">{project.name}</h3>
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="h-0.5 w-8 bg-indigo-500/30 group-hover:w-12 transition-all duration-500"></div>
+                                {project.hourlyRate ? (
+                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                                        <span className="text-white">${project.hourlyRate.toFixed(0)}</span> / Hour
+                                    </p>
+                                ) : (
+                                    <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Rate not set</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => window.location.href = `/projects/${project.id}`}
+                                className="w-full py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-indigo-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-indigo-500 shadow-xl"
+                            >
+                                Inspect Venture
+                            </button>
+                        </div>
                     </div>
                 ))}
             </div>

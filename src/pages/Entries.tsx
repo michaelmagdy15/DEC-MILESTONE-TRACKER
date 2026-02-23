@@ -49,18 +49,20 @@ export const Entries: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!projectId || !engineerId || !taskDescription || !timeSpent) return;
+        const finalEngineerId = role === 'admin' ? engineerId : currentEngineerId;
+        if (!projectId || !finalEngineerId || !taskDescription || !timeSpent) return;
 
         const entry: LogEntry = {
             id: crypto.randomUUID(),
             projectId,
-            engineerId,
+            engineerId: finalEngineerId,
             date,
             taskDescription,
             softwareUsed,
             timeSpent: parseFloat(timeSpent),
             milestone,
-            tags
+            tags,
+            createdAt: new Date().toISOString()
         };
 
         addEntry(entry);
@@ -75,7 +77,6 @@ export const Entries: React.FC = () => {
         setMilestone('');
         setTags([]);
         setTagInput('');
-        // Keep date, project, engineer as they might be entering multiple for same day/person
     };
 
     const handleDelete = (id: string) => {
@@ -84,7 +85,6 @@ export const Entries: React.FC = () => {
         }
     };
 
-    // Group entries by date (descending) & filter by role
     const sortedEntries = [...entries]
         .filter(e => role === 'admin' || e.engineerId === currentEngineerId)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -94,121 +94,121 @@ export const Entries: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-6"
+            className="space-y-8"
         >
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-slate-800">Daily Entries</h2>
-                <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
+                        Activity <span className="text-indigo-400">Ledger</span>
+                    </h2>
+                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <p className="text-slate-500 font-medium tracking-wide">Historical log of all engineering operations and time allocation.</p>
+                </div>
+                <div className="flex gap-4">
                     <button
                         onClick={() => window.print()}
-                        className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                        className="flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white px-6 py-4 rounded-2xl transition-all duration-300 border border-white/5 font-bold uppercase tracking-widest text-[11px]"
                     >
                         <FileText className="w-4 h-4" />
-                        <span>Export Report</span>
+                        <span>Export</span>
                     </button>
                     <button
                         onClick={() => setIsAdding(true)}
                         disabled={isAdding}
-                        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                        className="flex items-center justify-center space-x-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
                     >
                         <Plus className="w-4 h-4" />
-                        <span>New Entry</span>
+                        <span>Log Operation</span>
                     </button>
                 </div>
             </div>
 
             {isAdding && (
-                <div className="bg-white p-6 rounded-2xl shadow-lg border border-blue-100 ring-1 ring-blue-500/10 animate-in fade-in slide-in-from-top-4">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-blue-500" />
-                            New Time Entry
-                        </h3>
-                        <button onClick={() => setIsAdding(false)} className="text-slate-400 hover:text-slate-600">
-                            <X className="w-5 h-5" />
+                <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+                    <div className="flex justify-between items-center mb-10">
+                        <div>
+                            <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-4">
+                                <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                                    <FileText className="w-6 h-6 text-indigo-400" />
+                                </div>
+                                Record Operation
+                            </h3>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">Time Tracking & Resource Allocation</p>
+                        </div>
+                        <button onClick={() => setIsAdding(false)} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
+                            <X className="w-6 h-6" />
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Date & Engineer */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Date</label>
                                 <input
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
                                     required
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Engineer</label>
-                                <select
-                                    value={engineerId}
-                                    onChange={(e) => setEngineerId(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    required
-                                >
-                                    <option value="">Select Engineer...</option>
-                                    {engineers.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                </select>
-                            </div>
-
-                            {/* Project & Time */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Project</label>
+                            {role === 'admin' && (
+                                <div className="space-y-2">
+                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Engineer</label>
+                                    <select
+                                        value={engineerId}
+                                        onChange={(e) => setEngineerId(e.target.value)}
+                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                        required
+                                    >
+                                        <option value="" className="bg-[#1a1a1a]">Select Engineer...</option>
+                                        {engineers.map(e => <option key={e.id} value={e.id} className="bg-[#1a1a1a]">{e.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Venture Selection</label>
                                 <select
                                     value={projectId}
                                     onChange={(e) => setProjectId(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
                                     required
                                 >
-                                    <option value="">Select Project...</option>
-                                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                    <option value="" className="bg-[#1a1a1a]">Select Venture...</option>
+                                    {projects.map(p => <option key={p.id} value={p.id} className="bg-[#1a1a1a]">{p.name}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Time Spent (Hours)</label>
-                                <input
-                                    type="number"
-                                    value={timeSpent}
-                                    onChange={(e) => setTimeSpent(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    placeholder="e.g. 4.5"
-                                    step="0.25"
-                                    min="0"
-                                    required
-                                />
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Duration (Hours)</label>
+                                <div className="relative">
+                                    <Clock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                    <input
+                                        type="number"
+                                        step="0.5"
+                                        value={timeSpent}
+                                        onChange={(e) => setTimeSpent(e.target.value)}
+                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                        placeholder="0.0"
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Task Description */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Task Description</label>
-                            <textarea
-                                value={taskDescription}
-                                onChange={(e) => setTaskDescription(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[100px]"
-                                placeholder="What did you work on?"
-                                required
-                            />
-                        </div>
-
-                        {/* Software */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Software Used</label>
-                            <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Software Arsenal</label>
+                            <div className="flex flex-wrap gap-3">
                                 {COMMON_SOFTWARE.map(sw => (
                                     <button
                                         key={sw}
                                         type="button"
                                         onClick={() => toggleSoftware(sw)}
                                         className={clsx(
-                                            "px-3 py-1.5 rounded-full text-sm font-medium transition-all border",
+                                            "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border",
                                             softwareUsed.includes(sw)
-                                                ? "bg-blue-50 border-blue-200 text-blue-700"
-                                                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                                                ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                                                : "bg-white/5 border-white/5 text-slate-500 hover:border-white/10 hover:text-white"
                                         )}
                                     >
                                         {sw}
@@ -217,25 +217,35 @@ export const Entries: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Milestone/Status & Tags */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Milestone / Status (Optional)</label>
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Operational Description</label>
+                            <textarea
+                                value={taskDescription}
+                                onChange={(e) => setTaskDescription(e.target.value)}
+                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium min-h-[120px]"
+                                placeholder="Detail the engineering operations performed..."
+                                required
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Status / Phase</label>
                                 <input
                                     type="text"
                                     value={milestone}
                                     onChange={(e) => setMilestone(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    placeholder="e.g. 50% Draft, Submission, etc."
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                    placeholder="e.g. 50% Schematic Design"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Tags (Press Enter to add)</label>
-                                <div className="w-full p-2 rounded-lg border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all flex flex-wrap gap-2 items-center min-h-[42px]">
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Tags (Enter to Add)</label>
+                                <div className="flex flex-wrap gap-2 p-2 bg-white/5 border border-white/5 rounded-2xl min-h-[58px]">
                                     {tags.map(tag => (
-                                        <span key={tag} className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-sm font-medium">
+                                        <span key={tag} className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-indigo-500/20">
                                             #{tag}
-                                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-amber-600"><X className="w-3 h-3" /></button>
+                                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-white transition-colors"><X className="w-3.5 h-3.5" /></button>
                                         </span>
                                     ))}
                                     <input
@@ -243,110 +253,119 @@ export const Entries: React.FC = () => {
                                         value={tagInput}
                                         onChange={(e) => setTagInput(e.target.value)}
                                         onKeyDown={handleTagInput}
-                                        className="flex-1 min-w-[120px] outline-none bg-transparent py-0.5 text-sm"
-                                        placeholder="e.g. bugfix, urgent..."
+                                        className="flex-1 min-w-[120px] bg-transparent outline-none px-3 text-white placeholder-slate-700 text-sm font-medium"
+                                        placeholder="e.g. urgent, rfi..."
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+                        <div className="flex justify-end space-x-6 pt-8 border-t border-white/5">
                             <button
                                 type="button"
                                 onClick={() => setIsAdding(false)}
-                                className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                                className="px-8 py-4 text-slate-500 hover:text-white font-bold uppercase tracking-widest text-[11px] transition-all"
                             >
-                                Cancel
+                                Discard
                             </button>
                             <button
                                 type="submit"
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2 shadow-sm font-medium"
+                                className="px-12 py-4 bg-white text-black hover:bg-indigo-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-black uppercase tracking-widest text-[11px]"
                             >
                                 <Check className="w-4 h-4" />
-                                <span>Save Entry</span>
+                                <span>Commit Entry</span>
                             </button>
                         </div>
                     </form>
                 </div>
             )}
 
-            {/* List */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                {sortedEntries.length === 0 ? (
-                    <div className="text-center py-12">
-                        <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <FileText className="w-6 h-6 text-slate-300" />
-                        </div>
-                        <p className="text-slate-500 font-medium">No entries yet</p>
-                        <p className="text-slate-400 text-sm">Start logging your work above</p>
+            <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl">
+                <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/0">
+                    <h3 className="text-xl font-black text-white tracking-tight uppercase">Operational Logs</h3>
+                    <div className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
+                        {sortedEntries.length} Records Found
                     </div>
-                ) : (
-                    <div className="divide-y divide-slate-100">
-                        {sortedEntries.map(entry => {
-                            const project = projects.find(p => p.id === entry.projectId);
-                            const engineer = engineers.find(e => e.id === entry.engineerId);
-
-                            return (
-                                <div key={entry.id} className="p-4 hover:bg-slate-50 transition-colors group">
-                                    <div className="flex flex-col md:flex-row md:items-start gap-4">
-                                        {/* Time & User */}
-                                        <div className="md:w-48 flex-shrink-0">
-                                            <div className="flex items-center text-slate-500 text-sm mb-1">
-                                                <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                                                {format(new Date(entry.date), 'MMM d, yyyy')}
-                                            </div>
-                                            <div className="font-medium text-slate-900 mb-0.5">
-                                                {engineer?.name || 'Unknown Engineer'}
-                                            </div>
-                                            <div className="flex items-center text-blue-600 text-sm font-medium">
-                                                <Clock className="w-3.5 h-3.5 mr-1.5" />
-                                                {entry.timeSpent} hrs
-                                            </div>
+                </div>
+                <div className="divide-y divide-white/5">
+                    {sortedEntries.map((entry, idx) => {
+                        const project = projects.find(p => p.id === entry.projectId);
+                        const engineer = engineers.find(e => e.id === entry.engineerId);
+                        return (
+                            <motion.div
+                                key={entry.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="p-8 hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
+                            >
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
+                                    <div className="flex items-start gap-6 flex-1 min-w-0">
+                                        <div className="w-16 h-16 bg-white/5 rounded-[20px] flex items-center justify-center border border-white/5 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all duration-500 flex-shrink-0">
+                                            <Calendar className="w-7 h-7 text-slate-500 group-hover:text-indigo-400" />
                                         </div>
-
-                                        {/* Task Details */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
-                                                    <Folder className="w-3 h-3 mr-1" />
-                                                    {project?.name || 'Unknown Project'}
+                                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                                <h4 className="font-black text-white text-xl tracking-tight group-hover:text-indigo-400 transition-colors">
+                                                    {project?.name || 'Unidentified Venture'}
+                                                </h4>
+                                                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 group-hover:border-indigo-500/20 group-hover:text-indigo-400">
+                                                    {format(new Date(entry.date), 'MMMM d, yyyy')}
                                                 </span>
                                                 {entry.milestone && (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700">
+                                                    <span className="px-3 py-1 bg-amber-500/10 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/20">
                                                         {entry.milestone}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-slate-600 text-sm mb-2">{entry.taskDescription}</p>
-                                            <div className="flex flex-wrap gap-1.5 mt-2">
-                                                {entry.tags?.map(tag => (
-                                                    <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                                        #{tag}
+                                            <p className="text-slate-400 font-medium leading-relaxed max-w-3xl mb-4">{entry.taskDescription}</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                <div className="flex items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest mr-4">
+                                                    <Wrench className="w-3.5 h-3.5 mr-2 opacity-40" />
+                                                    {engineer?.name || 'Unknown'}
+                                                </div>
+                                                {entry.softwareUsed.map(sw => (
+                                                    <span key={sw} className="px-3 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-slate-500 border border-white/5">
+                                                        {sw}
                                                     </span>
                                                 ))}
-                                                {entry.softwareUsed.map(sw => (
-                                                    <span key={sw} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                                                        <Wrench className="w-3 h-3 mr-1 opacity-50" />
-                                                        {sw}
+                                                {entry.tags.map(tag => (
+                                                    <span key={tag} className="px-3 py-1 bg-indigo-500/5 rounded-lg text-[10px] font-bold text-indigo-400/60 border border-indigo-500/10">
+                                                        #{tag}
                                                     </span>
                                                 ))}
                                             </div>
                                         </div>
-
-                                        {/* Actions */}
-                                        <button
-                                            onClick={() => handleDelete(entry.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-600 transition-all rounded-lg hover:bg-red-50 self-start"
-                                            title="Delete Entry"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-8 justify-between lg:justify-end">
+                                        <div className="text-right">
+                                            <div className="text-4xl font-black text-white group-hover:text-indigo-400 transition-colors">{entry.timeSpent}h</div>
+                                            <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Efficiency Logged</div>
+                                        </div>
+                                        {role === 'admin' && (
+                                            <button
+                                                onClick={() => handleDelete(entry.id)}
+                                                className="p-4 bg-white/5 text-slate-600 hover:bg-red-500/10 hover:text-red-500 rounded-2xl border border-white/5 hover:border-red-500/20 transition-all"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
+                            </motion.div>
+                        );
+                    })}
+                    {sortedEntries.length === 0 && (
+                        <div className="py-32 text-center">
+                            <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mx-auto mb-8 border border-white/5">
+                                <FileText className="w-12 h-12 text-slate-700" />
+                            </div>
+                            <h3 className="text-2xl font-black text-white tracking-tight">No operations on record</h3>
+                            <p className="text-slate-500 mt-2 font-medium">Initialize your first engineering log to see activity here.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </motion.div>
     );

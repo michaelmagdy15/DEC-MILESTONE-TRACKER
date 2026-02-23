@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
@@ -14,20 +14,20 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
         <Link
             to={to}
             className={clsx(
-                'flex items-center space-x-3 px-4 py-3 rounded-lg border transition-all duration-300 relative overflow-hidden group',
+                'flex items-center space-x-3 px-4 py-3 rounded-xl border transition-all duration-500 relative overflow-hidden group',
                 isActive
-                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)]'
-                    : 'bg-transparent border-transparent text-slate-400 hover:border-slate-700/50 hover:text-slate-200 hover:bg-slate-800/40'
+                    ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_20px_rgba(79,70,229,0.1)]'
+                    : 'bg-transparent border-transparent text-slate-400 hover:border-white/5 hover:text-white hover:bg-white/5'
             )}
         >
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(16, 185, 129, 0.05))' }} />
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(16, 185, 129, 0.05))' }} />
             <div className={clsx(
                 "p-2 rounded-lg transition-all duration-300 relative z-10",
-                isActive ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]" : "bg-slate-800/50 text-slate-400 group-hover:bg-slate-700/50 group-hover:text-slate-300"
+                isActive ? "bg-indigo-500/20 text-indigo-400" : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
             )}>
                 <Icon className="w-5 h-5" />
             </div>
-            <span className="relative z-10 font-medium">{label}</span>
+            <span className="relative z-10 font-medium tracking-wide">{label}</span>
         </Link>
     );
 };
@@ -100,13 +100,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     }, [searchQuery, projects, engineers, tasks, entries]);
 
     return (
-        <div className="min-h-screen bg-[#0B1121] font-sans text-slate-200 flex relative">
+        <div className="min-h-screen bg-[#0f0f0f] font-sans text-dec-text flex relative selection:bg-indigo-500/30">
             {/* Subtle glow background matching 'Intelligence in Action' */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(circle at 25px 25px, rgba(255, 255, 255, 1) 2px, transparent 0px), radial-gradient(circle at 75px 75px, rgba(255, 255, 255, 0.5) 2px, transparent 0px)' }}></div>
+            <div className="absolute inset-0 opacity-[0.02] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.15) 1px, transparent 0)' }}></div>
 
             {/* Sidebar */}
             <aside className={clsx(
-                "fixed inset-y-0 left-0 z-50 w-64 bg-[#0B1121]/80 backdrop-blur-xl border-r border-slate-800/60 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:block h-full shadow-2xl shadow-black/50",
+                "fixed inset-y-0 left-0 z-50 w-72 bg-[#0a0a0a] backdrop-blur-3xl border-r border-white/5 transform transition-all duration-500 ease-in-out lg:translate-x-0 lg:static lg:block h-full shadow-[20px_0_40px_rgba(0,0,0,0.5)]",
                 isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="h-full flex flex-col p-6">
@@ -129,21 +129,22 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         {role !== 'client' && <NavItem to="/entries" icon={FileText} label="Daily Entries" />}
                         {role !== 'client' && <NavItem to="/attendance" icon={CalendarCheck} label="Attendance" />}
                         {role === 'admin' && <NavItem to="/reports" icon={PieChart} label="Reports" />}
+                        <NavItem to="/profile" icon={User} label="My Profile" />
                     </nav>
 
-                    <div className="pt-6 border-t border-slate-800/60 flex flex-col space-y-4">
-                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-500/20">
-                            <p className="text-xs font-semibold opacity-80 mb-1">DEC Engineering</p>
-                            <p className="text-sm font-medium">Milestone Tracking System</p>
+                    <div className="pt-6 border-t border-white/5 flex flex-col space-y-4">
+                        <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] border border-white/5 rounded-2xl p-4 text-white shadow-xl">
+                            <p className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-40 mb-1">DEC Engineering</p>
+                            <p className="text-sm font-semibold tracking-tight">Milestone Tracker</p>
                         </div>
 
-                        <div className="flex items-center justify-between text-sm text-slate-300">
-                            <div className="flex flex-col">
-                                <span className="font-semibold text-slate-100">{user?.email?.split('@')[0] || 'User'}</span>
-                                <span className="text-xs text-slate-400 capitalize">{role || 'Engineer'}</span>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
+                            <div className="flex flex-col min-w-0">
+                                <span className="font-bold text-white text-xs truncate uppercase tracking-wider">{user?.email?.split('@')[0] || 'User'}</span>
+                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">{role || 'Engineer'}</span>
                             </div>
-                            <button onClick={signOut} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Sign Out">
-                                <LogOut className="w-5 h-5" />
+                            <button onClick={signOut} className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors group" title="Sign Out">
+                                <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
                         </div>
                     </div>
@@ -153,7 +154,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             {/* Main Content */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
                 {/* Mobile Header */}
-                <div className="lg:hidden bg-[#0B1121]/80 backdrop-blur-xl border-b border-slate-800 p-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+                <div className="lg:hidden bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 p-4 flex items-center justify-between sticky top-0 z-40">
                     <div className="flex items-center">
                         <Logo className="scale-75 origin-left opacity-90 brightness-150" />
                     </div>
@@ -206,14 +207,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 )}
 
                 {/* Top Desktop Bar (Search & Notifications placeholder) */}
-                <div className="hidden lg:flex items-center justify-between p-6 pb-0">
-                    <div ref={searchRef} className="relative w-full max-w-md z-30">
-                        <div className="bg-slate-800/40 backdrop-blur-sm px-4 py-2.5 rounded-xl text-slate-400 border border-slate-700/50 flex items-center w-full shadow-inner opacity-70 focus-within:opacity-100 transition-all duration-300 focus-within:border-blue-500/40 focus-within:bg-slate-800/60">
-                            <Search className="w-5 h-5 mr-3 text-slate-400" />
+                <div className="hidden lg:flex items-center justify-between p-8 pb-0">
+                    <div ref={searchRef} className="relative w-full max-w-lg z-30">
+                        <div className="bg-white/5 backdrop-blur-md px-5 py-3 rounded-2xl text-slate-400 border border-white/5 flex items-center w-full shadow-2xl focus-within:border-indigo-500/50 focus-within:bg-white/10 transition-all duration-300 group">
+                            <Search className="w-5 h-5 mr-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Search projects, engineers, entries (or tags)..."
-                                className="bg-transparent w-full outline-none text-slate-200 placeholder-slate-500"
+                                placeholder="Search everything..."
+                                className="bg-transparent w-full outline-none text-white placeholder-slate-600 text-sm font-medium"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);

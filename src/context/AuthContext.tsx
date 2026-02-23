@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (error) {
                 console.warn('Could not fetch role for user:', error.message);
                 setRole('engineer');
-                setEngineerId(null);
+                setEngineerId(userId); // Fallback to userId
             } else if (data) {
                 setRole(data.role);
                 setEngineerId(data.id);
