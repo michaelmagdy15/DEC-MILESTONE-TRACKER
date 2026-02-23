@@ -38,7 +38,7 @@ export const Login: React.FC = () => {
             if (mode === 'signup') {
                 if (!name.trim()) throw new Error('Full Name is required for signup.');
 
-                const { error: signUpError } = await supabase.auth.signUp({
+                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
@@ -52,7 +52,22 @@ export const Login: React.FC = () => {
                     }
                 });
                 if (signUpError) throw signUpError;
-                setMessage('Account created! Please check your email for confirmation.');
+
+                // Insert engineer record immediately so the user has a DB profile
+                if (signUpData?.user) {
+                    const { error: engineerInsertError } = await supabase.from('engineers').insert({
+                        id: signUpData.user.id,
+                        name: name.trim(),
+                        role: role.toLowerCase().replace(/ /g, '_'),
+                        hourly_rate: parseFloat(hourlyRate) || 0,
+                        weekly_goal_hours: parseInt(weeklyGoalHours, 10) || 40,
+                    });
+                    if (engineerInsertError) {
+                        console.warn('Could not create engineer profile:', engineerInsertError.message);
+                    }
+                }
+
+                setMessage('Account created! You can now sign in.');
             } else if (mode === 'login') {
                 const { error: signInError } = await supabase.auth.signInWithPassword({
                     email,

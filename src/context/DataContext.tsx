@@ -78,7 +78,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const engineersRes = await supabase.from('engineers').select('*').order('created_at', { ascending: false });
             if (engineersRes.error) console.error('Error fetching engineers:', engineersRes.error);
             else {
-                console.log("DataContext: Fetched", engineersRes.data.length, "engineers. IDs:", engineersRes.data.map((e: any) => e.id));
+
                 setEngineers(engineersRes.data.map((e: any) => ({
                     id: e.id,
                     name: e.name,
@@ -244,10 +244,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: project.name,
             hourly_rate: project.hourlyRate
         });
-        if (error) {
-            console.error('Error adding project:', error);
-            alert('Failed to add project');
-        }
+        if (error) console.error('Error adding project:', error);
+        else await fetchData();
     };
 
     const updateProject = async (project: Project) => {
@@ -256,18 +254,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hourly_rate: project.hourlyRate
         }).eq('id', project.id);
 
-        if (error) {
-            console.error('Error updating project:', error);
-            alert('Failed to update project');
-        }
+        if (error) console.error('Error updating project:', error);
+        else await fetchData();
     };
 
     const deleteProject = async (id: string) => {
         const { error } = await supabase.from('projects').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting project:', error);
-            alert('Failed to delete project');
-        }
+        if (error) console.error('Error deleting project:', error);
+        else await fetchData();
     };
 
     // Engineers
@@ -279,10 +273,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hourly_rate: engineer.hourlyRate,
             weekly_goal_hours: engineer.weeklyGoalHours
         });
-        if (error) {
-            console.error('Error adding engineer:', error);
-            alert('Failed to add engineer');
-        }
+        if (error) console.error('Error adding engineer:', error);
+        else await fetchData();
     };
 
     const updateEngineer = async (engineer: Engineer) => {
@@ -298,18 +290,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (error) {
             console.error('DataContext: Error updating engineer:', error);
-            alert('Failed to update engineer: ' + error.message);
         } else {
             console.log('DataContext: updateEngineer successful');
+            await fetchData();
         }
     };
 
     const deleteEngineer = async (id: string) => {
         const { error } = await supabase.from('engineers').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting engineer:', error);
-            alert('Failed to delete engineer');
-        }
+        if (error) console.error('Error deleting engineer:', error);
+        else await fetchData();
     };
 
     // Entries
@@ -325,10 +315,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             milestone: entry.milestone,
             tags: entry.tags
         });
-        if (error) {
-            console.error('Error adding entry:', error);
-            alert('Failed to add entry');
-        }
+        if (error) console.error('Error adding entry:', error);
+        else await fetchData();
     };
 
     const updateEntry = async (entry: LogEntry) => {
@@ -343,18 +331,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             tags: entry.tags
         }).eq('id', entry.id);
 
-        if (error) {
-            console.error('Error updating entry:', error);
-            alert('Failed to update entry');
-        }
+        if (error) console.error('Error updating entry:', error);
+        else await fetchData();
     };
 
     const deleteEntry = async (id: string) => {
         const { error } = await supabase.from('entries').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting entry:', error);
-            alert('Failed to delete entry');
-        }
+        if (error) console.error('Error deleting entry:', error);
+        else await fetchData();
     };
 
     // Attendance
@@ -365,28 +349,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             date: record.date,
             status: record.status
         });
-        if (error) {
-            console.error('Error adding attendance:', error);
-            alert('Failed to add attendance (do you already have a record for this date?)');
-        }
+        if (error) console.error('Error adding attendance:', error);
+        else await fetchData();
     };
 
     const updateAttendance = async (record: AttendanceRecord) => {
         const { error } = await supabase.from('attendance').update({
             status: record.status
         }).eq('id', record.id);
-        if (error) {
-            console.error('Error updating attendance:', error);
-            alert('Failed to update attendance');
-        }
+        if (error) console.error('Error updating attendance:', error);
+        else await fetchData();
     };
 
     const deleteAttendance = async (id: string) => {
         const { error } = await supabase.from('attendance').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting attendance:', error);
-            alert('Failed to delete attendance');
-        }
+        if (error) console.error('Error deleting attendance:', error);
+        else await fetchData();
     };
 
     // Milestones
@@ -399,6 +377,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             completed_percentage: milestone.completedPercentage
         });
         if (error) console.error('Error adding milestone:', error);
+        else await fetchData();
     };
 
     const updateMilestone = async (milestone: Milestone) => {
@@ -408,11 +387,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             completed_percentage: milestone.completedPercentage
         }).eq('id', milestone.id);
         if (error) console.error('Error updating milestone:', error);
+        else await fetchData();
     };
 
     const deleteMilestone = async (id: string) => {
         const { error } = await supabase.from('milestones').delete().eq('id', id);
         if (error) console.error('Error deleting milestone:', error);
+        else await fetchData();
     };
 
     // Tasks
@@ -428,6 +409,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             due_date: task.dueDate
         });
         if (error) console.error('Error adding task:', error);
+        else await fetchData();
     };
 
     const updateTask = async (task: Task) => {
@@ -440,11 +422,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             due_date: task.dueDate
         }).eq('id', task.id);
         if (error) console.error('Error updating task:', error);
+        else await fetchData();
     };
 
     const deleteTask = async (id: string) => {
         const { error } = await supabase.from('tasks').delete().eq('id', id);
         if (error) console.error('Error deleting task:', error);
+        else await fetchData();
     };
 
     // Leave Requests
@@ -458,6 +442,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: request.status
         });
         if (error) console.error('Error adding leave request:', error);
+        else await fetchData();
     };
 
     const updateLeaveRequest = async (request: LeaveRequest) => {
@@ -465,11 +450,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: request.status
         }).eq('id', request.id);
         if (error) console.error('Error updating leave request:', error);
+        else await fetchData();
     };
 
     const deleteLeaveRequest = async (id: string) => {
         const { error } = await supabase.from('leave_requests').delete().eq('id', id);
         if (error) console.error('Error deleting leave request:', error);
+        else await fetchData();
     };
 
     // Notifications
@@ -481,6 +468,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             is_read: notification.isRead
         });
         if (error) console.error('Error adding notification:', error);
+        else await fetchData();
     };
 
     const markNotificationRead = async (id: string) => {
@@ -488,6 +476,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             is_read: true
         }).eq('id', id);
         if (error) console.error('Error updating notification:', error);
+        else await fetchData();
     };
 
     return (

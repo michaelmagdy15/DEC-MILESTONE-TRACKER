@@ -32,10 +32,9 @@ export const ResetPassword: React.FC = () => {
 
             if (resetError) throw resetError;
 
-            setMessage("Password has been reset successfully. Redirecting to login...");
-            setTimeout(() => {
-                navigate('/login');
-            }, 3000);
+            // Sign out so the USER_UPDATED session doesn't auto-redirect to dashboard
+            await supabase.auth.signOut();
+            navigate('/login');
         } catch (err: any) {
             setError(err.message);
         } finally {
