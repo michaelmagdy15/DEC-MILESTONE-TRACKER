@@ -3,32 +3,37 @@ import { useData } from '../context/DataContext';
 import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 
 export const Dashboard = () => {
     const { projects, engineers, entries } = useData();
+    const { role, engineerId } = useAuth();
+
+    // Filter entries: Admins see all, Engineers see their own
+    const filteredEntries = role === 'admin' ? entries : entries.filter(e => e.engineerId === engineerId);
 
     // Calculate Metrics
-    const totalHours = entries.reduce((sum, e) => sum + e.timeSpent, 0);
+    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0);
 
     // Weekly hours
     const now = new Date();
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const weeklyHours = entries
+    const weeklyHours = filteredEntries
         .filter(e => new Date(e.date) >= startOfWeek)
         .reduce((sum, e) => sum + e.timeSpent, 0);
 
     // Active Projects (projects with entries in last 30 days)
     const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
     const activeProjectIds = new Set(
-        entries
+        filteredEntries
             .filter(e => new Date(e.date) >= thirtyDaysAgo)
             .map(e => e.projectId)
     );
     const activeProjectsCount = activeProjectIds.size;
 
     // Recent Activity
-    const recentEntries = [...entries]
+    const recentEntries = [...filteredEntries]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 
@@ -147,7 +152,11 @@ export const Dashboard = () => {
                                 style={{ width: `${Math.min(100, (weeklyHours / 100) * 100)}% ` }}
                             />
                         </div>
-                        <p className="text-sm text-slate-400">Team is at {Math.round((weeklyHours / 100) * 100)}% of weekly capacity target.</p>
+                        <p className="text-sm text-slate-400">
+                            {role === 'admin'
+                                ? `Team is at ${Math.round((weeklyHours / 100) * 100)}% of weekly capacity target.`
+                                : `You are at ${Math.round((weeklyHours / 40) * 100)}% of your weekly capacity target.`}
+                        </p>
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">

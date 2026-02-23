@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Plus, Calendar, Clock, Folder, Wrench, Check, X, FileText, Trash2 } from 'lucide-react';
+import { Trash2, FileText, X, Check, Wrench, Folder, Clock, Calendar, Plus } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import type { LogEntry } from '../types';
 import { format } from 'date-fns';
 import clsx from 'clsx';
@@ -11,6 +12,7 @@ const COMMON_SOFTWARE = ['AutoCAD', 'Revit', 'Excel', 'Word', 'Civil 3D', 'SAP20
 
 export const Entries: React.FC = () => {
     const { projects, engineers, entries, addEntry, deleteEntry } = useData();
+    const { role, engineerId: currentEngineerId } = useAuth();
     const [isAdding, setIsAdding] = useState(false);
 
     // Form State
@@ -62,8 +64,10 @@ export const Entries: React.FC = () => {
         }
     };
 
-    // Group entries by date (descending)
-    const sortedEntries = [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Group entries by date (descending) & filter by role
+    const sortedEntries = [...entries]
+        .filter(e => role === 'admin' || e.engineerId === currentEngineerId)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
         <motion.div

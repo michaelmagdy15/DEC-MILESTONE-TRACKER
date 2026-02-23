@@ -55,7 +55,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         {role === 'admin' && <NavItem to="/engineers" icon={Users} label="Engineers" />}
                         <NavItem to="/entries" icon={FileText} label="Daily Entries" />
                         <NavItem to="/attendance" icon={CalendarCheck} label="Attendance" />
-                        <NavItem to="/reports" icon={PieChart} label="Reports" />
+                        {role === 'admin' && <NavItem to="/reports" icon={PieChart} label="Reports" />}
                     </nav>
 
                     <div className="pt-6 border-t border-slate-100 flex flex-col space-y-4">

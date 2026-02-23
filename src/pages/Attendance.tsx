@@ -8,7 +8,7 @@ import clsx from 'clsx';
 
 export const Attendance = () => {
     const { engineers, attendance, addAttendance, updateAttendance } = useData();
-    const { role } = useAuth();
+    const { role, engineerId: currentEngineerId } = useAuth();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
     // Generate days for the current selected week
@@ -92,9 +92,7 @@ export const Attendance = () => {
                         <tr className="bg-slate-50/50 border-b border-slate-100">
                             <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Engineer</th>
                             <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-center">Status</th>
-                            {(role === 'admin' || role === 'engineer') && (
-                                <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-right">Action</th>
-                            )}
+                            <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -133,26 +131,28 @@ export const Attendance = () => {
                                     </td>
 
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                onClick={() => handleStatusChange(engineer.id, 'Present')}
-                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 border border-transparent transition-all"
-                                            >
-                                                Present
-                                            </button>
-                                            <button
-                                                onClick={() => handleStatusChange(engineer.id, 'Half-Day')}
-                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-yellow-600 hover:bg-yellow-50 hover:border-yellow-200 border border-transparent transition-all"
-                                            >
-                                                Half-Day
-                                            </button>
-                                            <button
-                                                onClick={() => handleStatusChange(engineer.id, 'Absent')}
-                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-red-600 hover:bg-red-50 hover:border-red-200 border border-transparent transition-all"
-                                            >
-                                                Absent
-                                            </button>
-                                        </div>
+                                        {(role === 'admin' || currentEngineerId === engineer.id) ? (
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleStatusChange(engineer.id, 'Present')}
+                                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 border border-transparent transition-all"
+                                                >
+                                                    Present
+                                                </button>
+                                                <button
+                                                    onClick={() => handleStatusChange(engineer.id, 'Half-Day')}
+                                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-yellow-600 hover:bg-yellow-50 hover:border-yellow-200 border border-transparent transition-all"
+                                                >
+                                                    Half-Day
+                                                </button>
+                                                <button
+                                                    onClick={() => handleStatusChange(engineer.id, 'Absent')}
+                                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-red-600 hover:bg-red-50 hover:border-red-200 border border-transparent transition-all"
+                                                >
+                                                    Absent
+                                                </button>
+                                            </div>
+                                        ) : null}
                                     </td>
                                 </tr>
                             );
