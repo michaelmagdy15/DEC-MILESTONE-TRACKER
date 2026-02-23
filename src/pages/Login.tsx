@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const Login: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isLoadingAuth } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
@@ -15,6 +15,12 @@ export const Login: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState<'login' | 'signup'>('login');
     const [error, setError] = useState<string | null>(null);
+
+    if (isLoadingAuth) {
+        return <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+            <div className="text-gray-600">Loading session...</div>
+        </div>;
+    }
 
     if (user) {
         return <Navigate to="/" replace />;

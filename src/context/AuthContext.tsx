@@ -47,7 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const initializeAuth = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                // Add a timeout to prevent getSession from hanging indefinitely
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise<{ data: { session: any }, error: any }>((_, reject) =>
+                    setTimeout(() => reject(new Error('Auth session fetch timeout')), 5000)
+                );
+
+                const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
                 if (error) throw error;
 
                 if (session?.user) {
@@ -57,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (mounted) {
                         setUser(null);
                         setRole(null);
+                        setEngineerId(null);
                     }
                 }
             } catch (err) {
@@ -64,9 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (mounted) {
                     setUser(null);
                     setRole(null);
+                    setEngineerId(null);
                 }
             } finally {
-                if (mounted) setIsLoadingAuth(false);
+                setIsLoadingAuth(false);
             }
         };
 
@@ -89,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } catch (err) {
                     console.error("Auth state change error:", err);
                 } finally {
-                    if (mounted) setIsLoadingAuth(false);
+                    setIsLoadingAuth(false);
                 }
             }
         );
