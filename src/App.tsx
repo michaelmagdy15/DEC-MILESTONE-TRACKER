@@ -12,6 +12,7 @@ import { Entries } from './pages/Entries';
 import { Reports } from './pages/Reports';
 import { Attendance } from './pages/Attendance';
 import { Login } from './pages/Login';
+import { ResetPassword } from './pages/ResetPassword';
 import { ClientDashboard } from './pages/ClientDashboard';
 
 const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin }: { children: React.ReactNode, requireAdmin?: boolean, requireEngineerOrAdmin?: boolean }) => {
@@ -49,6 +50,7 @@ function App() {
         <DataProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route path="/*" element={
               <ProtectedRoute>

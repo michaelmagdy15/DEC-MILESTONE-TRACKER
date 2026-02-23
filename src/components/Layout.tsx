@@ -131,18 +131,18 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         {role === 'admin' && <NavItem to="/reports" icon={PieChart} label="Reports" />}
                     </nav>
 
-                    <div className="pt-6 border-t border-slate-100 flex flex-col space-y-4">
+                    <div className="pt-6 border-t border-slate-800/60 flex flex-col space-y-4">
                         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-500/20">
                             <p className="text-xs font-semibold opacity-80 mb-1">DEC Engineering</p>
                             <p className="text-sm font-medium">Milestone Tracking System</p>
                         </div>
 
-                        <div className="flex items-center justify-between text-sm text-slate-600">
+                        <div className="flex items-center justify-between text-sm text-slate-300">
                             <div className="flex flex-col">
-                                <span className="font-semibold">{user?.email?.split('@')[0] || 'User'}</span>
+                                <span className="font-semibold text-slate-100">{user?.email?.split('@')[0] || 'User'}</span>
                                 <span className="text-xs text-slate-400 capitalize">{role || 'Engineer'}</span>
                             </div>
-                            <button onClick={signOut} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Sign Out">
+                            <button onClick={signOut} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Sign Out">
                                 <LogOut className="w-5 h-5" />
                             </button>
                         </div>

@@ -89,7 +89,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await supabase.auth.signOut();
         } catch (err) {
             console.error('Sign Out Error:', err);
-            // Force local state clear if remote signout fails
+        } finally {
+            // Force state clear to ensure UI updates regardless of remote success
             setUser(null);
             setRole(null);
             setEngineerId(null);

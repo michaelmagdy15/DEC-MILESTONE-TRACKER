@@ -8,10 +8,10 @@ import { useAuth } from '../context/AuthContext';
 
 export const Dashboard = () => {
     const { projects, engineers, entries } = useData();
-    const { role, engineerId } = useAuth();
+    const { role } = useAuth();
 
-    // Filter entries: Admins see all, Engineers see their own
-    const filteredEntries = role === 'admin' ? entries : entries.filter(e => e.engineerId === engineerId);
+    // Filter entries: Everyone sees all for stats and overview
+    const filteredEntries = entries;
 
     // Calculate Metrics
     const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0);
