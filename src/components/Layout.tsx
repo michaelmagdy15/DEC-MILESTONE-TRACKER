@@ -16,14 +16,14 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
             className={clsx(
                 'flex items-center space-x-3 px-4 py-3 rounded-xl border transition-all duration-500 relative overflow-hidden group',
                 isActive
-                    ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_20px_rgba(79,70,229,0.1)]'
+                    ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_20px_rgba(79,70,229,0.1)]'
                     : 'bg-transparent border-transparent text-slate-400 hover:border-white/5 hover:text-white hover:bg-white/5'
             )}
         >
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(16, 185, 129, 0.05))' }} />
             <div className={clsx(
                 "p-2 rounded-lg transition-all duration-300 relative z-10",
-                isActive ? "bg-indigo-500/20 text-indigo-400" : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
+                isActive ? "bg-orange-500/20 text-orange-400" : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
             )}>
                 <Icon className="w-5 h-5" />
             </div>
@@ -100,7 +100,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     }, [searchQuery, projects, engineers, tasks, entries]);
 
     return (
-        <div className="min-h-screen bg-[#0f0f0f] font-sans text-dec-text flex relative selection:bg-indigo-500/30">
+        <div className="min-h-screen bg-[#0f0f0f] font-sans text-dec-text flex relative selection:bg-orange-500/30">
             {/* Subtle glow background matching 'Intelligence in Action' */}
             <div className="absolute inset-0 opacity-[0.02] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.15) 1px, transparent 0)' }}></div>
 
@@ -141,7 +141,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
                             <div className="flex flex-col min-w-0">
                                 <span className="font-bold text-white text-xs truncate uppercase tracking-wider">{user?.email?.split('@')[0] || 'User'}</span>
-                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">{role || 'Engineer'}</span>
+                                <span className="text-[10px] text-orange-400 font-bold uppercase tracking-widest mt-0.5">{role || 'Engineer'}</span>
                             </div>
                             <button onClick={signOut} className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors group" title="Sign Out">
                                 <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -191,7 +191,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                                 myNotifications.map(notif => (
                                     <div
                                         key={notif.id}
-                                        className={clsx("p-4 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/50 transition-colors cursor-pointer", !notif.isRead && "bg-blue-500/10")}
+                                        className={clsx("p-4 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/50 transition-colors cursor-pointer", !notif.isRead && "bg-orange-500/10")}
                                         onClick={() => {
                                             if (!notif.isRead) markNotificationRead(notif.id);
                                             setIsNotifOpen(false);
@@ -209,8 +209,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 {/* Top Desktop Bar (Search & Notifications placeholder) */}
                 <div className="hidden lg:flex items-center justify-between p-8 pb-0">
                     <div ref={searchRef} className="relative w-full max-w-lg z-30">
-                        <div className="bg-white/5 backdrop-blur-md px-5 py-3 rounded-2xl text-slate-400 border border-white/5 flex items-center w-full shadow-2xl focus-within:border-indigo-500/50 focus-within:bg-white/10 transition-all duration-300 group">
-                            <Search className="w-5 h-5 mr-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                        <div className="bg-white/5 backdrop-blur-md px-5 py-3 rounded-2xl text-slate-400 border border-white/5 flex items-center w-full shadow-2xl focus-within:border-orange-500/50 focus-within:bg-white/10 transition-all duration-300 group">
+                            <Search className="w-5 h-5 mr-3 text-slate-500 group-focus-within:text-orange-400 transition-colors" />
                             <input
                                 type="text"
                                 placeholder="Search everything..."
@@ -248,7 +248,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                                                     <div>
                                                         <p className="font-medium text-slate-200 text-sm">{result.title}</p>
                                                         <div className="flex items-center text-xs text-slate-500 mt-0.5">
-                                                            <span className="font-medium text-blue-400 mr-2">{result.type}</span>
+                                                            <span className="font-medium text-orange-400 mr-2">{result.type}</span>
                                                             {result.subtitle && <span>• {result.subtitle}</span>}
                                                         </div>
                                                     </div>
@@ -286,7 +286,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                                         myNotifications.map(notif => (
                                             <div
                                                 key={notif.id}
-                                                className={clsx("p-4 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/50 transition-colors cursor-pointer", !notif.isRead && "bg-blue-500/10")}
+                                                className={clsx("p-4 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/50 transition-colors cursor-pointer", !notif.isRead && "bg-orange-500/10")}
                                                 onClick={() => {
                                                     if (!notif.isRead) markNotificationRead(notif.id);
                                                     setIsNotifOpen(false);

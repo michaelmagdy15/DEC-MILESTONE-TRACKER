@@ -62,104 +62,122 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const [
-                projectsRes, engineersRes, entriesRes, attendanceRes,
-                milestonesRes, tasksRes, leaveRequestsRes, notificationsRes
-            ] = await Promise.all([
-                supabase.from('projects').select('*').order('created_at', { ascending: false }),
-                supabase.from('engineers').select('*').order('created_at', { ascending: false }),
-                supabase.from('entries').select('*').order('date', { ascending: false }),
-                supabase.from('attendance').select('*').order('date', { ascending: false }),
-                supabase.from('milestones').select('*').order('created_at', { ascending: false }),
-                supabase.from('tasks').select('*').order('created_at', { ascending: false }),
-                supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
-                supabase.from('notifications').select('*').order('created_at', { ascending: false })
-            ]);
 
-            if (projectsRes.error) throw projectsRes.error;
-            if (engineersRes.error) throw engineersRes.error;
-            if (entriesRes.error) throw entriesRes.error;
-            if (attendanceRes.error) throw attendanceRes.error;
-            if (milestonesRes.error) throw milestonesRes.error;
-            if (tasksRes.error) throw tasksRes.error;
-            if (leaveRequestsRes.error) throw leaveRequestsRes.error;
-            if (notificationsRes.error) throw notificationsRes.error;
+            // Fetch projects
+            const projectsRes = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+            if (projectsRes.error) console.error('Error fetching projects:', projectsRes.error);
+            else {
+                setProjects(projectsRes.data.map((p: any) => ({
+                    id: p.id,
+                    name: p.name,
+                    hourlyRate: p.hourly_rate
+                })));
+            }
 
-            setProjects(projectsRes.data.map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                hourlyRate: p.hourly_rate
-            })));
+            // Fetch engineers
+            const engineersRes = await supabase.from('engineers').select('*').order('created_at', { ascending: false });
+            if (engineersRes.error) console.error('Error fetching engineers:', engineersRes.error);
+            else {
+                setEngineers(engineersRes.data.map((e: any) => ({
+                    id: e.id,
+                    name: e.name,
+                    role: e.role,
+                    hourlyRate: e.hourly_rate,
+                    weeklyGoalHours: e.weekly_goal_hours
+                })));
+            }
 
-            setEngineers(engineersRes.data.map((e: any) => ({
-                id: e.id,
-                name: e.name,
-                role: e.role,
-                hourlyRate: e.hourly_rate,
-                weeklyGoalHours: e.weekly_goal_hours
-            })));
+            // Fetch entries
+            const entriesRes = await supabase.from('entries').select('*').order('date', { ascending: false });
+            if (entriesRes.error) console.error('Error fetching entries:', entriesRes.error);
+            else {
+                setEntries(entriesRes.data.map((e: any) => ({
+                    id: e.id,
+                    projectId: e.project_id,
+                    engineerId: e.engineer_id,
+                    date: e.date,
+                    taskDescription: e.task_description,
+                    softwareUsed: e.software_used || [],
+                    timeSpent: e.time_spent,
+                    milestone: e.milestone,
+                    tags: e.tags || []
+                })));
+            }
 
-            setEntries(entriesRes.data.map((e: any) => ({
-                id: e.id,
-                projectId: e.project_id,
-                engineerId: e.engineer_id,
-                date: e.date,
-                taskDescription: e.task_description,
-                softwareUsed: e.software_used || [],
-                timeSpent: e.time_spent,
-                milestone: e.milestone,
-                tags: e.tags || []
-            })));
+            // Fetch attendance
+            const attendanceRes = await supabase.from('attendance').select('*').order('date', { ascending: false });
+            if (attendanceRes.error) console.error('Error fetching attendance:', attendanceRes.error);
+            else {
+                setAttendance(attendanceRes.data.map((a: any) => ({
+                    id: a.id,
+                    engineerId: a.engineer_id,
+                    date: a.date,
+                    status: a.status
+                })));
+            }
 
-            setAttendance(attendanceRes.data.map((a: any) => ({
-                id: a.id,
-                engineerId: a.engineer_id,
-                date: a.date,
-                status: a.status
-            })));
+            // Fetch milestones
+            const milestonesRes = await supabase.from('milestones').select('*').order('created_at', { ascending: false });
+            if (milestonesRes.error) console.error('Error fetching milestones:', milestonesRes.error);
+            else {
+                setMilestones(milestonesRes.data.map((m: any) => ({
+                    id: m.id,
+                    projectId: m.project_id,
+                    name: m.name,
+                    targetDate: m.target_date,
+                    completedPercentage: m.completed_percentage || 0,
+                    createdAt: m.created_at
+                })));
+            }
 
-            setMilestones(milestonesRes.data.map((m: any) => ({
-                id: m.id,
-                projectId: m.project_id,
-                name: m.name,
-                targetDate: m.target_date,
-                completedPercentage: m.completed_percentage || 0,
-                createdAt: m.created_at
-            })));
+            // Fetch tasks
+            const tasksRes = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+            if (tasksRes.error) console.error('Error fetching tasks:', tasksRes.error);
+            else {
+                setTasks(tasksRes.data.map((t: any) => ({
+                    id: t.id,
+                    projectId: t.project_id,
+                    milestoneId: t.milestone_id,
+                    engineerId: t.engineer_id,
+                    title: t.title,
+                    description: t.description,
+                    status: t.status,
+                    dueDate: t.due_date,
+                    createdAt: t.created_at
+                })));
+            }
 
-            setTasks(tasksRes.data.map((t: any) => ({
-                id: t.id,
-                projectId: t.project_id,
-                milestoneId: t.milestone_id,
-                engineerId: t.engineer_id,
-                title: t.title,
-                description: t.description,
-                status: t.status,
-                dueDate: t.due_date,
-                createdAt: t.created_at
-            })));
+            // Fetch leave requests
+            const leaveRequestsRes = await supabase.from('leave_requests').select('*').order('created_at', { ascending: false });
+            if (leaveRequestsRes.error) console.error('Error fetching leave_requests:', leaveRequestsRes.error);
+            else {
+                setLeaveRequests(leaveRequestsRes.data.map((l: any) => ({
+                    id: l.id,
+                    engineerId: l.engineer_id,
+                    startDate: l.start_date,
+                    endDate: l.end_date,
+                    reason: l.reason,
+                    status: l.status,
+                    createdAt: l.created_at
+                })));
+            }
 
-            setLeaveRequests(leaveRequestsRes.data.map((l: any) => ({
-                id: l.id,
-                engineerId: l.engineer_id,
-                startDate: l.start_date,
-                endDate: l.end_date,
-                reason: l.reason,
-                status: l.status,
-                createdAt: l.created_at
-            })));
-
-            setNotifications(notificationsRes.data.map((n: any) => ({
-                id: n.id,
-                engineerId: n.engineer_id,
-                message: n.message,
-                isRead: n.is_read,
-                createdAt: n.created_at
-            })));
+            // Fetch notifications
+            const notificationsRes = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
+            if (notificationsRes.error) console.error('Error fetching notifications:', notificationsRes.error);
+            else {
+                setNotifications(notificationsRes.data.map((n: any) => ({
+                    id: n.id,
+                    engineerId: n.engineer_id,
+                    message: n.message,
+                    isRead: n.is_read,
+                    createdAt: n.created_at
+                })));
+            }
 
         } catch (error) {
-            console.error('Error fetching data:', error);
-            alert('Failed to load data from database');
+            console.error('Fatal Error during fetchData:', error);
+
         } finally {
             setIsLoading(false);
         }

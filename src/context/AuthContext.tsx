@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (err) {
             console.error('fetchUserRole Error:', err);
             setRole('engineer');
-            setEngineerId(null);
+            setEngineerId(userId);
         }
     };
 

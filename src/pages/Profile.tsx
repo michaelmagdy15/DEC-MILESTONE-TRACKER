@@ -98,9 +98,9 @@ export const Profile: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                 <div>
                     <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                        Operative <span className="text-indigo-400">Profile</span>
+                        Operative <span className="text-orange-400">Profile</span>
                     </h2>
-                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Managing specialist credentials and security clearance.</p>
                 </div>
             </div>
@@ -110,12 +110,12 @@ export const Profile: React.FC = () => {
                 <div className="xl:col-span-2 space-y-8">
                     {/* General Settings */}
                     <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-indigo-600/10 transition-colors"></div>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
                         <div className="flex items-center justify-between mb-8 relative z-10">
                             <div>
                                 <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
-                                    <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                        <ShieldCheck className="w-6 h-6 text-indigo-400" />
+                                    <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
+                                        <ShieldCheck className="w-6 h-6 text-orange-400" />
                                     </div>
                                     General Intel
                                 </h3>
@@ -133,7 +133,7 @@ export const Profile: React.FC = () => {
                                             type="text"
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
-                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                             placeholder="John Doe"
                                         />
                                     </div>
@@ -158,7 +158,7 @@ export const Profile: React.FC = () => {
                                             type="number"
                                             value={hourlyRate}
                                             onChange={(e) => setHourlyRate(e.target.value)}
-                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                         />
                                     </div>
                                 </div>
@@ -170,7 +170,7 @@ export const Profile: React.FC = () => {
                                             type="number"
                                             value={weeklyGoal}
                                             onChange={(e) => setWeeklyGoal(e.target.value)}
-                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                            className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                         />
                                     </div>
                                 </div>
@@ -179,7 +179,7 @@ export const Profile: React.FC = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="px-10 py-4 bg-white text-black hover:bg-indigo-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[10px] disabled:opacity-50"
+                                className="px-10 py-4 bg-white text-black hover:bg-orange-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[10px] disabled:opacity-50"
                             >
                                 <Save className="w-4 h-4 mr-3 inline-block" />
                                 <span>{loading ? 'Transmitting...' : 'Update Credentials'}</span>
@@ -245,12 +245,12 @@ export const Profile: React.FC = () => {
                         <div className="space-y-6">
                             <div className="flex justify-between items-center pb-6 border-b border-white/5">
                                 <div className="flex items-center gap-4">
-                                    <div className="p-2.5 bg-indigo-500/10 rounded-xl">
-                                        <Award className="w-5 h-5 text-indigo-400" />
+                                    <div className="p-2.5 bg-orange-500/10 rounded-xl">
+                                        <Award className="w-5 h-5 text-orange-400" />
                                     </div>
                                     <span className="text-slate-400 text-sm font-medium">Clearance Level</span>
                                 </div>
-                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">{role}</span>
+                                <span className="text-orange-400 text-[10px] font-black uppercase tracking-widest bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">{role}</span>
                             </div>
                             <div className="flex justify-between items-center pb-6 border-b border-white/5">
                                 <div className="flex items-center gap-4">
@@ -278,9 +278,9 @@ export const Profile: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-white/5 rounded-[40px] p-8 text-center">
+                    <div className="bg-gradient-to-br from-orange-600/10 to-purple-600/10 border border-white/5 rounded-[40px] p-8 text-center">
                         <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5">
-                            <Shield className="w-8 h-8 text-indigo-400" />
+                            <Shield className="w-8 h-8 text-orange-400" />
                         </div>
                         <h4 className="text-white font-black uppercase tracking-tight mb-2">Security Compliance</h4>
                         <p className="text-slate-500 text-xs font-medium leading-relaxed">Your account is secured with Grade-A encryption. Ensure your access keys are rotated periodically.</p>

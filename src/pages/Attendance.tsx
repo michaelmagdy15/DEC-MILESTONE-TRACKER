@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { Calendar as CalendarIcon, CheckCircle2, XCircle, Clock, FolderKanban, Activity, Briefcase, ChevronRight, Award, Plus, ChevronLeft, UserCheck, X, AlertCircle, FileText, Check } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle2, XCircle, Clock, ChevronRight, Plus, ChevronLeft, UserCheck, X, AlertCircle, FileText, Check } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
@@ -67,7 +67,6 @@ export const Attendance = () => {
         }
     };
 
-    const myLeaveRequests = leaveRequests.filter(r => r.engineerId === currentEngineerId);
 
     return (
         <motion.div
@@ -78,9 +77,9 @@ export const Attendance = () => {
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
                 <div>
                     <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                        Operational <span className="text-indigo-400">Presence</span>
+                        Operational <span className="text-orange-400">Presence</span>
                     </h2>
-                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Tracking operative availability and mission readiness.</p>
                 </div>
 
@@ -114,12 +113,12 @@ export const Attendance = () => {
                 <div className="space-y-8">
                     {/* Week Selector */}
                     <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-indigo-600/10 transition-colors"></div>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
                         <div className="flex items-center justify-between mb-8 relative z-10">
                             <div>
                                 <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
-                                    <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                        <CalendarIcon className="w-6 h-6 text-indigo-400" />
+                                    <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
+                                        <CalendarIcon className="w-6 h-6 text-orange-400" />
                                     </div>
                                     Timeline Navigation
                                 </h3>
@@ -147,7 +146,7 @@ export const Attendance = () => {
                                         className={clsx(
                                             "flex flex-col items-center justify-center p-6 rounded-[28px] min-w-[100px] transition-all duration-300 border",
                                             isSelected
-                                                ? "bg-indigo-600 border-indigo-500 text-white shadow-2xl shadow-indigo-600/40 scale-105"
+                                                ? "bg-orange-600 border-orange-500 text-white shadow-2xl shadow-orange-600/40 scale-105"
                                                 : "bg-white/5 border-white/5 text-slate-500 hover:border-white/10 hover:bg-white/[0.08] hover:text-white"
                                         )}
                                     >
@@ -178,14 +177,14 @@ export const Attendance = () => {
                                         transition={{ delay: idx * 0.05 }}
                                         className="p-8 hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
                                     >
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
                                             <div className="flex items-center gap-6">
-                                                <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all duration-500">
-                                                    <span className="text-lg font-black text-slate-500 group-hover:text-indigo-400">{engineer.name?.charAt(0)}</span>
+                                                <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all duration-500">
+                                                    <span className="text-lg font-black text-slate-500 group-hover:text-orange-400">{engineer.name?.charAt(0)}</span>
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-black text-white text-lg tracking-tight group-hover:text-indigo-400 transition-colors uppercase">{engineer.name}</h4>
+                                                    <h4 className="font-black text-white text-lg tracking-tight group-hover:text-orange-400 transition-colors uppercase">{engineer.name}</h4>
                                                     <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">{engineer.role || 'Specialist'}</p>
                                                 </div>
                                             </div>
@@ -239,7 +238,7 @@ export const Attendance = () => {
                     <div className="xl:col-span-1 space-y-8">
                         {role !== 'admin' && (
                             <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
-                                <div className="absolute top-0 left-0 w-32 h-32 bg-indigo-500/5 rounded-full -ml-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                                <div className="absolute top-0 left-0 w-32 h-32 bg-orange-500/5 rounded-full -ml-16 -mt-16 blur-3xl group-hover:bg-orange-500/10 transition-colors"></div>
                                 <div className="flex justify-between items-center mb-8 relative z-10">
                                     <h3 className="text-xl font-black text-white tracking-tight uppercase">Leave Request</h3>
                                     <button
@@ -259,7 +258,7 @@ export const Attendance = () => {
                                                 required
                                                 value={leaveStartDate}
                                                 onChange={(e) => setLeaveStartDate(e.target.value)}
-                                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -269,7 +268,7 @@ export const Attendance = () => {
                                                 required
                                                 value={leaveEndDate}
                                                 onChange={(e) => setLeaveEndDate(e.target.value)}
-                                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -279,13 +278,13 @@ export const Attendance = () => {
                                                 value={leaveReason}
                                                 onChange={(e) => setLeaveReason(e.target.value)}
                                                 rows={3}
-                                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium resize-none shadow-inner"
+                                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium resize-none shadow-inner"
                                                 placeholder="State the objective for leave..."
                                             />
                                         </div>
                                         <button
                                             type="submit"
-                                            className="w-full py-4 bg-white text-black hover:bg-indigo-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[10px]"
+                                            className="w-full py-4 bg-white text-black hover:bg-orange-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[10px]"
                                         >
                                             Commit Request
                                         </button>
@@ -341,15 +340,15 @@ export const Attendance = () => {
                                             transition={{ delay: idx * 0.05 }}
                                             className="p-8 hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
                                         >
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
                                                 <div className="flex items-start gap-6 flex-1">
-                                                    <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all duration-500 flex-shrink-0">
+                                                    <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all duration-500 flex-shrink-0">
                                                         <FileText className="w-6 h-6 text-slate-500" />
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                            <h4 className="font-black text-white text-lg tracking-tight group-hover:text-indigo-400 transition-colors uppercase leading-none">
+                                                            <h4 className="font-black text-white text-lg tracking-tight group-hover:text-orange-400 transition-colors uppercase leading-none">
                                                                 {eng?.name || 'Unknown Specialist'}
                                                             </h4>
                                                             <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest">

@@ -47,7 +47,7 @@ export const ResetPassword: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
             {/* Background Elements */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[120px]"></div>
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-600/10 rounded-full blur-[120px]"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px]"></div>
             </div>
 
@@ -58,10 +58,10 @@ export const ResetPassword: React.FC = () => {
             >
                 <div className="text-center">
                     <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-[28px] bg-white/5 border border-white/5 shadow-inner">
-                        <KeyRound className="h-10 w-10 text-indigo-400" />
+                        <KeyRound className="h-10 w-10 text-orange-400" />
                     </div>
                     <h2 className="mt-8 text-4xl font-black text-white tracking-tighter uppercase">
-                        Secure <span className="text-indigo-400">Re-key</span>
+                        Secure <span className="text-orange-400">Re-key</span>
                     </h2>
                     <p className="mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                         Establish new access protocol
@@ -77,7 +77,7 @@ export const ResetPassword: React.FC = () => {
                             <input
                                 type="password"
                                 required
-                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                 placeholder="Min 6 characters"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -91,7 +91,7 @@ export const ResetPassword: React.FC = () => {
                             <input
                                 type="password"
                                 required
-                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
                                 placeholder="Confirm new password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -118,7 +118,7 @@ export const ResetPassword: React.FC = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-4 bg-white text-black hover:bg-indigo-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[11px] disabled:opacity-50 flex items-center justify-center gap-3"
+                            className="w-full py-4 bg-white text-black hover:bg-orange-600 hover:text-white rounded-2xl transition-all duration-300 shadow-xl font-black uppercase tracking-widest text-[11px] disabled:opacity-50 flex items-center justify-center gap-3"
                         >
                             <ShieldCheck className="w-4 h-4" />
                             <span>{loading ? 'Transmitting...' : 'Commit Protocol'}</span>

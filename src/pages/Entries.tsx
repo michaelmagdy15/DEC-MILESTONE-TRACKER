@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trash2, FileText, X, Check, Wrench, Folder, Clock, Calendar, Plus } from 'lucide-react';
+import { Trash2, FileText, X, Check, Wrench, Clock, Calendar, Plus } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { LogEntry } from '../types';
@@ -61,8 +61,7 @@ export const Entries: React.FC = () => {
             softwareUsed,
             timeSpent: parseFloat(timeSpent),
             milestone,
-            tags,
-            createdAt: new Date().toISOString()
+            tags
         };
 
         addEntry(entry);
@@ -99,9 +98,9 @@ export const Entries: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                        Activity <span className="text-indigo-400">Ledger</span>
+                        Activity <span className="text-orange-400">Ledger</span>
                     </h2>
-                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Historical log of all engineering operations and time allocation.</p>
                 </div>
                 <div className="flex gap-4">
@@ -115,7 +114,7 @@ export const Entries: React.FC = () => {
                     <button
                         onClick={() => setIsAdding(true)}
                         disabled={isAdding}
-                        className="flex items-center justify-center space-x-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
+                        className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Log Operation</span>
@@ -125,12 +124,12 @@ export const Entries: React.FC = () => {
 
             {isAdding && (
                 <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-purple-500 to-orange-500"></div>
                     <div className="flex justify-between items-center mb-10">
                         <div>
                             <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-4">
-                                <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                    <FileText className="w-6 h-6 text-indigo-400" />
+                                <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
+                                    <FileText className="w-6 h-6 text-orange-400" />
                                 </div>
                                 Record Operation
                             </h3>
@@ -149,7 +148,7 @@ export const Entries: React.FC = () => {
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
                                     required
                                 />
                             </div>
@@ -159,7 +158,7 @@ export const Entries: React.FC = () => {
                                     <select
                                         value={engineerId}
                                         onChange={(e) => setEngineerId(e.target.value)}
-                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
                                         required
                                     >
                                         <option value="" className="bg-[#1a1a1a]">Select Engineer...</option>
@@ -172,7 +171,7 @@ export const Entries: React.FC = () => {
                                 <select
                                     value={projectId}
                                     onChange={(e) => setProjectId(e.target.value)}
-                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
                                     required
                                 >
                                     <option value="" className="bg-[#1a1a1a]">Select Venture...</option>
@@ -188,7 +187,7 @@ export const Entries: React.FC = () => {
                                         step="0.5"
                                         value={timeSpent}
                                         onChange={(e) => setTimeSpent(e.target.value)}
-                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
                                         placeholder="0.0"
                                         required
                                     />
@@ -207,7 +206,7 @@ export const Entries: React.FC = () => {
                                         className={clsx(
                                             "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border",
                                             softwareUsed.includes(sw)
-                                                ? "bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                                                ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
                                                 : "bg-white/5 border-white/5 text-slate-500 hover:border-white/10 hover:text-white"
                                         )}
                                     >
@@ -222,7 +221,7 @@ export const Entries: React.FC = () => {
                             <textarea
                                 value={taskDescription}
                                 onChange={(e) => setTaskDescription(e.target.value)}
-                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium min-h-[120px]"
+                                className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium min-h-[120px]"
                                 placeholder="Detail the engineering operations performed..."
                                 required
                             />
@@ -235,7 +234,7 @@ export const Entries: React.FC = () => {
                                     type="text"
                                     value={milestone}
                                     onChange={(e) => setMilestone(e.target.value)}
-                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
                                     placeholder="e.g. 50% Schematic Design"
                                 />
                             </div>
@@ -243,7 +242,7 @@ export const Entries: React.FC = () => {
                                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Tags (Enter to Add)</label>
                                 <div className="flex flex-wrap gap-2 p-2 bg-white/5 border border-white/5 rounded-2xl min-h-[58px]">
                                     {tags.map(tag => (
-                                        <span key={tag} className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-indigo-500/20">
+                                        <span key={tag} className="flex items-center gap-2 bg-orange-500/10 text-orange-400 px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-orange-500/20">
                                             #{tag}
                                             <button type="button" onClick={() => removeTag(tag)} className="hover:text-white transition-colors"><X className="w-3.5 h-3.5" /></button>
                                         </span>
@@ -270,7 +269,7 @@ export const Entries: React.FC = () => {
                             </button>
                             <button
                                 type="submit"
-                                className="px-12 py-4 bg-white text-black hover:bg-indigo-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-black uppercase tracking-widest text-[11px]"
+                                className="px-12 py-4 bg-white text-black hover:bg-orange-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-black uppercase tracking-widest text-[11px]"
                             >
                                 <Check className="w-4 h-4" />
                                 <span>Commit Entry</span>
@@ -299,18 +298,18 @@ export const Entries: React.FC = () => {
                                 transition={{ delay: idx * 0.05 }}
                                 className="p-8 hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
                             >
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
                                     <div className="flex items-start gap-6 flex-1 min-w-0">
-                                        <div className="w-16 h-16 bg-white/5 rounded-[20px] flex items-center justify-center border border-white/5 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all duration-500 flex-shrink-0">
-                                            <Calendar className="w-7 h-7 text-slate-500 group-hover:text-indigo-400" />
+                                        <div className="w-16 h-16 bg-white/5 rounded-[20px] flex items-center justify-center border border-white/5 group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all duration-500 flex-shrink-0">
+                                            <Calendar className="w-7 h-7 text-slate-500 group-hover:text-orange-400" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                <h4 className="font-black text-white text-xl tracking-tight group-hover:text-indigo-400 transition-colors">
+                                                <h4 className="font-black text-white text-xl tracking-tight group-hover:text-orange-400 transition-colors">
                                                     {project?.name || 'Unidentified Venture'}
                                                 </h4>
-                                                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 group-hover:border-indigo-500/20 group-hover:text-indigo-400">
+                                                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 group-hover:border-orange-500/20 group-hover:text-orange-400">
                                                     {format(new Date(entry.date), 'MMMM d, yyyy')}
                                                 </span>
                                                 {entry.milestone && (
@@ -330,8 +329,8 @@ export const Entries: React.FC = () => {
                                                         {sw}
                                                     </span>
                                                 ))}
-                                                {entry.tags.map(tag => (
-                                                    <span key={tag} className="px-3 py-1 bg-indigo-500/5 rounded-lg text-[10px] font-bold text-indigo-400/60 border border-indigo-500/10">
+                                                {(entry.tags || []).map(tag => (
+                                                    <span key={tag} className="px-3 py-1 bg-orange-500/5 rounded-lg text-[10px] font-bold text-orange-400/60 border border-orange-500/10">
                                                         #{tag}
                                                     </span>
                                                 ))}
@@ -340,7 +339,7 @@ export const Entries: React.FC = () => {
                                     </div>
                                     <div className="flex items-center gap-8 justify-between lg:justify-end">
                                         <div className="text-right">
-                                            <div className="text-4xl font-black text-white group-hover:text-indigo-400 transition-colors">{entry.timeSpent}h</div>
+                                            <div className="text-4xl font-black text-white group-hover:text-orange-400 transition-colors">{entry.timeSpent}h</div>
                                             <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Efficiency Logged</div>
                                         </div>
                                         {role === 'admin' && (

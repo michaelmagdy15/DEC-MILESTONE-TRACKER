@@ -77,14 +77,14 @@ export const Login: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
             {/* Background elements */}
             <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-500/20 blur-[120px] rounded-full"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full"></div>
             </div>
 
             <div className="max-w-md w-full space-y-8 bg-[#1a1a1a]/40 backdrop-blur-2xl p-10 rounded-[32px] border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10 transition-all duration-500 hover:border-white/10">
                 <div className="flex flex-col items-center">
                     <div className="w-24 h-24 mb-8 relative">
-                        <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full"></div>
+                        <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full"></div>
                         <img src="/assets/logo.png" alt="DEC Logo" className="w-full h-full object-contain relative z-10 animate-pulse-slow" />
                     </div>
                     <h2 className="text-center text-3xl font-extrabold text-white tracking-tight">
@@ -109,7 +109,7 @@ export const Login: React.FC = () => {
                                 type="email"
                                 autoComplete="email"
                                 required
-                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
+                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
                                 placeholder="name@company.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -124,7 +124,7 @@ export const Login: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={() => setMode('forgot-password')}
-                                            className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider transition-colors"
+                                            className="text-[11px] font-bold text-orange-400 hover:text-orange-300 uppercase tracking-wider transition-colors"
                                         >
                                             Reset?
                                         </button>
@@ -136,7 +136,7 @@ export const Login: React.FC = () => {
                                     type="password"
                                     autoComplete="current-password"
                                     required
-                                    className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
+                                    className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -158,7 +158,7 @@ export const Login: React.FC = () => {
                                             id="name"
                                             type="text"
                                             required={mode === 'signup'}
-                                            className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
+                                            className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
                                             placeholder="John Doe"
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
@@ -170,7 +170,7 @@ export const Login: React.FC = () => {
                                             id="role"
                                             value={role}
                                             onChange={(e) => setRole(e.target.value)}
-                                            className="appearance-none relative block w-full px-4 py-3 bg-[#1a1a1a] border border-white/5 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all duration-300 sm:text-sm font-medium"
+                                            className="appearance-none relative block w-full px-4 py-3 bg-[#1a1a1a] border border-white/5 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 sm:text-sm font-medium"
                                         >
                                             <option value="Engineer">Engineer</option>
                                             <option value="Senior Engineer">Senior Engineer</option>
@@ -185,7 +185,7 @@ export const Login: React.FC = () => {
                                             <input
                                                 id="hourly-rate"
                                                 type="number"
-                                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all duration-300 sm:text-sm font-medium"
+                                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 sm:text-sm font-medium"
                                                 placeholder="50"
                                                 min="0"
                                                 step="0.01"
@@ -198,7 +198,7 @@ export const Login: React.FC = () => {
                                             <input
                                                 id="weekly-goal"
                                                 type="number"
-                                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all duration-300 sm:text-sm font-medium"
+                                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 sm:text-sm font-medium"
                                                 placeholder="40"
                                                 min="0"
                                                 value={weeklyGoalHours}
@@ -235,7 +235,7 @@ export const Login: React.FC = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-[#0f0f0f] disabled:opacity-50 transition-all duration-300 shadow-xl shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-0.5 active:translate-y-0"
+                            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-bold rounded-2xl text-white bg-orange-600 hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 focus:ring-offset-[#0f0f0f] disabled:opacity-50 transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-0.5 active:translate-y-0"
                         >
                             {loading ? (
                                 <span className="flex items-center">

@@ -18,7 +18,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 {/* Header */}
                 <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
                     <div>
-                        <h1 className="text-4xl font-black tracking-tight text-blue-600 mb-2">INVOICE</h1>
+                        <h1 className="text-4xl font-black tracking-tight text-orange-600 mb-2">INVOICE</h1>
                         <p className="text-slate-500 font-medium">Ref: {project.id.slice(0, 8).toUpperCase()}</p>
                         <p className="text-slate-500 font-medium">Date: {format(new Date(), 'MMMM d, yyyy')}</p>
                     </div>

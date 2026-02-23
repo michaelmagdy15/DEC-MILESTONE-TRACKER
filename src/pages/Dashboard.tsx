@@ -46,18 +46,18 @@ export const Dashboard = () => {
         >
             <div className="text-center md:text-left mb-8 relative">
                 <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                    Insight <span className="text-indigo-400">Dashboard</span>
+                    Insight <span className="text-orange-400">Dashboard</span>
                 </h2>
-                <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4 md:mx-0 mx-auto"></div>
+                <div className="h-1 w-20 bg-orange-500 rounded-full mb-4 md:mx-0 mx-auto"></div>
                 <p className="text-slate-500 font-medium tracking-wide prose max-w-none">DEC Engineering Consultant Milestone Tracker</p>
             </div>
 
             {/* Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-indigo-500/30 hover:-translate-y-1">
+                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-14 h-14 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(79,70,229,0.1)] group-hover:bg-indigo-500/20 transition-all duration-500">
+                        <div className="w-14 h-14 bg-orange-500/10 text-orange-400 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(79,70,229,0.1)] group-hover:bg-orange-500/20 transition-all duration-500">
                             <FolderKanban className="w-7 h-7" />
                         </div>
                         <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Active Projects</p>
@@ -65,10 +65,10 @@ export const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-indigo-500/30 hover:-translate-y-1">
+                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-14 h-14 bg-indigo-400/10 text-indigo-300 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(99,102,241,0.1)] group-hover:bg-indigo-400/20 transition-all duration-500">
+                        <div className="w-14 h-14 bg-orange-400/10 text-orange-300 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(99,102,241,0.1)] group-hover:bg-orange-400/20 transition-all duration-500">
                             <Users className="w-7 h-7" />
                         </div>
                         <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Total Engineers</p>
@@ -133,7 +133,7 @@ export const Dashboard = () => {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between mb-1">
                                                     <p className="text-sm font-black text-white truncate pr-2">
-                                                        {engineer?.name} <span className="text-slate-500 font-bold mx-1">•</span> <span className="text-indigo-400">{project?.name}</span>
+                                                        {engineer?.name} <span className="text-slate-500 font-bold mx-1">•</span> <span className="text-orange-400">{project?.name}</span>
                                                     </p>
                                                     <span className="text-xs font-bold text-emerald-400/90 whitespace-nowrap bg-emerald-500/5 px-2 py-0.5 rounded-lg border border-emerald-500/10">+{entry.timeSpent}h</span>
                                                 </div>
@@ -163,7 +163,7 @@ export const Dashboard = () => {
                             </div>
                             <div className="w-full bg-white/5 rounded-full h-3 mb-6 overflow-hidden border border-white/5 p-0.5">
                                 <div
-                                    className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-full rounded-full transition-all duration-1000 relative"
+                                    className="bg-gradient-to-r from-orange-500 to-orange-400 h-full rounded-full transition-all duration-1000 relative"
                                     style={{ width: `${Math.min(100, (weeklyHours / 100) * 100)}% ` }}
                                 >
                                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
@@ -181,14 +181,14 @@ export const Dashboard = () => {
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), transparent)' }} />
                         <div className="relative z-10">
                             <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
-                                <Briefcase className="w-5 h-5 text-indigo-400" />
+                                <Briefcase className="w-5 h-5 text-orange-400" />
                                 Active Focus
                             </h3>
                             <div className="space-y-4">
                                 {projects.slice(0, 4).map(p => (
                                     <div key={p.id} className="flex items-center justify-between p-4 bg-white/0 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-2xl transition-all duration-300 cursor-pointer group/status">
                                         <span className="text-sm font-bold text-slate-400 group-hover/status:text-white transition-colors">{p.name}</span>
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">Active</span>
+                                        <span className="text-[10px] font-black text-orange-400 uppercase tracking-tighter bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">Active</span>
                                     </div>
                                 ))}
                                 {projects.length === 0 && <p className="text-sm font-bold text-slate-600 italic">No projects tracked.</p>}

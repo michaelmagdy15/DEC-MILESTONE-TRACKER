@@ -5,7 +5,6 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { Engineer } from '../types';
 import { motion } from 'framer-motion';
-import clsx from 'clsx';
 
 export const Engineers = () => {
     const { engineers, addEngineer, updateEngineer, deleteEngineer } = useData();
@@ -74,16 +73,16 @@ export const Engineers = () => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                        Engineering <span className="text-indigo-400">Roster</span>
+                        Engineering <span className="text-orange-400">Roster</span>
                     </h2>
-                    <div className="h-1 w-20 bg-indigo-500 rounded-full mb-4"></div>
+                    <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Command and control for your specialist project teams.</p>
                 </div>
                 {currentUserRole === 'admin' && (
                     <button
                         onClick={() => setIsAdding(true)}
                         disabled={isAdding}
-                        className="flex items-center justify-center space-x-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
+                        className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Recruit Specialist</span>
@@ -93,12 +92,12 @@ export const Engineers = () => {
 
             {isAdding && (
                 <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-purple-500 to-orange-500"></div>
                     <div className="flex justify-between items-center mb-10">
                         <div>
                             <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-4">
-                                <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                    <Users className="w-6 h-6 text-indigo-400" />
+                                <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
+                                    <Users className="w-6 h-6 text-orange-400" />
                                 </div>
                                 {editingId ? 'Modify Credentials' : 'New Operative'}
                             </h3>
@@ -117,7 +116,7 @@ export const Engineers = () => {
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
                                     placeholder="e.g. John Doe"
                                     autoFocus
                                     required
@@ -128,7 +127,7 @@ export const Engineers = () => {
                                 <select
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
-                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
                                 >
                                     <option value="Engineer" className="bg-[#1a1a1a]">Engineer</option>
                                     <option value="Senior Engineer" className="bg-[#1a1a1a]">Senior Engineer</option>
@@ -145,7 +144,7 @@ export const Engineers = () => {
                                         type="number"
                                         value={hourlyRate}
                                         onChange={(e) => setHourlyRate(Number(e.target.value))}
-                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
                                         min="0"
                                         step="0.01"
                                     />
@@ -159,7 +158,7 @@ export const Engineers = () => {
                                         type="number"
                                         value={weeklyGoalHours}
                                         onChange={(e) => setWeeklyGoalHours(Number(e.target.value))}
-                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white/10 transition-all font-medium"
+                                        className="w-full pl-14 pr-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
                                         min="0"
                                         step="1"
                                     />
@@ -177,7 +176,7 @@ export const Engineers = () => {
                             </button>
                             <button
                                 type="submit"
-                                className="px-12 py-4 bg-white text-black hover:bg-indigo-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-black uppercase tracking-widest text-[11px]"
+                                className="px-12 py-4 bg-white text-black hover:bg-orange-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-black uppercase tracking-widest text-[11px]"
                             >
                                 <Check className="w-4 h-4" />
                                 <span>Save Credentials</span>
@@ -194,13 +193,13 @@ export const Engineers = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.05 }}
-                        className="group bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 hover:border-indigo-500/30 transition-all duration-500 backdrop-blur-3xl shadow-xl hover:shadow-indigo-500/5 relative overflow-hidden"
+                        className="group bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 hover:border-orange-500/30 transition-all duration-500 backdrop-blur-3xl shadow-xl hover:shadow-orange-500/5 relative overflow-hidden"
                     >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-orange-500/10 transition-colors"></div>
                         <div className="flex flex-col h-full relative z-10">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-indigo-500/20 group-hover:bg-indigo-500/10 transition-all duration-500">
-                                    <Users className="w-8 h-8 text-slate-500 group-hover:text-indigo-400" />
+                                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-orange-500/20 group-hover:bg-orange-500/10 transition-all duration-500">
+                                    <Users className="w-8 h-8 text-slate-500 group-hover:text-orange-400" />
                                 </div>
                                 {currentUserRole === 'admin' && (
                                     <div className="flex gap-2">
@@ -221,9 +220,9 @@ export const Engineers = () => {
                             </div>
 
                             <div className="flex-1">
-                                <h3 className="text-xl font-black text-white tracking-tight mb-2 group-hover:text-indigo-400 transition-colors">{engineer.name}</h3>
+                                <h3 className="text-xl font-black text-white tracking-tight mb-2 group-hover:text-orange-400 transition-colors">{engineer.name}</h3>
                                 <div className="flex flex-wrap gap-2 mb-6">
-                                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-indigo-500/20 group-hover:text-indigo-400">
+                                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-orange-500/20 group-hover:text-orange-400">
                                         {engineer.role || 'Specialist'}
                                     </span>
                                     <span className="px-3 py-1 bg-emerald-500/10 rounded-full text-[10px] font-black text-emerald-500 border border-emerald-500/20 uppercase tracking-widest">
@@ -247,10 +246,10 @@ export const Engineers = () => {
 
                             <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
                                 <div className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                                    <ShieldCheck className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                                    <ShieldCheck className="w-3.5 h-3.5 mr-2 text-orange-500" />
                                     Verified Personnel
                                 </div>
-                                <button className="p-2 text-slate-500 hover:text-indigo-400 transition-colors">
+                                <button className="p-2 text-slate-500 hover:text-orange-400 transition-colors">
                                     <Mail className="w-4 h-4" />
                                 </button>
                             </div>
