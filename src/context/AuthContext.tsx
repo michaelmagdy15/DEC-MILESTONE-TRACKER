@@ -21,7 +21,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUserRole = async (userId: string) => {
         try {
-            console.log("AuthContext: fetchUserRole for", userId);
             const { data, error } = await supabase
                 .from('engineers')
                 .select('id, role')
@@ -32,12 +31,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setRole('engineer');
                 setEngineerId(userId);
             } else if (data && data.length > 0) {
-                console.log("AuthContext: Found role:", data[0].role);
                 setRole(data[0].role);
                 setEngineerId(data[0].id);
             } else {
-                console.warn("AuthContext: No engineer record found in DB for user, using defaults.");
-                setRole('engineer');
+                // No engineer record — auto-create one from auth user metadata
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                const meta = authUser?.user_metadata || {};
+                const { error: insertError } = await supabase.from('engineers').insert({
+                    id: userId,
+                    name: meta.name || authUser?.email?.split('@')[0] || 'User',
+                    role: meta.role?.toLowerCase().replace(/ /g, '_') || 'engineer',
+                    hourly_rate: meta.hourly_rate || 0,
+                    weekly_goal_hours: meta.weekly_goal_hours || 40,
+                });
+                if (insertError) {
+                    console.warn('AuthContext: Could not auto-create engineer record:', insertError.message);
+                }
+                setRole(meta.role?.toLowerCase().replace(/ /g, '_') || 'engineer');
                 setEngineerId(userId);
             }
         } catch (err) {
@@ -50,32 +60,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         let mounted = true;
 
-        // Fallback timeout to ensure we never get stuck on the "Loading session..." screen indefinitely
+        // Fallback timeout: never get stuck on loading indefinitely
         const timeoutId = setTimeout(() => {
-            if (mounted && isLoadingAuth) {
-                setIsLoadingAuth(false);
-            }
-        }, 2000);
+            if (mounted) setIsLoadingAuth(false);
+        }, 3000);
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (event, session) => {
                 if (!mounted) return;
 
-                console.log("AuthContext: onAuthStateChange event:", _event, "session:", !!session);
+                // USER_UPDATED fires when password/email is changed while already logged in.
+                // We do NOT want to re-fetch role or clear state in that case.
+                if (event === 'USER_UPDATED') {
+                    clearTimeout(timeoutId);
+                    if (mounted) setIsLoadingAuth(false);
+                    return;
+                }
 
                 try {
                     if (session?.user) {
-                        console.log("AuthContext: Setting user from session:", session.user.id);
                         setUser(session.user);
                         await fetchUserRole(session.user.id);
                     } else {
-                        console.log("AuthContext: Session user is null, clearing states.");
                         setUser(null);
                         setRole(null);
                         setEngineerId(null);
                     }
                 } catch (err) {
-                    console.error("Auth state change error:", err);
+                    console.error('Auth state change error:', err);
                     setUser(null);
                     setRole(null);
                     setEngineerId(null);
@@ -86,44 +98,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         );
 
-        // Fetch initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (mounted) {
-                console.log("AuthContext: getSession returned session:", !!session);
-                if (session?.user) {
-                    setUser(session.user);
-                    fetchUserRole(session.user.id).finally(() => {
-                        setIsLoadingAuth(false);
-                    });
-                } else {
-                    setUser(null);
-                    setIsLoadingAuth(false);
-                }
-            }
-        });
+        // NOTE: onAuthStateChange always fires INITIAL_SESSION on mount,
+        // so we do NOT call getSession() here to avoid double fetchUserRole.
 
         return () => {
             mounted = false;
-            clearTimeout(timeoutId); // Clear timeout on unmount as well
+            clearTimeout(timeoutId);
             subscription.unsubscribe();
         };
     }, []);
 
     const signOut = async () => {
-        console.log("AuthContext: signOut initiated");
         try {
-            const { error } = await supabase.auth.signOut();
-            if (error) console.error('AuthContext: Supabase signOut error:', error);
-            else console.log("AuthContext: Supabase signOut successful");
+            // Force remove all channels so signOut doesn't hang on WebSocket closure
+            await supabase.removeAllChannels();
+
+            // Race signOut against a 2-second timeout to ensure the UI NEVER freezes
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Signout timeout')), 2000)
+            );
+            await Promise.race([supabase.auth.signOut(), timeoutPromise]);
         } catch (err) {
             console.error('AuthContext: signOut Exception:', err);
         } finally {
-            console.log("AuthContext: Clearing local auth state");
             setUser(null);
             setRole(null);
             setEngineerId(null);
             setIsLoadingAuth(false);
-            // Optional: force redirect if Navigate doesn't catch it
             window.location.href = '/login';
         }
     };
