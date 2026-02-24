@@ -3,6 +3,7 @@ export interface Project {
     name: string;
     hourlyRate?: number;
     budget?: number;
+    phase?: string;
 }
 
 export interface Engineer {
@@ -71,6 +72,36 @@ export interface LogEntry {
     tags?: string[];
 }
 
+export interface Meeting {
+    id: string;
+    title: string;
+    description?: string;
+    date: string;
+    time: string;
+    type: 'online' | 'in-house';
+    locationOrLink?: string;
+    createdAt?: string;
+}
+
+export interface ProjectFile {
+    id: string;
+    projectId: string;
+    name: string;
+    fileFormat: 'pdf' | 'dwf';
+    fileUrl: string;
+    uploadedBy?: string;
+    createdAt?: string;
+}
+
+export interface TimeEntry {
+    id: string;
+    engineerId: string;
+    entryType: 'work' | 'break';
+    startTime: string; // ISO string
+    endTime?: string; // ISO string
+    createdAt?: string;
+}
+
 export interface AppData {
     projects: Project[];
     engineers: Engineer[];
@@ -80,4 +111,7 @@ export interface AppData {
     tasks: Task[];
     leaveRequests: LeaveRequest[];
     notifications: Notification[];
+    meetings: Meeting[];
+    projectFiles: ProjectFile[];
+    timeEntries: TimeEntry[];
 }

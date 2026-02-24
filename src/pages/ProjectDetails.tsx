@@ -2,19 +2,24 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2 } from 'lucide-react';
+import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, File, Upload, Trash2, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
+import { supabase } from '../lib/supabase';
 
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { projects, milestones, tasks, engineers, addMilestone, addTask, updateTask, addNotification } = useData();
-    const { role, engineerId: currentEngineerId } = useAuth();
+    const { projects, milestones, tasks, engineers, addMilestone, addTask, updateTask, addNotification, projectFiles, addProjectFile, deleteProjectFile } = useData();
+    const { role, engineerId: currentEngineerId, user } = useAuth();
 
     const project = projects.find(p => p.id === id);
     const projectMilestones = milestones.filter(m => m.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const projectTasks = tasks.filter(t => t.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    const pFiles = projectFiles.filter(f => f.projectId === id).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    const [activeTab, setActiveTab] = useState<'milestones' | 'files'>('milestones');
+    const [isUploading, setIsUploading] = useState(false);
 
     // UI state
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
@@ -93,6 +98,43 @@ export const ProjectDetails: React.FC = () => {
         }
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !project) return;
+
+        setIsUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+            const fileName = `${project.id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('project-files')
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+                .from('project-files')
+                .getPublicUrl(fileName);
+
+            await addProjectFile({
+                id: crypto.randomUUID(),
+                projectId: project.id,
+                name: file.name,
+                fileFormat: fileExt as 'pdf' | 'dwf',
+                fileUrl: publicUrlData.publicUrl,
+                uploadedBy: currentEngineerId || 'system'
+            });
+
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            alert('Failed to upload file.');
+        } finally {
+            setIsUploading(false);
+            if (e.target) e.target.value = ''; // clear input
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -111,24 +153,65 @@ export const ProjectDetails: React.FC = () => {
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                        {project.name} <span className="text-orange-400">Venture</span>
-                    </h2>
+                    <div className="flex items-center gap-4 mb-2">
+                        <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter">
+                            {project.name} <span className="text-orange-400">Venture</span>
+                        </h2>
+                        <div className="px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold tracking-widest uppercase">
+                            {project.phase || 'Planning'}
+                        </div>
+                    </div>
                     <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Strategic Milestone & Task Command Center</p>
                 </div>
-                {role === 'admin' && (
-                    <button
-                        onClick={() => setIsAddingMilestone(true)}
-                        className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Establish Milestone</span>
-                    </button>
-                )}
+                <div className="flex gap-4">
+                    {activeTab === 'milestones' && role === 'admin' && (
+                        <button
+                            onClick={() => setIsAddingMilestone(true)}
+                            className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Establish Milestone</span>
+                        </button>
+                    )}
+                    {activeTab === 'files' && (
+                        <div>
+                            <input
+                                type="file"
+                                id="file-upload"
+                                className="hidden"
+                                onChange={handleFileUpload}
+                                accept=".pdf,.dwf"
+                                disabled={isUploading}
+                            />
+                            <label
+                                htmlFor="file-upload"
+                                className={`flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} font-bold uppercase tracking-widest text-[11px]`}
+                            >
+                                <Upload className="w-4 h-4" />
+                                <span>{isUploading ? 'Uploading...' : 'Upload File'}</span>
+                            </label>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {isAddingMilestone && (
+            <div className="flex space-x-4 border-b border-white/10 mb-8">
+                <button
+                    onClick={() => setActiveTab('milestones')}
+                    className={`px-6 py-4 font-bold uppercase tracking-widest text-xs transition-colors border-b-2 ${activeTab === 'milestones' ? 'text-orange-400 border-orange-500' : 'text-slate-500 border-transparent hover:text-white'}`}
+                >
+                    Milestones & Tasks
+                </button>
+                <button
+                    onClick={() => setActiveTab('files')}
+                    className={`px-6 py-4 font-bold uppercase tracking-widest text-xs transition-colors border-b-2 ${activeTab === 'files' ? 'text-orange-400 border-orange-500' : 'text-slate-500 border-transparent hover:text-white'}`}
+                >
+                    Project Files
+                </button>
+            </div>
+
+            {isAddingMilestone && activeTab === 'milestones' && (
                 <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-purple-500 to-orange-500"></div>
                     <form onSubmit={handleAddMilestone} className="space-y-8">
@@ -380,6 +463,70 @@ export const ProjectDetails: React.FC = () => {
                     )
                 })}
             </div>
+
+            {activeTab === 'files' && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                >
+                    {pFiles.length === 0 ? (
+                        <div className="col-span-full text-center py-32 bg-[#1a1a1a]/20 rounded-[40px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center">
+                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                                <File className="w-10 h-10 text-slate-700" />
+                            </div>
+                            <p className="text-slate-400 font-black text-xl tracking-tight mb-2">No files uploaded yet</p>
+                            <p className="text-slate-600 text-sm font-bold uppercase tracking-widest">Share PDFs or DWF files for this project</p>
+                        </div>
+                    ) : (
+                        pFiles.map(f => {
+                            const uploader = engineers.find(e => e.id === f.uploadedBy);
+                            return (
+                                <div key={f.id} className="group bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 hover:border-orange-500/30 backdrop-blur-3xl shadow-2xl transition-all duration-500 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover:bg-orange-500/10 transition-all duration-500"></div>
+                                    <div className="flex justify-between items-start mb-6 relative z-10">
+                                        <div className="w-14 h-14 bg-white/5 text-white rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-all duration-500 shadow-lg">
+                                            <File className="w-6 h-6" />
+                                        </div>
+                                        <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+                                            <a
+                                                href={f.fileUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2.5 text-slate-500 hover:text-orange-400 hover:bg-orange-400/10 rounded-xl transition-all"
+                                                title="Open / Download"
+                                            >
+                                                <Download className="w-4 h-4" />
+                                            </a>
+                                            {(role === 'admin' || f.uploadedBy === user?.id) && (
+                                                <button
+                                                    onClick={() => deleteProjectFile(f.id)}
+                                                    className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all flex items-center"
+                                                    title="Delete File"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="relative z-10">
+                                        <h3 className="font-black text-lg text-white tracking-tight group-hover:text-orange-400 transition-colors break-words mb-2">{f.name}</h3>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                                <span className="bg-white/10 px-2 py-0.5 rounded text-white mr-2">{f.fileFormat.toUpperCase()}</span>
+                                                {new Date(f.createdAt || '').toLocaleDateString()}
+                                            </div>
+                                            {uploader && (
+                                                <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Uploaded by: <span className="text-slate-400">{uploader.name}</span></p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })
+                    )}
+                </motion.div>
+            )}
         </motion.div>
     );
 };

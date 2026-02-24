@@ -60,10 +60,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         let mounted = true;
 
-        // Fallback timeout: never get stuck on loading indefinitely
-        const timeoutId = setTimeout(() => {
-            if (mounted) setIsLoadingAuth(false);
-        }, 3000);
+        const initializeAuth = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+
+                if (session?.user) {
+                    if (mounted) setUser(session.user);
+                    await fetchUserRole(session.user.id);
+                }
+            } catch (err) {
+                console.error('AuthContext: getSession Exception:', err);
+                if (mounted) {
+                    setUser(null);
+                    setRole(null);
+                    setEngineerId(null);
+                }
+            } finally {
+                if (mounted) setIsLoadingAuth(false);
+            }
+        };
+
+        initializeAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
@@ -71,13 +89,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // USER_UPDATED fires when password/email is changed while already logged in.
                 // We do NOT want to re-fetch role or clear state in that case.
-                if (event === 'USER_UPDATED') {
-                    clearTimeout(timeoutId);
-                    if (mounted) setIsLoadingAuth(false);
+                if (event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
                     return;
                 }
 
                 try {
+                    setIsLoadingAuth(true);
                     if (session?.user) {
                         setUser(session.user);
                         await fetchUserRole(session.user.id);
@@ -92,18 +109,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setRole(null);
                     setEngineerId(null);
                 } finally {
-                    clearTimeout(timeoutId);
                     if (mounted) setIsLoadingAuth(false);
                 }
             }
         );
 
-        // NOTE: onAuthStateChange always fires INITIAL_SESSION on mount,
-        // so we do NOT call getSession() here to avoid double fetchUserRole.
-
         return () => {
             mounted = false;
-            clearTimeout(timeoutId);
             subscription.unsubscribe();
         };
     }, []);

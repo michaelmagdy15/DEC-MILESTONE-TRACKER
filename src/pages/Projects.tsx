@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Folder, X, Check } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import type { Project } from '../types';
 import { motion } from 'framer-motion';
 
 export const Projects: React.FC = () => {
+    const { role } = useAuth(); // getting role for permissions
     const { projects, addProject, updateProject, deleteProject } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -13,6 +15,7 @@ export const Projects: React.FC = () => {
     const [name, setName] = useState('');
     const [hourlyRate, setHourlyRate] = useState('');
     const [budget, setBudget] = useState('');
+    const [phase, setPhase] = useState('Planning');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -23,6 +26,7 @@ export const Projects: React.FC = () => {
             name,
             hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
             budget: budget ? parseFloat(budget) : 0,
+            phase: phase || 'Planning'
         };
 
         if (editingId) {
@@ -39,6 +43,7 @@ export const Projects: React.FC = () => {
         setName(project.name);
         setHourlyRate(project.hourlyRate?.toString() || '');
         setBudget(project.budget?.toString() || '');
+        setPhase(project.phase || 'Planning');
         setIsAdding(true);
     };
 
@@ -48,6 +53,7 @@ export const Projects: React.FC = () => {
         setName('');
         setHourlyRate('');
         setBudget('');
+        setPhase('Planning');
     };
 
     const handleDelete = (id: string) => {
@@ -71,14 +77,16 @@ export const Projects: React.FC = () => {
                     <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Manage and monitor all active DEC engineering ventures.</p>
                 </div>
-                <button
-                    onClick={() => setIsAdding(true)}
-                    disabled={isAdding}
-                    className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
-                >
-                    <Plus className="w-4 h-4" />
-                    <span>Initiate Project</span>
-                </button>
+                {role === 'admin' && (
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        disabled={isAdding}
+                        className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Initiate Project</span>
+                    </button>
+                )}
             </div>
 
             {isAdding && (
@@ -132,6 +140,20 @@ export const Projects: React.FC = () => {
                                     step="0.01"
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Current Phase</label>
+                                <select
+                                    value={phase}
+                                    onChange={(e) => setPhase(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                >
+                                    <option value="Planning" className="bg-[#1a1a1a]">Planning</option>
+                                    <option value="Design" className="bg-[#1a1a1a]">Design</option>
+                                    <option value="Construction" className="bg-[#1a1a1a]">Construction</option>
+                                    <option value="Post-Construction" className="bg-[#1a1a1a]">Post-Construction</option>
+                                    <option value="Completed" className="bg-[#1a1a1a]">Completed</option>
+                                </select>
+                            </div>
                         </div>
                         <div className="flex justify-end space-x-4 pt-4 border-t border-white/5">
                             <button
@@ -171,20 +193,22 @@ export const Projects: React.FC = () => {
                             <div className="w-14 h-14 bg-white/5 text-white rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-all duration-500 shadow-lg">
                                 <Folder className="w-6 h-6" />
                             </div>
-                            <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
-                                <button
-                                    onClick={() => startEdit(project)}
-                                    className="p-2.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"
-                                >
-                                    <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(project.id)}
-                                    className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
+                            {role === 'admin' && (
+                                <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+                                    <button
+                                        onClick={() => startEdit(project)}
+                                        className="p-2.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(project.id)}
+                                        className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div className="relative z-10">
                             <h3 className="font-black text-xl text-white mb-2 tracking-tight group-hover:text-orange-400 transition-colors">{project.name}</h3>
@@ -199,11 +223,17 @@ export const Projects: React.FC = () => {
                                 )}
                             </div>
                             {project.budget !== undefined && project.budget > 0 && (
-                                <div className="mb-8">
+                                <div className="mb-4">
                                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Allocated Budget</p>
                                     <p className="text-xl font-black text-emerald-400">AED {project.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                             )}
+                            <div className="mb-8">
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Phase</p>
+                                <div className="inline-block px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-bold tracking-widest uppercase">
+                                    {project.phase || 'Planning'}
+                                </div>
+                            </div>
                             <button
                                 onClick={() => window.location.href = `/projects/${project.id}`}
                                 className="w-full py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-orange-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-orange-500 shadow-xl"

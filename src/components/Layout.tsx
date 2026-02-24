@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign, Mail, Calendar } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
+import { MailNotifier } from './MailNotifier';
+import { TimeclockWidget } from './TimeclockWidget';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 
@@ -125,15 +127,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <nav className="space-y-2 flex-1">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         {role !== 'client' && <NavItem to="/projects" icon={FolderKanban} label="Projects" />}
+                        {role !== 'client' && <NavItem to="/meetings" icon={Calendar} label="Meetings" />}
                         {role === 'admin' && <NavItem to="/engineers" icon={Users} label="Engineers" />}
                         {role !== 'client' && <NavItem to="/entries" icon={FileText} label="Daily Entries" />}
                         {role !== 'client' && <NavItem to="/attendance" icon={CalendarCheck} label="Attendance" />}
                         {role === 'admin' && <NavItem to="/financials" icon={DollarSign} label="Financials" />}
                         {role === 'admin' && <NavItem to="/reports" icon={PieChart} label="Reports" />}
+                        {role !== 'client' && <NavItem to="/emails" icon={Mail} label="Emails" />}
                         <NavItem to="/profile" icon={User} label="My Profile" />
                     </nav>
 
                     <div className="pt-6 border-t border-white/5 flex flex-col space-y-4 shrink-0 mt-auto">
+                        <TimeclockWidget />
+
                         <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] border border-white/5 rounded-2xl p-4 text-white shadow-xl">
                             <p className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-40 mb-1">DEC Engineering</p>
                             <p className="text-sm font-semibold tracking-tight">Milestone Tracker</p>
@@ -309,13 +315,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </div>
             </main>
 
-            {/* Overlay */}
             {isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
             )}
+
+            {/* Email Notifications & Permissions Prompt */}
+            {role !== 'client' && <MailNotifier />}
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -12,6 +12,9 @@ interface DataContextType {
     tasks: Task[];
     leaveRequests: LeaveRequest[];
     notifications: Notification[];
+    meetings: Meeting[];
+    projectFiles: ProjectFile[];
+    timeEntries: TimeEntry[];
     addProject: (project: Project) => Promise<void>;
     updateProject: (project: Project) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
@@ -41,6 +44,15 @@ interface DataContextType {
     addNotification: (notification: Notification) => Promise<void>;
     markNotificationRead: (id: string) => Promise<void>;
 
+    addMeeting: (meeting: Meeting) => Promise<void>;
+    deleteMeeting: (id: string) => Promise<void>;
+
+    addProjectFile: (file: ProjectFile) => Promise<void>;
+    deleteProjectFile: (id: string) => Promise<void>;
+
+    addTimeEntry: (entry: TimeEntry) => Promise<void>;
+    updateTimeEntry: (entry: TimeEntry) => Promise<void>;
+
     isLoading: boolean;
 }
 
@@ -55,6 +67,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [tasks, setTasks] = useState<Task[]>([]);
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+    const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
@@ -71,7 +86,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: p.id,
                     name: p.name,
                     hourlyRate: p.hourly_rate,
-                    budget: p.budget || 0
+                    budget: p.budget || 0,
+                    phase: p.phase || 'Planning'
                 })));
             }
 
@@ -177,6 +193,51 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 })));
             }
 
+            // Fetch meetings
+            const meetingsRes = await supabase.from('meetings').select('*').order('date', { ascending: true });
+            if (meetingsRes.error) console.error('Error fetching meetings:', meetingsRes.error);
+            else {
+                setMeetings(meetingsRes.data.map((m: any) => ({
+                    id: m.id,
+                    title: m.title,
+                    description: m.description,
+                    date: m.date,
+                    time: m.time,
+                    type: m.type,
+                    locationOrLink: m.location_or_link,
+                    createdAt: m.created_at
+                })));
+            }
+
+            // Fetch projectFiles
+            const projectFilesRes = await supabase.from('project_files').select('*').order('created_at', { ascending: false });
+            if (projectFilesRes.error) console.error('Error fetching project_files:', projectFilesRes.error);
+            else {
+                setProjectFiles(projectFilesRes.data.map((pf: any) => ({
+                    id: pf.id,
+                    projectId: pf.project_id,
+                    name: pf.name,
+                    fileFormat: pf.file_format,
+                    fileUrl: pf.file_url,
+                    uploadedBy: pf.uploaded_by,
+                    createdAt: pf.created_at
+                })));
+            }
+
+            // Fetch timeEntries
+            const timeEntriesRes = await supabase.from('time_entries').select('*').order('start_time', { ascending: false });
+            if (timeEntriesRes.error) console.error('Error fetching time_entries:', timeEntriesRes.error);
+            else {
+                setTimeEntries(timeEntriesRes.data.map((te: any) => ({
+                    id: te.id,
+                    engineerId: te.engineer_id,
+                    entryType: te.entry_type,
+                    startTime: te.start_time,
+                    endTime: te.end_time,
+                    createdAt: te.created_at
+                })));
+            }
+
         } catch (error) {
             console.error('Fatal Error during fetchData:', error);
 
@@ -231,6 +292,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 { event: '*', schema: 'public', table: 'notifications' },
                 () => { fetchData() }
             )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'meetings' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'project_files' },
+                () => { fetchData() }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'time_entries' },
+                () => { fetchData() }
+            )
             .subscribe();
 
         return () => {
@@ -244,7 +320,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: project.id,
             name: project.name,
             hourly_rate: project.hourlyRate,
-            budget: project.budget || 0
+            budget: project.budget || 0,
+            phase: project.phase || 'Planning'
         });
         if (error) console.error('Error adding project:', error);
         else await fetchData();
@@ -254,7 +331,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.from('projects').update({
             name: project.name,
             hourly_rate: project.hourlyRate,
-            budget: project.budget
+            budget: project.budget,
+            phase: project.phase
         }).eq('id', project.id);
 
         if (error) console.error('Error updating project:', error);
@@ -482,6 +560,68 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         else await fetchData();
     };
 
+    // Meetings
+    const addMeeting = async (meeting: Meeting) => {
+        const { error } = await supabase.from('meetings').insert({
+            id: meeting.id,
+            title: meeting.title,
+            description: meeting.description,
+            date: meeting.date,
+            time: meeting.time,
+            type: meeting.type,
+            location_or_link: meeting.locationOrLink
+        });
+        if (error) console.error('Error adding meeting:', error);
+        else await fetchData();
+    };
+
+    const deleteMeeting = async (id: string) => {
+        const { error } = await supabase.from('meetings').delete().eq('id', id);
+        if (error) console.error('Error deleting meeting:', error);
+        else await fetchData();
+    };
+
+    // Project Files
+    const addProjectFile = async (file: ProjectFile) => {
+        const { error } = await supabase.from('project_files').insert({
+            id: file.id,
+            project_id: file.projectId,
+            name: file.name,
+            file_format: file.fileFormat,
+            file_url: file.fileUrl,
+            uploaded_by: file.uploadedBy
+        });
+        if (error) console.error('Error adding project file:', error);
+        else await fetchData();
+    };
+
+    const deleteProjectFile = async (id: string) => {
+        const { error } = await supabase.from('project_files').delete().eq('id', id);
+        if (error) console.error('Error deleting project file:', error);
+        else await fetchData();
+    };
+
+    // Time Entries
+    const addTimeEntry = async (entry: TimeEntry) => {
+        const { error } = await supabase.from('time_entries').insert({
+            id: entry.id,
+            engineer_id: entry.engineerId,
+            entry_type: entry.entryType,
+            start_time: entry.startTime,
+            end_time: entry.endTime
+        });
+        if (error) console.error('Error adding time entry:', error);
+        else await fetchData();
+    };
+
+    const updateTimeEntry = async (entry: TimeEntry) => {
+        const { error } = await supabase.from('time_entries').update({
+            end_time: entry.endTime
+        }).eq('id', entry.id);
+        if (error) console.error('Error updating time entry:', error);
+        else await fetchData();
+    };
+
     return (
         <DataContext.Provider value={{
             projects,
@@ -492,6 +632,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             tasks,
             leaveRequests,
             notifications,
+            meetings,
+            projectFiles,
+            timeEntries,
             addProject,
             updateProject,
             deleteProject,
@@ -515,6 +658,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             deleteLeaveRequest,
             addNotification,
             markNotificationRead,
+            addMeeting,
+            deleteMeeting,
+            addProjectFile,
+            deleteProjectFile,
+            addTimeEntry,
+            updateTimeEntry,
             isLoading
         }}>
             {children}
