@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
@@ -109,8 +109,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 "fixed inset-y-0 left-0 z-50 w-72 bg-[#0a0a0a] backdrop-blur-3xl border-r border-white/5 transform transition-all duration-500 ease-in-out lg:translate-x-0 lg:static lg:block h-full shadow-[20px_0_40px_rgba(0,0,0,0.5)]",
                 isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             )}>
-                <div className="h-full flex flex-col p-6">
-                    <div className="mb-10 flex items-center justify-between lg:justify-start space-x-3">
+                <div className="h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
+                    <div className="mb-10 flex items-center justify-between lg:justify-start space-x-3 shrink-0">
                         <div className="flex items-center justify-center lg:justify-start w-full mb-8">
                             <Logo />
                         </div>
@@ -128,11 +128,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         {role === 'admin' && <NavItem to="/engineers" icon={Users} label="Engineers" />}
                         {role !== 'client' && <NavItem to="/entries" icon={FileText} label="Daily Entries" />}
                         {role !== 'client' && <NavItem to="/attendance" icon={CalendarCheck} label="Attendance" />}
+                        {role === 'admin' && <NavItem to="/financials" icon={DollarSign} label="Financials" />}
                         {role === 'admin' && <NavItem to="/reports" icon={PieChart} label="Reports" />}
                         <NavItem to="/profile" icon={User} label="My Profile" />
                     </nav>
 
-                    <div className="pt-6 border-t border-white/5 flex flex-col space-y-4">
+                    <div className="pt-6 border-t border-white/5 flex flex-col space-y-4 shrink-0 mt-auto">
                         <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] border border-white/5 rounded-2xl p-4 text-white shadow-xl">
                             <p className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-40 mb-1">DEC Engineering</p>
                             <p className="text-sm font-semibold tracking-tight">Milestone Tracker</p>

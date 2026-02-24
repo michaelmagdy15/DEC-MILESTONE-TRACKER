@@ -15,6 +15,7 @@ import { Login } from './pages/Login';
 import { ResetPassword } from './pages/ResetPassword';
 import { ClientDashboard } from './pages/ClientDashboard';
 import { Profile } from './pages/Profile';
+import { Financials } from './pages/Financials';
 
 const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin }: { children: React.ReactNode, requireAdmin?: boolean, requireEngineerOrAdmin?: boolean }) => {
   const { user, role, isLoadingAuth } = useAuth();
@@ -71,6 +72,7 @@ function App() {
                     <Route path="/projects" element={<ProtectedRoute requireEngineerOrAdmin><Projects /></ProtectedRoute>} />
                     <Route path="/projects/:id" element={<ProjectDetails />} />
                     <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
+                    <Route path="/financials" element={<ProtectedRoute requireAdmin><Financials /></ProtectedRoute>} />
                     <Route path="/profile" element={<Profile />} />
                     {/* Fallback for authenticated users */}
                     <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,6 +2,7 @@ export interface Project {
     id: string;
     name: string;
     hourlyRate?: number;
+    budget?: number;
 }
 
 export interface Engineer {

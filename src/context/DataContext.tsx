@@ -70,7 +70,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setProjects(projectsRes.data.map((p: any) => ({
                     id: p.id,
                     name: p.name,
-                    hourlyRate: p.hourly_rate
+                    hourlyRate: p.hourly_rate,
+                    budget: p.budget || 0
                 })));
             }
 
@@ -242,7 +243,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.from('projects').insert({
             id: project.id,
             name: project.name,
-            hourly_rate: project.hourlyRate
+            hourly_rate: project.hourlyRate,
+            budget: project.budget || 0
         });
         if (error) {
             console.error('Error adding project:', error);
@@ -253,7 +255,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateProject = async (project: Project) => {
         const { error } = await supabase.from('projects').update({
             name: project.name,
-            hourly_rate: project.hourlyRate
+            hourly_rate: project.hourlyRate,
+            budget: project.budget
         }).eq('id', project.id);
 
         if (error) {

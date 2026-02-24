@@ -12,6 +12,7 @@ export const Projects: React.FC = () => {
     // Form State
     const [name, setName] = useState('');
     const [hourlyRate, setHourlyRate] = useState('');
+    const [budget, setBudget] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -21,6 +22,7 @@ export const Projects: React.FC = () => {
             id: editingId || crypto.randomUUID(),
             name,
             hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+            budget: budget ? parseFloat(budget) : 0,
         };
 
         if (editingId) {
@@ -36,6 +38,7 @@ export const Projects: React.FC = () => {
         setEditingId(project.id);
         setName(project.name);
         setHourlyRate(project.hourlyRate?.toString() || '');
+        setBudget(project.budget?.toString() || '');
         setIsAdding(true);
     };
 
@@ -44,6 +47,7 @@ export const Projects: React.FC = () => {
         setEditingId(null);
         setName('');
         setHourlyRate('');
+        setBudget('');
     };
 
     const handleDelete = (id: string) => {
@@ -116,6 +120,18 @@ export const Projects: React.FC = () => {
                                     step="0.01"
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Total Budget (AED)</label>
+                                <input
+                                    type="number"
+                                    value={budget}
+                                    onChange={(e) => setBudget(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
+                                    placeholder="50000.00"
+                                    min="0"
+                                    step="0.01"
+                                />
+                            </div>
                         </div>
                         <div className="flex justify-end space-x-4 pt-4 border-t border-white/5">
                             <button
@@ -182,6 +198,12 @@ export const Projects: React.FC = () => {
                                     <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Rate not set</p>
                                 )}
                             </div>
+                            {project.budget !== undefined && project.budget > 0 && (
+                                <div className="mb-8">
+                                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Allocated Budget</p>
+                                    <p className="text-xl font-black text-emerald-400">AED {project.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
+                            )}
                             <button
                                 onClick={() => window.location.href = `/projects/${project.id}`}
                                 className="w-full py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-orange-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-orange-500 shadow-xl"
