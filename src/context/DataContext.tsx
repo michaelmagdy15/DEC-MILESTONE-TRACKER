@@ -74,9 +74,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
 
-    const fetchData = async () => {
+    const fetchData = async (showLoading: boolean = false) => {
         try {
-            setIsLoading(true);
+            if (showLoading) setIsLoading(true);
 
             // Fetch projects
             const projectsRes = await supabase.from('projects').select('*').order('created_at', { ascending: false });
@@ -249,7 +249,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (!user) return;
 
-        fetchData();
+        fetchData(true);
 
         const channels = supabase.channel('custom-all-channel')
             .on(

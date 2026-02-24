@@ -76,7 +76,7 @@ function App() {
                     <Route path="/projects/:id" element={<ProjectDetails />} />
                     <Route path="/meetings" element={<ProtectedRoute requireEngineerOrAdmin><Meetings /></ProtectedRoute>} />
                     <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
-                    <Route path="/emails" element={<ProtectedRoute requireEngineerOrAdmin><Emails /></ProtectedRoute>} />
+                    <Route path="/emails/*" element={<ProtectedRoute requireEngineerOrAdmin><Emails /></ProtectedRoute>} />
                     <Route path="/financials" element={<ProtectedRoute requireAdmin><Financials /></ProtectedRoute>} />
                     <Route path="/profile" element={<Profile />} />
                     {/* Fallback for authenticated users */}
