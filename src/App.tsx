@@ -19,16 +19,18 @@ import { Financials } from './pages/Financials';
 import { Emails } from './pages/Emails';
 import { Meetings } from './pages/Meetings';
 
-const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin }: { children: React.ReactNode, requireAdmin?: boolean, requireEngineerOrAdmin?: boolean }) => {
+const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin, skipDataWait }: { children: React.ReactNode, requireAdmin?: boolean, requireEngineerOrAdmin?: boolean, skipDataWait?: boolean }) => {
   const { user, role, isLoadingAuth } = useAuth();
   const { isLoading: isLoadingData } = useData();
 
-  if (isLoadingAuth || (user && isLoadingData)) {
+  if (isLoadingAuth || (!skipDataWait && user && isLoadingData)) {
     return (
       <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Synchronizing Session</p>
+          <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">
+            Synchronizing Session {isLoadingAuth ? '(Auth)' : '(Data)'}
+          </p>
         </div>
       </div>
     );
@@ -76,7 +78,7 @@ function App() {
                     <Route path="/projects/:id" element={<ProjectDetails />} />
                     <Route path="/meetings" element={<ProtectedRoute requireEngineerOrAdmin><Meetings /></ProtectedRoute>} />
                     <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
-                    <Route path="/emails/*" element={<ProtectedRoute requireEngineerOrAdmin><Emails /></ProtectedRoute>} />
+                    <Route path="/emails/*" element={<ProtectedRoute requireEngineerOrAdmin skipDataWait><Emails /></ProtectedRoute>} />
                     <Route path="/financials" element={<ProtectedRoute requireAdmin><Financials /></ProtectedRoute>} />
                     <Route path="/profile" element={<Profile />} />
                     {/* Fallback for authenticated users */}
