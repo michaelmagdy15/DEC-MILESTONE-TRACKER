@@ -7,21 +7,38 @@ import { useAuth } from '../context/AuthContext';
 
 
 export const Dashboard = () => {
-    const { projects, engineers, entries } = useData();
+    const { projects, engineers, entries, timeEntries } = useData();
     const { role } = useAuth();
 
     // Filter entries: Everyone sees all for stats and overview
     const filteredEntries = entries;
 
-    // Calculate Metrics
-    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0);
+    const getTimeclockMs = (filterFn?: (te: any) => boolean) => {
+        let workMs = 0;
+        let breakMs = 0;
+        const filtered = filterFn ? timeEntries.filter(filterFn) : timeEntries;
+        filtered.forEach(te => {
+            const start = new Date(te.startTime).getTime();
+            const end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+            if (te.entryType === 'work') workMs += (end - start);
+            else if (te.entryType === 'break') breakMs += (end - start);
+        });
+        return Math.max(0, workMs - breakMs);
+    };
+
+    const totalTimeclockHours = getTimeclockMs() / 3600000;
 
     // Weekly hours
     const now = new Date();
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const weeklyTimeclockHours = getTimeclockMs(te => new Date(te.startTime) >= startOfWeek) / 3600000;
+
+    // Calculate Metrics
+    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalTimeclockHours;
+
     const weeklyHours = filteredEntries
         .filter(e => new Date(e.date) >= startOfWeek)
-        .reduce((sum, e) => sum + e.timeSpent, 0);
+        .reduce((sum, e) => sum + e.timeSpent, 0) + weeklyTimeclockHours;
 
     // Active Projects (projects with entries in last 30 days)
     const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));

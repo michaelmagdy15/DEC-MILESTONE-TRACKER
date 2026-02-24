@@ -28,17 +28,36 @@ export const Reports: React.FC = () => {
         return { ...project, totalHours, cost, uniqueEngineers, lastActivity };
     });
 
+    const getTimeclockMs = (f_entries: any[], filterFn?: (te: any) => boolean) => {
+        let workMs = 0;
+        let breakMs = 0;
+        const filtered = filterFn ? f_entries.filter(filterFn) : f_entries;
+        filtered.forEach(te => {
+            const start = new Date(te.startTime).getTime();
+            const end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+            if (te.entryType === 'work') workMs += (end - start);
+            else if (te.entryType === 'break') breakMs += (end - start);
+        });
+        return Math.max(0, workMs - breakMs);
+    };
+
     // Calculate Engineer Stats
     const engineerStats = engineers.map(engineer => {
         const engineerEntries = entries.filter(e => e.engineerId === engineer.id);
-        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0);
+        const engineerTimeclock = timeEntries.filter(te => te.engineerId === engineer.id);
+
+        const tcTotalMs = getTimeclockMs(engineerTimeclock);
+        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + (tcTotalMs / 3600000);
         const projectCount = new Set(engineerEntries.map(e => e.projectId)).size;
 
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        const tcWeeklyMs = getTimeclockMs(engineerTimeclock, te => new Date(te.startTime) >= oneWeekAgo);
+
         const weeklyHours = engineerEntries
             .filter(e => new Date(e.date) >= oneWeekAgo)
-            .reduce((sum, e) => sum + e.timeSpent, 0);
+            .reduce((sum, e) => sum + e.timeSpent, 0) + (tcWeeklyMs / 3600000);
 
         const weeklyAbsences = attendance.filter(a =>
             a.engineerId === engineer.id &&
@@ -294,97 +313,118 @@ export const Reports: React.FC = () => {
             </div>
 
             {/* DATA CARDS/TABLE */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : timeclockStats).map((stat, idx) => (
-                    <motion.div
-                        key={(stat as any).id || (stat as any).name}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="group bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 hover:border-orange-500/30 transition-all duration-500 backdrop-blur-3xl shadow-xl relative overflow-hidden"
-                    >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-orange-500/10 transition-colors"></div>
-                        <div className="flex flex-col h-full relative z-10">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-orange-500/20 group-hover:bg-orange-500/10 transition-all duration-500">
-                                    {view === 'projects' ? <LayoutGrid className="w-8 h-8 text-slate-500 group-hover:text-orange-400" /> : view === 'engineers' ? <Users className="w-8 h-8 text-slate-500 group-hover:text-orange-400" /> : <Clock className="w-8 h-8 text-slate-500 group-hover:text-orange-400" />}
-                                </div>
-                                <button
-                                    onClick={() => view === 'projects' ? handleDownloadInvoice(stat) : null}
-                                    disabled={generatingInvoiceFor === (stat as any).id}
-                                    className={clsx(
-                                        "p-3 rounded-xl border transition-all",
-                                        view === 'projects'
-                                            ? "bg-white/5 text-slate-500 hover:text-white border-white/5 hover:bg-orange-600 hover:border-orange-600"
-                                            : "bg-white/5 text-slate-700 border-white/5 cursor-not-allowed opacity-30"
-                                    )}
-                                >
-                                    <FileText className="w-5 h-5" />
-                                </button>
-                            </div>
+            {view === 'timeclock' ? (
+                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                    <h3 className="text-xl font-black text-white tracking-tight uppercase mb-6">Raw Timeclock Logs</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <th className="py-4 font-bold text-left px-4">Engineer</th>
+                                    <th className="py-4 font-bold text-left px-4">Type</th>
+                                    <th className="py-4 font-bold text-left px-4">Start Time</th>
+                                    <th className="py-4 font-bold text-left px-4">End Time</th>
+                                    <th className="py-4 font-bold text-right px-4">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
+                                {[...timeEntries].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map(te => {
+                                    const eng = engineers.find(e => e.id === te.engineerId);
+                                    const start = new Date(te.startTime);
+                                    const end = te.endTime ? new Date(te.endTime) : new Date();
+                                    const duration = ((end.getTime() - start.getTime()) / 3600000).toFixed(2);
 
-                            <div className="flex-1">
-                                <h3 className="text-xl font-black text-white tracking-tight mb-2 group-hover:text-orange-400 transition-colors">{(stat as any).name}</h3>
-                                <div className="flex flex-wrap gap-2 mb-6">
-                                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-orange-500/20 group-hover:text-orange-400">
-                                        {view === 'projects' ? 'Project' : view === 'engineers' ? ((stat as any).role || 'Operative') : 'Time Tracking'}
-                                    </span>
+                                    return (
+                                        <tr key={te.id} className="hover:bg-white/[0.02] transition-colors">
+                                            <td className="py-4 px-4 font-bold text-white">{eng?.name || 'Unknown'}</td>
+                                            <td className="py-4 px-4">
+                                                <span className={clsx("px-3 py-1 rounded-xl text-[10px] uppercase font-bold tracking-widest border", te.entryType === 'work' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20')}>{te.entryType}</span>
+                                            </td>
+                                            <td className="py-4 px-4">{start.toLocaleString()}</td>
+                                            <td className="py-4 px-4">{te.endTime ? end.toLocaleString() : <span className="text-emerald-400 font-bold tracking-widest uppercase text-[10px] animate-pulse">In Progress</span>}</td>
+                                            <td className="py-4 px-4 text-right font-black text-white">{duration} h</td>
+                                        </tr>
+                                    )
+                                })}
+                                {timeEntries.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="py-8 text-center text-slate-500 font-medium italic">No timeclock records exist.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {(view === 'projects' ? projectStats : engineerStats).map((stat, idx) => (
+                        <motion.div
+                            key={(stat as any).id || (stat as any).name}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="group bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 hover:border-orange-500/30 transition-all duration-500 backdrop-blur-3xl shadow-xl relative overflow-hidden"
+                        >
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-orange-500/10 transition-colors"></div>
+                            <div className="flex flex-col h-full relative z-10">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-orange-500/20 group-hover:bg-orange-500/10 transition-all duration-500">
+                                        {view === 'projects' ? <LayoutGrid className="w-8 h-8 text-slate-500 group-hover:text-orange-400" /> : <Users className="w-8 h-8 text-slate-500 group-hover:text-orange-400" />}
+                                    </div>
+                                    <button
+                                        onClick={() => view === 'projects' ? handleDownloadInvoice(stat) : null}
+                                        disabled={generatingInvoiceFor === (stat as any).id}
+                                        className={clsx(
+                                            "p-3 rounded-xl border transition-all",
+                                            view === 'projects'
+                                                ? "bg-white/5 text-slate-500 hover:text-white border-white/5 hover:bg-orange-600 hover:border-orange-600"
+                                                : "bg-white/5 text-slate-700 border-white/5 cursor-not-allowed opacity-30"
+                                        )}
+                                    >
+                                        <FileText className="w-5 h-5" />
+                                    </button>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 py-6 border-y border-white/5">
-                                    {view === 'timeclock' ? (
-                                        <>
-                                            <div>
-                                                <div className="text-2xl font-black text-emerald-400">
-                                                    {(stat as any).totalWorkHours.toFixed(1)}
-                                                    <span className="text-[10px] ml-1 text-slate-600">H</span>
-                                                </div>
-                                                <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Work</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-2xl font-black text-amber-400">
-                                                    {(stat as any).totalBreakHours.toFixed(1)}
-                                                    <span className="text-[10px] ml-1 text-slate-600">H</span>
-                                                </div>
-                                                <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Break</div>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div>
-                                                <div className="text-2xl font-black text-white">
-                                                    {(stat as any).totalHours.toFixed(1)}
-                                                    <span className="text-[10px] ml-1 text-slate-600">H</span>
-                                                </div>
-                                                <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Total Hours</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-2xl font-black text-white">
-                                                    {view === 'projects' ? (stat as any).cost.toLocaleString() : (stat as any).projectCount}
-                                                    <span className="text-[10px] ml-1 text-slate-600">{view === 'projects' ? 'AED' : 'VNT'}</span>
-                                                </div>
-                                                <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Est. Cost' : 'Active Ventures'}</div>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
+                                <div className="flex-1">
+                                    <h3 className="text-xl font-black text-white tracking-tight mb-2 group-hover:text-orange-400 transition-colors">{(stat as any).name}</h3>
+                                    <div className="flex flex-wrap gap-2 mb-6">
+                                        <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-orange-500/20 group-hover:text-orange-400">
+                                            {view === 'projects' ? 'Project' : ((stat as any).role || 'Operative')}
+                                        </span>
+                                    </div>
 
-                            <div className="mt-6 flex items-center justify-between">
-                                <div className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                                    <Calendar className="w-3.5 h-3.5 mr-2 text-orange-500" />
-                                    {view === 'projects'
-                                        ? `Audit: ${(stat as any).lastActivity ? (stat as any).lastActivity.toLocaleDateString() : 'Baseline'}`
-                                        : view === 'engineers'
-                                            ? `Payout: ${(stat as any).weeklyPayment.toLocaleString()} AED`
-                                            : `Discrepancy: ${((stat as any).totalWorkHours - (stat as any).expectedWeeklyHours).toFixed(1)}H`}
+                                    <div className="grid grid-cols-2 gap-4 py-6 border-y border-white/5">
+                                        <div>
+                                            <div className="text-2xl font-black text-white">
+                                                {(stat as any).totalHours.toFixed(1)}
+                                                <span className="text-[10px] ml-1 text-slate-600">H</span>
+                                            </div>
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Total Hours</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-2xl font-black text-white">
+                                                {view === 'projects' ? (stat as any).cost.toLocaleString() : (stat as any).projectCount}
+                                                <span className="text-[10px] ml-1 text-slate-600">{view === 'projects' ? 'AED' : 'VNT'}</span>
+                                            </div>
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Est. Cost' : 'Active Ventures'}</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
+
+                                <div className="mt-6 flex items-center justify-between">
+                                    <div className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                                        <Calendar className="w-3.5 h-3.5 mr-2 text-orange-500" />
+                                        {view === 'projects'
+                                            ? `Audit: ${(stat as any).lastActivity ? (stat as any).lastActivity.toLocaleDateString() : 'Baseline'}`
+                                            : `Payout: ${(stat as any).weeklyPayment.toLocaleString()} AED`}
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
+                                </div>
                             </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+                        </motion.div>
+                    ))}
+                </div>
+            )}
 
             {/* Hidden Invoice Wrapper */}
             {generatingInvoiceFor && (
