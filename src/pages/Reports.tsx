@@ -71,6 +71,7 @@ export const Reports: React.FC = () => {
     const { projects, engineers, entries, attendance, timeEntries, appUsageLogs } = useData();
     const [view, setView] = useState<'projects' | 'engineers' | 'timeclock' | 'activity'>('projects');
     const [showWorkAppsOnly, setShowWorkAppsOnly] = useState(false);
+    const [selectedActivityEngineer, setSelectedActivityEngineer] = useState<string | 'all'>('all');
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
 
@@ -219,10 +220,12 @@ export const Reports: React.FC = () => {
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [timeEntries, engineers]);
 
-    // App Usage Daily Stats
+    // App Usage Daily Stats (Used for Export)
     const dailyActivityStats = React.useMemo(() => {
         const stats: any[] = [];
         appUsageLogs.forEach(log => {
+            if (selectedActivityEngineer !== 'all' && log.engineerId !== selectedActivityEngineer) return;
+
             if (showWorkAppsOnly) {
                 const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
                 if (!isWorkApp) return;
@@ -242,7 +245,47 @@ export const Reports: React.FC = () => {
             });
         });
         return stats.sort((a, b) => b.rawTimestamp - a.rawTimestamp); // sort newest first
-    }, [appUsageLogs, engineers, showWorkAppsOnly]);
+    }, [appUsageLogs, engineers, showWorkAppsOnly, selectedActivityEngineer]);
+
+    // App Usage Gantt Chart Data
+    const activityGanttData = React.useMemo(() => {
+        let logs = appUsageLogs;
+        if (selectedActivityEngineer !== 'all') {
+            logs = logs.filter(log => log.engineerId === selectedActivityEngineer);
+        }
+
+        const groupedByApp: Record<string, { app: string, logs: any[] }> = {};
+
+        logs.forEach(log => {
+            if (showWorkAppsOnly) {
+                const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
+                if (!isWorkApp) return;
+            }
+
+            // Consolidate app names if filtering for clean UI
+            let appGroup = log.activeWindow || 'Unknown';
+            if (showWorkAppsOnly) {
+                const matched = WORK_PROGRAMS.find(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
+                if (matched) appGroup = matched;
+            } else {
+                // Heuristic: take text before the first dash if it's long, or just the whole thing
+                const dashIndex = appGroup.indexOf(' - ');
+                if (dashIndex > 0) appGroup = appGroup.substring(0, dashIndex).trim();
+            }
+
+            if (!groupedByApp[appGroup]) groupedByApp[appGroup] = { app: appGroup, logs: [] };
+            groupedByApp[appGroup].logs.push(log);
+        });
+
+        return Object.values(groupedByApp).sort((a, b) => a.app.localeCompare(b.app));
+    }, [appUsageLogs, showWorkAppsOnly, selectedActivityEngineer, WORK_PROGRAMS]);
+
+    // Calculate weekly hours precisely for selected engineer
+    const selectedEngWeeklyHours = React.useMemo(() => {
+        if (selectedActivityEngineer === 'all') return null;
+        const stat = engineerStats.find(s => (s as any).id === selectedActivityEngineer) as any;
+        return stat ? stat.weeklyHours : 0;
+    }, [selectedActivityEngineer, engineerStats]);
 
     const exportCSV = (data: any[], fileName: string) => {
         let headers: string[] = [];
@@ -508,60 +551,98 @@ export const Reports: React.FC = () => {
                 </div>
             ) : view === 'activity' ? (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
-                            <Activity className="w-5 h-5 text-orange-500" />
-                            APPLICATION ACTIVITY TIMELINE (ADMIN VIEW)
-                        </h3>
-                        <div className="flex bg-white/5 p-1 rounded-xl">
-                            <button
-                                onClick={() => setShowWorkAppsOnly(false)}
-                                className={clsx(
-                                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                                    !showWorkAppsOnly ? "bg-white text-black" : "text-slate-500 hover:text-white"
-                                )}
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-8">
+                        <div>
+                            <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-2">
+                                <Activity className="w-5 h-5 text-orange-500" />
+                                APPLICATION ACTIVITY GANTT CHART
+                            </h3>
+                            {selectedEngWeeklyHours !== null && (
+                                <p className="text-sm font-medium text-slate-400">
+                                    Total Hours Worked This Week: <span className="text-white font-bold">{selectedEngWeeklyHours.toFixed(1)} hrs</span>
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <select
+                                value={selectedActivityEngineer}
+                                onChange={(e) => setSelectedActivityEngineer(e.target.value)}
+                                className="bg-[#0a0a0a] border border-white/10 rounded-xl px-4 py-2 text-sm font-bold text-white outline-none focus:border-orange-500/50"
                             >
-                                All Applications
-                            </button>
-                            <button
-                                onClick={() => setShowWorkAppsOnly(true)}
-                                className={clsx(
-                                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                                    showWorkAppsOnly ? "bg-orange-500 text-white" : "text-slate-500 hover:text-white"
-                                )}
-                            >
-                                Architecture Software
-                            </button>
+                                <option value="all">All Engineers</option>
+                                {engineers.map(e => (
+                                    <option key={e.id} value={e.id}>{e.name}</option>
+                                ))}
+                            </select>
+                            <div className="flex bg-white/5 p-1 rounded-xl">
+                                <button
+                                    onClick={() => setShowWorkAppsOnly(false)}
+                                    className={clsx(
+                                        "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                                        !showWorkAppsOnly ? "bg-white text-black" : "text-slate-500 hover:text-white"
+                                    )}
+                                >
+                                    All Apps
+                                </button>
+                                <button
+                                    onClick={() => setShowWorkAppsOnly(true)}
+                                    className={clsx(
+                                        "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                                        showWorkAppsOnly ? "bg-orange-500 text-white" : "text-slate-500 hover:text-white"
+                                    )}
+                                >
+                                    Arch. Software
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 bg-[#0a0a0a] z-10">
-                                <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                    <th className="py-4 font-bold text-left px-4">Date</th>
-                                    <th className="py-4 font-bold text-left px-4">Time</th>
-                                    <th className="py-4 font-bold text-left px-4">Engineer</th>
-                                    <th className="py-4 font-bold text-left px-4">Active Application/Window</th>
-                                    <th className="py-4 font-bold text-left px-4">Duration</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
-                                {dailyActivityStats.map((stat, idx) => (
-                                    <tr key={`${stat.id}_${idx}`} className="hover:bg-white/[0.02] transition-colors">
-                                        <td className="py-4 px-4 font-bold text-white">{stat.date}</td>
-                                        <td className="py-4 px-4 text-slate-400">{stat.timestamp}</td>
-                                        <td className="py-4 px-4 font-bold text-white">{stat.engineerName}</td>
-                                        <td className="py-4 px-4 text-indigo-400 max-w-[300px] truncate" title={stat.activeWindow}>{stat.activeWindow}</td>
-                                        <td className="py-4 px-4 text-emerald-400 font-black">{stat.durationSeconds} s</td>
-                                    </tr>
+
+                    <div className="overflow-x-auto custom-scrollbar pb-6 relative">
+                        <div className="min-w-[800px]">
+                            {/* X-Axis Timeline Header */}
+                            <div className="flex ml-[180px] border-b border-white/10 pb-2 mb-4">
+                                {Array.from({ length: 25 }).map((_, i) => (
+                                    <div key={i} className="flex-1 text-[10px] font-bold text-slate-500 relative">
+                                        <span className="absolute -translate-x-1/2">{i}:00</span>
+                                    </div>
                                 ))}
-                                {dailyActivityStats.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="py-8 text-center text-slate-500 font-medium italic">No background activity tracked yet.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                            </div>
+
+                            {/* Gantt Rows */}
+                            <div className="space-y-4">
+                                {activityGanttData.length === 0 ? (
+                                    <div className="py-12 text-center text-slate-500 font-medium italic">No application activity found for parameters.</div>
+                                ) : activityGanttData.map((group, idx) => (
+                                    <div key={idx} className="flex items-center hover:bg-white/[0.02] p-2 rounded-xl transition-colors">
+                                        <div className="w-[180px] shrink-0 pr-4">
+                                            <p className="text-xs font-bold text-white truncate" title={group.app}>{group.app}</p>
+                                        </div>
+                                        <div className="flex-1 h-8 bg-white/5 rounded-lg relative overflow-hidden">
+                                            {group.logs.map((log: any, lidx: number) => {
+                                                const d = new Date(log.timestamp);
+                                                // Calculate decimal hour (0 - 24)
+                                                const hourDec = d.getHours() + (d.getMinutes() / 60) + (d.getSeconds() / 3600);
+                                                const leftPercent = (hourDec / 24) * 100;
+                                                const widthPercent = (log.durationSeconds / 3600 / 24) * 100;
+
+                                                return (
+                                                    <div
+                                                        key={lidx}
+                                                        className="absolute top-1 bottom-1 bg-orange-500 rounded-sm hover:bg-orange-400 hover:scale-y-110 hover:z-10 transition-all group/block cursor-pointer"
+                                                        style={{ left: `${Math.max(0, leftPercent)}%`, width: `${Math.max(0.1, widthPercent)}%` }}
+                                                    >
+                                                        <div className="absolute opacity-0 group-hover/block:opacity-100 bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black border border-white/10 text-white text-[10px] py-1.5 px-3 rounded-lg whitespace-nowrap pointer-events-none z-50 shadow-xl">
+                                                            <div className="font-bold text-orange-400">{d.toLocaleTimeString()}</div>
+                                                            <div className="text-slate-300">{log.activeWindow} ({log.durationSeconds}s)</div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : (
