@@ -70,8 +70,14 @@ const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | un
 export const Reports: React.FC = () => {
     const { projects, engineers, entries, attendance, timeEntries, appUsageLogs } = useData();
     const [view, setView] = useState<'projects' | 'engineers' | 'timeclock' | 'activity'>('projects');
+    const [showWorkAppsOnly, setShowWorkAppsOnly] = useState(false);
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
+
+    const WORK_PROGRAMS = [
+        "AutoCAD", "Revit", "ETABS", "SAFE", "Excel", "PowerPoint", "Word",
+        "SketchUp", "Lumion", "Twinmotion", "3ds Max", "Archicad"
+    ];
 
     // Calculate Project Stats
     const projectStats = projects.map(project => {
@@ -217,22 +223,26 @@ export const Reports: React.FC = () => {
     const dailyActivityStats = React.useMemo(() => {
         const stats: any[] = [];
         appUsageLogs.forEach(log => {
+            if (showWorkAppsOnly) {
+                const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
+                if (!isWorkApp) return;
+            }
+
             const date = new Date(log.timestamp).toISOString().split('T')[0];
             const eng = engineers.find(e => e.id === log.engineerId);
-            if (!eng) return;
 
             stats.push({
                 id: log.id,
                 date,
                 timestamp: new Date(log.timestamp).toLocaleTimeString(),
                 rawTimestamp: new Date(log.timestamp).getTime(),
-                engineerName: eng.name,
+                engineerName: eng ? eng.name : 'Unknown Engineer',
                 activeWindow: log.activeWindow,
                 durationSeconds: log.durationSeconds
             });
         });
         return stats.sort((a, b) => b.rawTimestamp - a.rawTimestamp); // sort newest first
-    }, [appUsageLogs, engineers]);
+    }, [appUsageLogs, engineers, showWorkAppsOnly]);
 
     const exportCSV = (data: any[], fileName: string) => {
         let headers: string[] = [];
@@ -498,10 +508,32 @@ export const Reports: React.FC = () => {
                 </div>
             ) : view === 'activity' ? (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-6">
-                        <Activity className="w-5 h-5 text-orange-500" />
-                        APPLICATION ACTIVITY TIMELINE (ADMIN VIEW)
-                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                            <Activity className="w-5 h-5 text-orange-500" />
+                            APPLICATION ACTIVITY TIMELINE (ADMIN VIEW)
+                        </h3>
+                        <div className="flex bg-white/5 p-1 rounded-xl">
+                            <button
+                                onClick={() => setShowWorkAppsOnly(false)}
+                                className={clsx(
+                                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                                    !showWorkAppsOnly ? "bg-white text-black" : "text-slate-500 hover:text-white"
+                                )}
+                            >
+                                All Applications
+                            </button>
+                            <button
+                                onClick={() => setShowWorkAppsOnly(true)}
+                                className={clsx(
+                                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                                    showWorkAppsOnly ? "bg-orange-500 text-white" : "text-slate-500 hover:text-white"
+                                )}
+                            >
+                                Architecture Software
+                            </button>
+                        </div>
+                    </div>
                     <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 bg-[#0a0a0a] z-10">
