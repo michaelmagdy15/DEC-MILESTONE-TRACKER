@@ -263,7 +263,7 @@ export const Reports: React.FC = () => {
                 } else if (view === 'activity') {
                     return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, item.durationSeconds];
                 }
-            }).map(row => row.join(','))
+            }).filter((row): row is any[] => row !== undefined).map(row => row.join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
