@@ -47,6 +47,94 @@ h1 {
   line-height: 1.1;
 }
 
+/* ─── Global Responsive Overrides ─── */
+/* Ensures all pages with large rounded corners and padding look correct on small screens */
+@media (max-width: 767px) {
+  /* Clamp oversized border-radius */
+  [class*="rounded-[32px]"],
+  [class*="rounded-[40px]"] {
+    border-radius: 1rem !important; /* rounded-2xl equivalent */
+  }
+
+  /* Clamp oversized padding */
+  [class*="p-8"],
+  [class*="p-10"] {
+    padding: 0.75rem !important;
+  }
+
+  /* Scale down large headings */
+  h1, h2, .text-4xl, .text-5xl {
+    font-size: clamp(1.25rem, 5vw, 2rem) !important;
+    line-height: 1.2 !important;
+  }
+  h3, .text-xl, .text-2xl {
+    font-size: clamp(1rem, 4vw, 1.5rem) !important;
+  }
+
+  /* Reduce large empty-state internal paddings */
+  [class*="py-32"] {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
+  [class*="py-20"] {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+  [class*="py-12"] {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  /* Compact page-level gaps */
+  [class*="space-y-8"] {
+    --tw-space-y-reverse: 0;
+    gap: 1rem;
+  }
+  [class*="gap-8"] {
+    gap: 1rem !important;
+  }
+  [class*="gap-6"] {
+    gap: 0.75rem !important;
+  }
+
+  /* Compact table cells */
+  th, td {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Compact form panels */
+  .space-y-6 > * + * {
+    margin-top: 0.75rem;
+  }
+
+  /* Sidebar form containers */
+  [class*="p-10"] {
+    padding: 1rem !important;
+  }
+
+  /* Large icon containers */
+  [class*="w-24"][class*="h-24"] {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+
+  /* Reduce icon margins */
+  [class*="mb-10"], [class*="mb-8"] {
+    margin-bottom: 1rem !important;
+  }
+}
+
+/* Tablet tweaks (768-1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  [class*="rounded-[40px]"] {
+    border-radius: 1.5rem !important;
+  }
+  [class*="p-10"] {
+    padding: 1.5rem !important;
+  }
+}
+
 @media print {
 
   aside,

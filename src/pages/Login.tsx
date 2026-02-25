@@ -97,7 +97,7 @@ export const Login: React.FC = () => {
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full"></div>
             </div>
 
-            <div className="max-w-md w-full space-y-8 bg-[#1a1a1a]/40 backdrop-blur-2xl p-10 rounded-[32px] border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10 transition-all duration-500 hover:border-white/10">
+            <div className="max-w-md w-full space-y-6 md:space-y-8 bg-[#1a1a1a]/40 backdrop-blur-2xl p-6 md:p-10 rounded-2xl md:rounded-[32px] border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10 transition-all duration-500 hover:border-white/10">
                 <div className="flex flex-col items-center">
                     <div className="w-24 h-24 mb-8 relative">
                         <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full"></div>

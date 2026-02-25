@@ -1,14 +1,28 @@
 
+import { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase } from 'lucide-react';
+import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 
 export const Dashboard = () => {
-    const { projects, engineers, entries, timeEntries } = useData();
+    const { projects, engineers, entries, timeEntries, clearMonthlyData } = useData();
     const { role } = useAuth();
+
+    // Configurable target hours (persisted in localStorage)
+    const [targetHours, setTargetHours] = useState(() => {
+        const saved = localStorage.getItem('dec_target_hours');
+        return saved ? parseInt(saved) : 100;
+    });
+    const [isClearing, setIsClearing] = useState(false);
+    const [clearSuccess, setClearSuccess] = useState(false);
+
+    const updateTargetHours = (val: number) => {
+        setTargetHours(val);
+        localStorage.setItem('dec_target_hours', val.toString());
+    };
 
     // Filter entries: Everyone sees all for stats and overview
     const filteredEntries = entries;
@@ -54,72 +68,83 @@ export const Dashboard = () => {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 
+    const handleClearData = async () => {
+        if (!window.confirm('⚠️ This will permanently delete all entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings.\n\nProjects, engineers, and files will be kept.\n\nAre you sure?')) return;
+        if (!window.confirm('This action CANNOT be undone. Type confirm by clicking OK.')) return;
+        setIsClearing(true);
+        setClearSuccess(false);
+        await clearMonthlyData();
+        setIsClearing(false);
+        setClearSuccess(true);
+        setTimeout(() => setClearSuccess(false), 3000);
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-8"
+            className="space-y-4 md:space-y-8"
         >
-            <div className="text-center md:text-left mb-8 relative">
-                <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
+            <div className="text-center md:text-left mb-4 md:mb-8 relative">
+                <h2 className="text-2xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter mb-1 md:mb-2">
                     Insight <span className="text-orange-400">Dashboard</span>
                 </h2>
-                <div className="h-1 w-20 bg-orange-500 rounded-full mb-4 md:mx-0 mx-auto"></div>
-                <p className="text-slate-500 font-medium tracking-wide prose max-w-none">DEC Engineering Consultant Milestone Tracker</p>
+                <div className="h-1 w-16 md:w-20 bg-orange-500 rounded-full mb-2 md:mb-4 md:mx-0 mx-auto"></div>
+                <p className="text-slate-500 font-medium tracking-wide text-xs md:text-base">DEC Engineering Consultant Milestone Tracker</p>
             </div>
 
             {/* Metric Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-14 h-14 bg-orange-500/10 text-orange-400 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(79,70,229,0.1)] group-hover:bg-orange-500/20 transition-all duration-500">
-                            <FolderKanban className="w-7 h-7" />
+                        <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-500/10 text-orange-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(79,70,229,0.1)] group-hover:bg-orange-500/20 transition-all duration-500">
+                            <FolderKanban className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
                         <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Active Projects</p>
-                        <p className="text-4xl font-black text-white">{activeProjectsCount} <span className="text-sm font-bold text-slate-600">/ {projects.length}</span></p>
+                        <p className="text-2xl md:text-4xl font-black text-white">{activeProjectsCount} <span className="text-sm font-bold text-slate-600">/ {projects.length}</span></p>
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
+                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-14 h-14 bg-orange-400/10 text-orange-300 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(99,102,241,0.1)] group-hover:bg-orange-400/20 transition-all duration-500">
-                            <Users className="w-7 h-7" />
+                        <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-400/10 text-orange-300 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(99,102,241,0.1)] group-hover:bg-orange-400/20 transition-all duration-500">
+                            <Users className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
                         <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Total Engineers</p>
-                        <p className="text-4xl font-black text-white">{engineers.length}</p>
+                        <p className="text-2xl md:text-4xl font-black text-white">{engineers.length}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-emerald-500/30 hover:-translate-y-1">
+                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-emerald-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-14 h-14 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(16,185,129,0.1)] group-hover:bg-emerald-500/20 transition-all duration-500">
-                            <Clock className="w-7 h-7" />
+                        <div className="w-10 h-10 md:w-14 md:h-14 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(16,185,129,0.1)] group-hover:bg-emerald-500/20 transition-all duration-500">
+                            <Clock className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
                         <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Hours This Week</p>
-                        <p className="text-4xl font-black text-white">{weeklyHours.toFixed(1)}</p>
+                        <p className="text-2xl md:text-4xl font-black text-white">{weeklyHours.toFixed(1)}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-8 rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-purple-500/30 hover:-translate-y-1">
+                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-purple-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-14 h-14 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(168, 85, 247, 0.1)] group-hover:bg-purple-500/20 transition-all duration-500">
-                            <TrendingUp className="w-7 h-7" />
+                        <div className="w-10 h-10 md:w-14 md:h-14 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(168, 85, 247, 0.1)] group-hover:bg-purple-500/20 transition-all duration-500">
+                            <TrendingUp className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
                         <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Total Logged</p>
-                        <p className="text-4xl font-black text-white">{totalHours.toFixed(0)} <span className="text-sm font-bold text-slate-600 tracking-normal capitalize">hrs</span></p>
+                        <p className="text-2xl md:text-4xl font-black text-white">{totalHours.toFixed(0)} <span className="text-sm font-bold text-slate-600 tracking-normal capitalize">hrs</span></p>
                     </div>
                 </div>
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                 {/* Recent Activity */}
-                <div className="lg:col-span-2 bg-[#1a1a1a]/40 rounded-[32px] border border-white/5 p-8 backdrop-blur-3xl relative overflow-hidden group min-h-[500px]">
+                <div className="lg:col-span-2 bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden group min-h-[200px] md:min-h-[500px]">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.02), rgba(16, 185, 129, 0.02))' }} />
                     <div className="relative z-10 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
@@ -170,31 +195,31 @@ export const Dashboard = () => {
 
                 {/* Quick Actions / Side Panel */}
                 <div className="space-y-6">
-                    <div className="bg-[#1a1a1a]/40 border border-white/5 rounded-[32px] p-8 text-white shadow-2xl backdrop-blur-3xl relative overflow-hidden group">
+                    <div className="bg-[#1a1a1a]/40 border border-white/5 rounded-2xl md:rounded-[32px] p-4 md:p-8 text-white shadow-2xl backdrop-blur-3xl relative overflow-hidden group">
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.1), transparent)' }} />
                         <div className="relative z-10">
                             <h3 className="font-black text-lg mb-6 text-white tracking-tight">Capacity Goal</h3>
                             <div className="flex items-end gap-3 mb-6">
-                                <span className="text-5xl font-black text-white">{weeklyHours.toFixed(0)}</span>
-                                <span className="text-slate-600 font-bold mb-2 uppercase tracking-widest text-xs">/ 100 hrs</span>
+                                <span className="text-3xl md:text-5xl font-black text-white">{weeklyHours.toFixed(0)}</span>
+                                <span className="text-slate-600 font-bold mb-2 uppercase tracking-widest text-[10px] md:text-xs">/ {targetHours} hrs</span>
                             </div>
                             <div className="w-full bg-white/5 rounded-full h-3 mb-6 overflow-hidden border border-white/5 p-0.5">
                                 <div
                                     className="bg-gradient-to-r from-orange-500 to-orange-400 h-full rounded-full transition-all duration-1000 relative"
-                                    style={{ width: `${Math.min(100, (weeklyHours / 100) * 100)}% ` }}
+                                    style={{ width: `${Math.min(100, (weeklyHours / targetHours) * 100)}% ` }}
                                 >
                                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
                                 </div>
                             </div>
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                                 {role === 'admin'
-                                    ? `Team is at ${Math.round((weeklyHours / 100) * 100)}% of objective.`
-                                    : `You've achieved ${Math.round((weeklyHours / 40) * 100)}% of your target.`}
+                                    ? `Team is at ${Math.round((weeklyHours / targetHours) * 100)}% of objective.`
+                                    : `You've achieved ${Math.round((weeklyHours / targetHours) * 100)}% of your target.`}
                             </p>
                         </div>
                     </div>
 
-                    <div className="bg-[#1a1a1a]/40 rounded-[32px] border border-white/5 p-8 backdrop-blur-3xl relative overflow-hidden group">
+                    <div className="bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden group">
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), transparent)' }} />
                         <div className="relative z-10">
                             <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
@@ -214,6 +239,60 @@ export const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Admin Panel */}
+            {role === 'admin' && (
+                <div className="bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden">
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
+                    <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
+                        <Settings className="w-5 h-5 text-orange-400" />
+                        Admin Controls
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Target Hours */}
+                        <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
+                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Capacity Target (Hours)</h4>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="number"
+                                    value={targetHours}
+                                    onChange={(e) => updateTargetHours(Math.max(1, parseInt(e.target.value) || 100))}
+                                    className="w-32 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-2xl font-black text-center focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                                    min="1"
+                                />
+                                <span className="text-slate-500 font-bold text-sm uppercase tracking-wider">hours goal</span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-3">This target is shown on the Capacity Goal progress bar above.</p>
+                        </div>
+
+                        {/* Clear Monthly Data */}
+                        <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
+                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Monthly Reset</h4>
+                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                                Clear all entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings. <strong className="text-red-400">Projects, engineers, and files are kept.</strong>
+                            </p>
+                            {clearSuccess ? (
+                                <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                                    <CheckCircle2 className="w-5 h-5" />
+                                    System data cleared successfully!
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleClearData}
+                                    disabled={isClearing}
+                                    className="flex items-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-xl font-bold text-sm uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                    {isClearing ? (
+                                        <><RotateCcw className="w-4 h-4 animate-spin" /> Clearing...</>
+                                    ) : (
+                                        <><Trash2 className="w-4 h-4" /> Clear System Data</>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </motion.div>
     );
 };

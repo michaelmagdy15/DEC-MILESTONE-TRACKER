@@ -53,7 +53,7 @@ export const ResetPassword: React.FC = () => {
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="max-w-md w-full space-y-8 bg-[#1a1a1a]/60 p-10 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative z-10"
+                className="max-w-md w-full space-y-6 md:space-y-8 bg-[#1a1a1a]/60 p-6 md:p-10 rounded-2xl md:rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative z-10"
             >
                 <div className="text-center">
                     <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-[28px] bg-white/5 border border-white/5 shadow-inner">

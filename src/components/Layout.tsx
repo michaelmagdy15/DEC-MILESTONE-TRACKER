@@ -310,7 +310,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </div>
                 </div>
 
-                <div className="w-full h-full p-6 lg:p-8 overflow-y-auto">
+                <div className="w-full h-full p-3 md:p-6 lg:p-8 overflow-y-auto">
                     {children}
                 </div>
             </main>

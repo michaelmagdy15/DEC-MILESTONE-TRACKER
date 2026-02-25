@@ -19,6 +19,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [engineerId, setEngineerId] = useState<string | null>(null);
     const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
+    // HARD SAFETY: Force auth loading to stop after 8 seconds no matter what.
+    // This prevents the "Synchronizing Session" screen from hanging forever.
+    useEffect(() => {
+        const safetyTimer = setTimeout(() => {
+            setIsLoadingAuth(prev => {
+                if (prev) console.warn('AuthContext: Safety timeout fired — forcing isLoadingAuth to false');
+                return false;
+            });
+        }, 8000);
+        return () => clearTimeout(safetyTimer);
+    }, []);
+
     const fetchUserRole = async (userId: string) => {
         try {
             const { data, error } = await supabase
@@ -62,8 +74,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const initializeAuth = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) throw error;
+                // Race getSession against a timeout to prevent infinite "Synchronizing Session" hang.
+                // This commonly happens when multiple tabs compete for navigator.locks.
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('Session init timeout')), 5000)
+                );
+
+                let session;
+                try {
+                    const result = await Promise.race([sessionPromise, timeoutPromise]) as Awaited<typeof sessionPromise>;
+                    if (result.error) throw result.error;
+                    session = result.data.session;
+                } catch (timeoutErr) {
+                    console.warn('AuthContext: getSession timed out, attempting localStorage fallback');
+                    // Fallback: read the session directly from localStorage.
+                    // Supabase default key format: sb-<project-ref>-auth-token
+                    const storageKey = 'sb-wvzfjhovumhwlrcawcwf-auth-token';
+                    const raw = localStorage.getItem(storageKey);
+                    if (raw) {
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (parsed?.access_token && parsed?.refresh_token) {
+                                const { data, error } = await supabase.auth.setSession({
+                                    access_token: parsed.access_token,
+                                    refresh_token: parsed.refresh_token
+                                });
+                                if (!error && data.session) {
+                                    session = data.session;
+                                }
+                            }
+                        } catch { /* corrupt storage, ignore */ }
+                    }
+                }
 
                 if (session?.user) {
                     if (mounted) setUser(session.user);
@@ -87,28 +130,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             async (event, session) => {
                 if (!mounted) return;
 
-                // USER_UPDATED fires when password/email is changed while already logged in.
-                // We do NOT want to re-fetch role or clear state in that case.
-                if (event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
-                    return;
-                }
+                // INITIAL_SESSION is handled by initializeAuth — skip to avoid double processing
+                if (event === 'INITIAL_SESSION') return;
 
+                // For ALL events: silently update user and role without showing loading screen.
+                // The loading screen is ONLY controlled by initializeAuth + safety timeout.
                 try {
-                    setIsLoadingAuth(true);
                     if (session?.user) {
                         setUser(session.user);
-                        await fetchUserRole(session.user.id);
-                    } else {
+                        // Only re-fetch role on SIGNED_IN (new login)
+                        if (event === 'SIGNED_IN') {
+                            await fetchUserRole(session.user.id);
+                        }
+                    } else if (event === 'SIGNED_OUT') {
                         setUser(null);
                         setRole(null);
                         setEngineerId(null);
                     }
                 } catch (err) {
                     console.error('Auth state change error:', err);
-                    setUser(null);
-                    setRole(null);
-                    setEngineerId(null);
                 } finally {
+                    // Always ensure loading is cleared after any auth event
                     if (mounted) setIsLoadingAuth(false);
                 }
             }

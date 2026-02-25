@@ -53,6 +53,8 @@ interface DataContextType {
     addTimeEntry: (entry: TimeEntry) => Promise<void>;
     updateTimeEntry: (entry: TimeEntry) => Promise<void>;
 
+    clearMonthlyData: () => Promise<void>;
+
     isLoading: boolean;
 }
 
@@ -73,170 +75,107 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
+    const hasLoadedOnce = React.useRef(false);
 
-    const fetchData = async (showLoading: boolean = false) => {
+    // SAFETY: Force data loading to stop after 10 seconds (only matters for the initial load)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(prev => {
+                if (prev) console.warn('DataContext: Safety timeout fired — forcing isLoading to false');
+                return false;
+            });
+        }, 10000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    const fetchData = async (isInitialLoad: boolean = false) => {
         try {
-            if (showLoading) setIsLoading(true);
+            // Only show loading on the very first fetch — never again
+            if (isInitialLoad && !hasLoadedOnce.current) setIsLoading(true);
 
-            // Fetch projects
-            const projectsRes = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-            if (projectsRes.error) console.error('Error fetching projects:', projectsRes.error);
-            else {
-                setProjects(projectsRes.data.map((p: any) => ({
-                    id: p.id,
-                    name: p.name,
-                    hourlyRate: p.hourly_rate,
-                    budget: p.budget || 0,
-                    phase: p.phase || 'Planning'
-                })));
-            }
+            // Each table fetch is independent — one failure won't block others
+            const fetchTable = async (
+                table: string,
+                mapper: (row: any) => any,
+                setter: (data: any) => void,
+                orderBy: string = 'created_at',
+                ascending: boolean = false
+            ) => {
+                try {
+                    const { data, error } = await supabase.from(table).select('*').order(orderBy, { ascending });
+                    if (error) { console.error(`Error fetching ${table}:`, error); return; }
+                    if (data) setter(data.map(mapper));
+                } catch (err) {
+                    console.error(`Exception fetching ${table}:`, err);
+                }
+            };
 
-            // Fetch engineers
-            const engineersRes = await supabase.from('engineers').select('*').order('created_at', { ascending: false });
-            if (engineersRes.error) console.error('Error fetching engineers:', engineersRes.error);
-            else {
+            // Fire ALL fetches in parallel — each is independent
+            await Promise.allSettled([
+                fetchTable('projects', (p: any) => ({
+                    id: p.id, name: p.name, hourlyRate: p.hourly_rate,
+                    budget: p.budget || 0, phase: p.phase || 'Planning'
+                }), setProjects),
 
-                setEngineers(engineersRes.data.map((e: any) => ({
-                    id: e.id,
-                    name: e.name,
-                    role: e.role,
-                    hourlyRate: e.hourly_rate,
-                    weeklyGoalHours: e.weekly_goal_hours
-                })));
-            }
+                fetchTable('engineers', (e: any) => ({
+                    id: e.id, name: e.name, role: e.role,
+                    hourlyRate: e.hourly_rate, weeklyGoalHours: e.weekly_goal_hours
+                }), setEngineers),
 
-            // Fetch entries
-            const entriesRes = await supabase.from('entries').select('*').order('date', { ascending: false });
-            if (entriesRes.error) console.error('Error fetching entries:', entriesRes.error);
-            else {
-                setEntries(entriesRes.data.map((e: any) => ({
-                    id: e.id,
-                    projectId: e.project_id,
-                    engineerId: e.engineer_id,
-                    date: e.date,
-                    taskDescription: e.task_description,
-                    softwareUsed: e.software_used || [],
-                    timeSpent: e.time_spent,
-                    milestone: e.milestone,
-                    tags: e.tags || []
-                })));
-            }
+                fetchTable('entries', (e: any) => ({
+                    id: e.id, projectId: e.project_id, engineerId: e.engineer_id,
+                    date: e.date, taskDescription: e.task_description,
+                    softwareUsed: e.software_used || [], timeSpent: e.time_spent,
+                    milestone: e.milestone, tags: e.tags || []
+                }), setEntries, 'date'),
 
-            // Fetch attendance
-            const attendanceRes = await supabase.from('attendance').select('*').order('date', { ascending: false });
-            if (attendanceRes.error) console.error('Error fetching attendance:', attendanceRes.error);
-            else {
-                setAttendance(attendanceRes.data.map((a: any) => ({
-                    id: a.id,
-                    engineerId: a.engineer_id,
-                    date: a.date,
-                    status: a.status
-                })));
-            }
+                fetchTable('attendance', (a: any) => ({
+                    id: a.id, engineerId: a.engineer_id, date: a.date,
+                    status: a.status, checkIn: a.check_in, checkOut: a.check_out
+                }), setAttendance, 'date'),
 
-            // Fetch milestones
-            const milestonesRes = await supabase.from('milestones').select('*').order('created_at', { ascending: false });
-            if (milestonesRes.error) console.error('Error fetching milestones:', milestonesRes.error);
-            else {
-                setMilestones(milestonesRes.data.map((m: any) => ({
-                    id: m.id,
-                    projectId: m.project_id,
-                    name: m.name,
-                    targetDate: m.target_date,
-                    completedPercentage: m.completed_percentage || 0,
+                fetchTable('milestones', (m: any) => ({
+                    id: m.id, projectId: m.project_id, name: m.name,
+                    targetDate: m.target_date, completedPercentage: m.completed_percentage,
                     createdAt: m.created_at
-                })));
-            }
+                }), setMilestones),
 
-            // Fetch tasks
-            const tasksRes = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-            if (tasksRes.error) console.error('Error fetching tasks:', tasksRes.error);
-            else {
-                setTasks(tasksRes.data.map((t: any) => ({
-                    id: t.id,
-                    projectId: t.project_id,
-                    milestoneId: t.milestone_id,
-                    engineerId: t.engineer_id,
-                    title: t.title,
-                    description: t.description,
-                    status: t.status,
-                    dueDate: t.due_date,
-                    createdAt: t.created_at
-                })));
-            }
+                fetchTable('tasks', (t: any) => ({
+                    id: t.id, projectId: t.project_id, milestoneId: t.milestone_id,
+                    engineerId: t.engineer_id, title: t.title,
+                    description: t.description, status: t.status, createdAt: t.created_at
+                }), setTasks),
 
-            // Fetch leave requests
-            const leaveRequestsRes = await supabase.from('leave_requests').select('*').order('created_at', { ascending: false });
-            if (leaveRequestsRes.error) console.error('Error fetching leave_requests:', leaveRequestsRes.error);
-            else {
-                setLeaveRequests(leaveRequestsRes.data.map((l: any) => ({
-                    id: l.id,
-                    engineerId: l.engineer_id,
-                    startDate: l.start_date,
-                    endDate: l.end_date,
-                    reason: l.reason,
-                    status: l.status,
-                    createdAt: l.created_at
-                })));
-            }
+                fetchTable('leave_requests', (l: any) => ({
+                    id: l.id, engineerId: l.engineer_id, startDate: l.start_date,
+                    endDate: l.end_date, reason: l.reason, status: l.status
+                }), setLeaveRequests),
 
-            // Fetch notifications
-            const notificationsRes = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
-            if (notificationsRes.error) console.error('Error fetching notifications:', notificationsRes.error);
-            else {
-                setNotifications(notificationsRes.data.map((n: any) => ({
-                    id: n.id,
-                    engineerId: n.engineer_id,
-                    message: n.message,
-                    isRead: n.is_read,
-                    createdAt: n.created_at
-                })));
-            }
+                fetchTable('notifications', (n: any) => ({
+                    id: n.id, engineerId: n.engineer_id, message: n.message,
+                    isRead: n.is_read, createdAt: n.created_at
+                }), setNotifications),
 
-            // Fetch meetings
-            const meetingsRes = await supabase.from('meetings').select('*').order('date', { ascending: true });
-            if (meetingsRes.error) console.error('Error fetching meetings:', meetingsRes.error);
-            else {
-                setMeetings(meetingsRes.data.map((m: any) => ({
-                    id: m.id,
-                    title: m.title,
-                    description: m.description,
-                    date: m.date,
-                    time: m.time,
-                    type: m.type,
-                    locationOrLink: m.location_or_link,
-                    createdAt: m.created_at
-                })));
-            }
+                fetchTable('meetings', (m: any) => ({
+                    id: m.id, title: m.title, description: m.description,
+                    date: m.date, time: m.time, type: m.type,
+                    participants: m.participants, locationOrLink: m.location_or_link,
+                    createdBy: m.created_by, createdAt: m.created_at
+                }), setMeetings),
 
-            // Fetch projectFiles
-            const projectFilesRes = await supabase.from('project_files').select('*').order('created_at', { ascending: false });
-            if (projectFilesRes.error) console.error('Error fetching project_files:', projectFilesRes.error);
-            else {
-                setProjectFiles(projectFilesRes.data.map((pf: any) => ({
-                    id: pf.id,
-                    projectId: pf.project_id,
-                    name: pf.name,
-                    fileFormat: pf.file_format,
-                    fileUrl: pf.file_url,
-                    uploadedBy: pf.uploaded_by,
-                    createdAt: pf.created_at
-                })));
-            }
+                fetchTable('project_files', (f: any) => ({
+                    id: f.id, projectId: f.project_id, name: f.name,
+                    fileFormat: f.file_format, fileUrl: f.file_url,
+                    uploadedBy: f.uploaded_by, createdAt: f.created_at
+                }), setProjectFiles),
 
-            // Fetch timeEntries
-            const timeEntriesRes = await supabase.from('time_entries').select('*').order('start_time', { ascending: false });
-            if (timeEntriesRes.error) console.error('Error fetching time_entries:', timeEntriesRes.error);
-            else {
-                setTimeEntries(timeEntriesRes.data.map((te: any) => ({
-                    id: te.id,
-                    engineerId: te.engineer_id,
-                    entryType: te.entry_type,
-                    startTime: te.start_time,
-                    endTime: te.end_time,
-                    createdAt: te.created_at
-                })));
-            }
+                fetchTable('time_entries', (te: any) => ({
+                    id: te.id, engineerId: te.engineer_id, entryType: te.entry_type,
+                    startTime: te.start_time, endTime: te.end_time, createdAt: te.created_at
+                }), setTimeEntries),
+            ]);
+
+            hasLoadedOnce.current = true;
 
         } catch (error) {
             console.error('Fatal Error during fetchData:', error);
@@ -252,61 +191,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchData(true);
 
         const channels = supabase.channel('custom-all-channel')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'projects' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'engineers' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'entries' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'attendance' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'milestones' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'tasks' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'leave_requests' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'notifications' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'meetings' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'project_files' },
-                () => { fetchData() }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'time_entries' },
-                () => { fetchData() }
-            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'engineers' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'milestones' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'project_files' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries' }, () => { fetchData() })
             .subscribe();
 
         return () => {
@@ -622,6 +517,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         else await fetchData();
     };
 
+    // Clear transient monthly data — keeps projects, engineers, and project files
+    const clearMonthlyData = async () => {
+        try {
+            setIsLoading(true);
+            const tables = ['entries', 'attendance', 'tasks', 'milestones', 'time_entries', 'notifications', 'leave_requests', 'meetings'];
+            for (const table of tables) {
+                const { error } = await supabase.from(table).delete().neq('id', '');
+                if (error) console.error(`Error clearing ${table}:`, error);
+            }
+            // Reset local state
+            setEntries([]);
+            setAttendance([]);
+            setTasks([]);
+            setMilestones([]);
+            setTimeEntries([]);
+            setNotifications([]);
+            setLeaveRequests([]);
+            setMeetings([]);
+        } catch (err) {
+            console.error('Error clearing monthly data:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <DataContext.Provider value={{
             projects,
@@ -664,6 +584,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             deleteProjectFile,
             addTimeEntry,
             updateTimeEntry,
+            clearMonthlyData,
             isLoading
         }}>
             {children}

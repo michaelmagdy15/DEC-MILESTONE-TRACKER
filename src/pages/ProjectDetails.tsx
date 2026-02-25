@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, File, Upload, Trash2, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, File, Upload, Trash2, Download, ClipboardList } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
 import { supabase } from '../lib/supabase';
@@ -10,15 +10,16 @@ import { supabase } from '../lib/supabase';
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { projects, milestones, tasks, engineers, addMilestone, addTask, updateTask, addNotification, projectFiles, addProjectFile, deleteProjectFile } = useData();
+    const { projects, milestones, tasks, engineers, entries, addMilestone, addTask, updateTask, addNotification, projectFiles, addProjectFile, deleteProjectFile, isLoading } = useData();
     const { role, engineerId: currentEngineerId, user } = useAuth();
 
     const project = projects.find(p => p.id === id);
     const projectMilestones = milestones.filter(m => m.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const projectTasks = tasks.filter(t => t.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const pFiles = projectFiles.filter(f => f.projectId === id).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const projectEntries = entries.filter(e => e.projectId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const [activeTab, setActiveTab] = useState<'milestones' | 'files'>('milestones');
+    const [activeTab, setActiveTab] = useState<'milestones' | 'files' | 'entries'>('milestones');
     const [isUploading, setIsUploading] = useState(false);
 
     // UI state
@@ -31,7 +32,19 @@ export const ProjectDetails: React.FC = () => {
     const [taskDesc, setTaskDesc] = useState('');
     const [taskEngineer, setTaskEngineer] = useState('');
 
-    if (!project) return <div className="p-8 text-center text-slate-500">Project not found</div>;
+    if (!project) {
+        if (isLoading) {
+            return (
+                <div className="min-h-[50vh] flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
+                        <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Loading Project Data</p>
+                    </div>
+                </div>
+            );
+        }
+        return <div className="p-8 text-center text-slate-500">Project not found</div>;
+    }
 
     const handleAddMilestone = (e: React.FormEvent) => {
         e.preventDefault();
@@ -208,6 +221,12 @@ export const ProjectDetails: React.FC = () => {
                     className={`px-6 py-4 font-bold uppercase tracking-widest text-xs transition-colors border-b-2 ${activeTab === 'files' ? 'text-orange-400 border-orange-500' : 'text-slate-500 border-transparent hover:text-white'}`}
                 >
                     Project Files
+                </button>
+                <button
+                    onClick={() => setActiveTab('entries')}
+                    className={`px-6 py-4 font-bold uppercase tracking-widest text-xs transition-colors border-b-2 ${activeTab === 'entries' ? 'text-orange-400 border-orange-500' : 'text-slate-500 border-transparent hover:text-white'}`}
+                >
+                    Activity Log ({projectEntries.length})
                 </button>
             </div>
 
@@ -524,6 +543,82 @@ export const ProjectDetails: React.FC = () => {
                                 </div>
                             )
                         })
+                    )}
+                </motion.div>
+            )}
+            {activeTab === 'entries' && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-4"
+                >
+                    {projectEntries.length === 0 ? (
+                        <div className="text-center py-32 bg-[#1a1a1a]/40 rounded-[40px] border border-dashed border-white/5 backdrop-blur-3xl">
+                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/5">
+                                <ClipboardList className="w-10 h-10 text-slate-700" />
+                            </div>
+                            <h3 className="text-xl font-black text-white tracking-tight">No entries logged</h3>
+                            <p className="text-slate-500 font-medium mt-2">Engineers haven't logged any work for this project yet.</p>
+                        </div>
+                    ) : (
+                        <div className="bg-[#1a1a1a]/40 rounded-[32px] border border-white/5 overflow-hidden backdrop-blur-3xl">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-white/5">
+                                            <th className="text-left px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Engineer</th>
+                                            <th className="text-left px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Date</th>
+                                            <th className="text-left px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Task</th>
+                                            <th className="text-left px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Software</th>
+                                            <th className="text-right px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Hours</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {projectEntries.map(entry => {
+                                            const engineer = engineers.find(e => e.id === entry.engineerId);
+                                            return (
+                                                <tr key={entry.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-400 font-black text-xs border border-orange-500/20">
+                                                                {engineer?.name?.charAt(0) || '?'}
+                                                            </div>
+                                                            <span className="text-white font-bold text-sm">{engineer?.name || 'Unknown'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-slate-400 text-sm font-medium">
+                                                        {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-white text-sm font-medium max-w-xs">
+                                                        <p className="truncate">{entry.taskDescription}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {entry.softwareUsed?.map((sw, i) => (
+                                                                <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-[10px] font-bold text-slate-400 border border-white/5">{sw}</span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className="text-white font-black text-lg">{entry.timeSpent}</span>
+                                                        <span className="text-slate-600 text-xs ml-1">hrs</span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="border-t border-white/10">
+                                            <td colSpan={4} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Total</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="text-orange-400 font-black text-lg">{projectEntries.reduce((sum, e) => sum + e.timeSpent, 0).toFixed(1)}</span>
+                                                <span className="text-slate-600 text-xs ml-1">hrs</span>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
                     )}
                 </motion.div>
             )}

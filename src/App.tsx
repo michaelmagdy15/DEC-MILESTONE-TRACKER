@@ -1,5 +1,4 @@
-// ... Removed useLocation since it threw a warning, returning back to previous imports
-
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './context/DataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -18,6 +17,21 @@ import { Profile } from './pages/Profile';
 import { Financials } from './pages/Financials';
 import { Emails } from './pages/Emails';
 import { Meetings } from './pages/Meetings';
+
+/**
+ * Lightweight component that captures the Zoho OAuth callback code,
+ * stashes it in sessionStorage, and redirects to /emails.
+ * This runs OUTSIDE ProtectedRoute so the code is never lost
+ * even if auth hasn't loaded yet.
+ */
+const ZohoCallbackRedirect = () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    sessionStorage.setItem('zoho_pending_code', code);
+  }
+  return <Navigate to="/emails" replace />;
+};
 
 const ProtectedRoute = ({ children, requireAdmin, requireEngineerOrAdmin, skipDataWait }: { children: React.ReactNode, requireAdmin?: boolean, requireEngineerOrAdmin?: boolean, skipDataWait?: boolean }) => {
   const { user, role, isLoadingAuth } = useAuth();
@@ -65,6 +79,8 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Zoho OAuth callback — must be OUTSIDE ProtectedRoute */}
+            <Route path="/emails/callback" element={<ZohoCallbackRedirect />} />
 
             <Route path="/*" element={
               <ProtectedRoute>

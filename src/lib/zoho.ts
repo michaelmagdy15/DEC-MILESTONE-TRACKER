@@ -1,7 +1,10 @@
 /**
  * Zoho Mail integration utility functions.
  * Manages OAuth flow and fetching emails from Zoho using the VITE proxy.
+ * Supports folder listing, email content fetching, and Supabase token persistence.
  */
+
+import { supabase } from './supabase';
 
 // We use relative paths in development which map to the Vite Proxy.
 // In production, these should map to the Nginx proxy configured in nginx.conf.
@@ -10,7 +13,9 @@ const ZOHO_MAIL_URL = import.meta.env.VITE_ZOHO_MAIL_URL || '/zoho-mail';
 
 const CLIENT_ID = import.meta.env.VITE_ZOHO_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.VITE_ZOHO_CLIENT_SECRET;
-const REDIRECT_URI = import.meta.env.VITE_ZOHO_REDIRECT_URI;
+// Always use current origin so auth request and token exchange use the same URI.
+// This works for both localhost:5173 (dev) and the Cloud Run domain (prod).
+const REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/emails/callback` : (import.meta.env.VITE_ZOHO_REDIRECT_URI || '');
 
 export interface ZohoTokenRequestOptions {
     code?: string;
@@ -34,7 +39,7 @@ export const getZohoAuthUrl = () => {
     const params = new URLSearchParams({
         response_type: 'code',
         client_id: CLIENT_ID,
-        scope: 'ZohoMail.accounts.READ,ZohoMail.messages.READ', // Scopes required for reading mail
+        scope: 'ZohoMail.accounts.READ,ZohoMail.messages.READ,ZohoMail.folders.READ', // Scopes for reading mail + folders
         redirect_uri: REDIRECT_URI,
         access_type: 'offline', // Offline access gives us a refresh token
         prompt: 'consent' // Force consent to ensure we always get a refresh token
@@ -64,11 +69,14 @@ export const exchangeCodeForTokens = async (code: string): Promise<ZohoTokenResp
         body: params.toString()
     });
 
-    if (!response.ok) {
-        throw new Error('Failed to exchange code for tokens');
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+        console.error('Zoho token exchange failed:', { status: response.status, body: data });
+        throw new Error(`Zoho token exchange failed: ${data.error || response.statusText} (HTTP ${response.status})`);
     }
 
-    return response.json();
+    return data;
 };
 
 /**
@@ -90,11 +98,14 @@ export const refreshAccessToken = async (refreshToken: string): Promise<ZohoToke
         body: params.toString()
     });
 
-    if (!response.ok) {
-        throw new Error('Failed to refresh token');
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+        console.error('Zoho token refresh failed:', { status: response.status, body: data });
+        throw new Error(`Zoho refresh failed: ${data.error || response.statusText} (HTTP ${response.status})`);
     }
 
-    return response.json();
+    return data;
 };
 
 /**
@@ -172,7 +183,9 @@ export const fetchZohoAccounts = async (accessToken: string): Promise<ZohoMailAc
     });
 
     if (!response.ok) {
-        throw new Error('Failed to fetch Zoho accounts');
+        const errBody = await response.text().catch(() => '');
+        console.error('Zoho accounts fetch failed:', { status: response.status, body: errBody });
+        throw new Error(`Failed to fetch Zoho accounts (HTTP ${response.status})`);
     }
 
     const data = await response.json();
@@ -187,9 +200,6 @@ export const fetchZohoEmails = async (
     accountId: string,
     limit: number = 20
 ) => {
-    // Query for recent emails in inbox. 
-    // Depending on Zoho's specific endpoint structure:
-    // Usually /api/accounts/{accountId}/messages/view
     const response = await fetch(`${ZOHO_MAIL_URL}/api/accounts/${accountId}/messages/view?limit=${limit}`, {
         headers: {
             Authorization: `Zoho-oauthtoken ${accessToken}`
@@ -197,9 +207,139 @@ export const fetchZohoEmails = async (
     });
 
     if (!response.ok) {
-        throw new Error('Failed to fetch Zoho emails');
+        const errBody = await response.text().catch(() => '');
+        console.error('Zoho emails fetch failed:', { status: response.status, body: errBody });
+        throw new Error(`Failed to fetch Zoho emails (HTTP ${response.status})`);
     }
 
     const data = await response.json();
     return data.data;
+};
+
+// --- Folder API ---
+
+export interface ZohoFolder {
+    folderId: string;
+    folderName: string;
+    folderType: string;
+    messageCount?: number;
+    unreadMessageCount?: number;
+}
+
+/**
+ * Fetch all folders for an account.
+ */
+export const fetchZohoFolders = async (accessToken: string, accountId: string): Promise<ZohoFolder[]> => {
+    const response = await fetch(`${ZOHO_MAIL_URL}/api/accounts/${accountId}/folders`, {
+        headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }
+    });
+
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.error('Zoho folders fetch failed:', { status: response.status, body: errBody });
+        throw new Error(`Failed to fetch Zoho folders (HTTP ${response.status})`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+};
+
+/**
+ * Fetch emails from a specific folder by folderId.
+ */
+export const fetchZohoEmailsByFolder = async (
+    accessToken: string,
+    accountId: string,
+    folderId: string,
+    limit: number = 20
+) => {
+    const response = await fetch(
+        `${ZOHO_MAIL_URL}/api/accounts/${accountId}/messages/view?folderId=${folderId}&limit=${limit}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.error('Zoho folder emails fetch failed:', { status: response.status, body: errBody });
+        throw new Error(`Failed to fetch folder emails (HTTP ${response.status})`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+};
+
+/**
+ * Fetch the full HTML content of a specific email.
+ */
+export const fetchZohoEmailContent = async (
+    accessToken: string,
+    accountId: string,
+    folderId: string,
+    messageId: string
+): Promise<string> => {
+    const response = await fetch(
+        `${ZOHO_MAIL_URL}/api/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content?includeBlockContent=true`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.error('Zoho email content fetch failed:', { status: response.status, body: errBody });
+        throw new Error(`Failed to fetch email content (HTTP ${response.status})`);
+    }
+
+    const data = await response.json();
+    return data.data?.content || '';
+};
+
+// --- Supabase Token Persistence ---
+
+/**
+ * Save Zoho refresh token and account ID to the user's engineer record in Supabase.
+ */
+export const saveZohoTokensToSupabase = async (
+    userId: string,
+    refreshToken: string,
+    accountId: string
+) => {
+    const { error } = await supabase
+        .from('engineers')
+        .update({ zoho_refresh_token: refreshToken, zoho_account_id: accountId })
+        .eq('id', userId);
+
+    if (error) {
+        console.error('Failed to save Zoho tokens to Supabase:', error.message);
+    }
+};
+
+/**
+ * Load Zoho refresh token and account ID from Supabase for a given user.
+ */
+export const loadZohoTokensFromSupabase = async (
+    userId: string
+): Promise<{ refreshToken: string | null; accountId: string | null }> => {
+    const { data, error } = await supabase
+        .from('engineers')
+        .select('zoho_refresh_token, zoho_account_id')
+        .eq('id', userId)
+        .single();
+
+    if (error || !data) {
+        return { refreshToken: null, accountId: null };
+    }
+
+    return {
+        refreshToken: data.zoho_refresh_token || null,
+        accountId: data.zoho_account_id || null
+    };
+};
+
+/**
+ * Clear Zoho tokens from Supabase for a given user.
+ */
+export const clearZohoTokensFromSupabase = async (userId: string) => {
+    await supabase
+        .from('engineers')
+        .update({ zoho_refresh_token: null, zoho_account_id: null })
+        .eq('id', userId);
 };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getValidAccessToken, fetchZohoAccounts, fetchZohoEmails } from '../lib/zoho';
+import { getValidAccessToken, fetchZohoAccounts, fetchZohoEmails, ZOHO_TOKENS_KEYS } from '../lib/zoho';
 import { BellRing, X } from 'lucide-react';
 
 // A simple notification request component that also checks periodically
@@ -12,6 +12,10 @@ export const MailNotifier = () => {
         if (Notification.permission === 'default') {
             setShowPrompt(true);
         }
+
+        // Don't poll if user has never connected Zoho (no tokens stored)
+        const hasTokens = localStorage.getItem(ZOHO_TOKENS_KEYS.REFRESH);
+        if (!hasTokens) return;
 
         const checkEmails = async () => {
             try {
