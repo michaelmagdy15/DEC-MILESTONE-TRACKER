@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { getValidAccessToken, fetchZohoAccounts, fetchZohoEmails, ZOHO_TOKENS_KEYS } from '../lib/zoho';
 import { BellRing, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-// A simple notification request component that also checks periodically
+// Safely check if browser Notification API is available
+const hasNotificationAPI = typeof window !== 'undefined' && 'Notification' in window;
 
 export const MailNotifier = () => {
     const [showPrompt, setShowPrompt] = useState(false);
     const latestMessageIdRef = useRef<string | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        if (Notification.permission === 'default') {
-            setShowPrompt(true);
-        }
+        try {
+            if (hasNotificationAPI && Notification.permission === 'default') {
+                setShowPrompt(true);
+            }
+        } catch { /* Notification API not available */ }
 
         // Don't poll if user has never connected Zoho (no tokens stored)
         const hasTokens = localStorage.getItem(ZOHO_TOKENS_KEYS.REFRESH);
@@ -23,36 +28,34 @@ export const MailNotifier = () => {
                 if (!token) return;
 
                 const accounts = await fetchZohoAccounts(token);
-                if (accounts.length === 0) return;
+                if (!accounts || accounts.length === 0) return;
 
                 const emails = await fetchZohoEmails(token, accounts[0].accountId, 5);
                 if (emails && emails.length > 0) {
                     const latestEmail = emails[0];
 
-                    // Initialize if it's the first run
                     if (!latestMessageIdRef.current) {
                         latestMessageIdRef.current = latestEmail.messageId;
                         return;
                     }
 
-                    // If there is a new message ID that doesn't match our latest seen
                     if (latestEmail.messageId !== latestMessageIdRef.current) {
-                        // New email arrived!
                         latestMessageIdRef.current = latestEmail.messageId;
                         triggerNotification(latestEmail.sender, latestEmail.subject);
                     }
                 }
             } catch (err) {
-                console.error("Mail Notifier Polling Error:", err);
+                // Silently ignore polling errors — don't crash the app
+                console.warn('Mail Notifier: polling skipped', err);
             }
         };
 
-        // Poll every 30 seconds
-        const interval = setInterval(checkEmails, 30000);
-        // Initial check
-        checkEmails();
+        // Poll every 60 seconds (less aggressive to reduce load)
+        const interval = setInterval(checkEmails, 60000);
+        // Initial check after 5s delay to let the app settle
+        const initialDelay = setTimeout(checkEmails, 5000);
 
-        return () => clearInterval(interval);
+        return () => { clearInterval(interval); clearTimeout(initialDelay); };
     }, []);
 
     const playSound = () => {
@@ -82,23 +85,29 @@ export const MailNotifier = () => {
     const triggerNotification = (sender: string, subject: string) => {
         playSound();
 
-        if (Notification.permission === 'granted') {
-            const notif = new Notification('New Email Received', {
-                body: `From: ${sender}\n${subject || 'No Subject'}`,
-                icon: '/favicon.ico', // You can add a company logo path here
-                requireInteraction: true // Desktop alert will stay until the user interacts
-            });
+        try {
+            if (hasNotificationAPI && Notification.permission === 'granted') {
+                const notif = new Notification('New Email Received', {
+                    body: `From: ${sender}\n${subject || 'No Subject'}`,
+                    icon: '/favicon.ico',
+                });
 
-            notif.onclick = () => {
-                window.focus();
-                window.location.assign('/emails');
-                notif.close();
-            };
+                notif.onclick = () => {
+                    window.focus();
+                    // Use SPA navigation — NOT window.location.assign which causes full reload
+                    navigate('/emails');
+                    notif.close();
+                };
+            }
+        } catch (err) {
+            console.warn('Notification error:', err);
         }
     };
 
     const requestPermission = async () => {
-        await Notification.requestPermission();
+        try {
+            if (hasNotificationAPI) await Notification.requestPermission();
+        } catch { /* ignore */ }
         setShowPrompt(false);
     };
 

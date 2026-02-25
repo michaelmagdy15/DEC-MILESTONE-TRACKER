@@ -44,11 +44,13 @@ export const TimeclockWidget: React.FC = () => {
 
     const handleClockOut = async () => {
         if (!activeWorkEntry) return;
+        const now = new Date().toISOString();
+        // End break first if active
         if (activeBreakEntry) {
-            // End break first
-            await updateTimeEntry({ ...activeBreakEntry, endTime: new Date().toISOString() });
+            await updateTimeEntry({ ...activeBreakEntry, endTime: now });
         }
-        await updateTimeEntry({ ...activeWorkEntry, endTime: new Date().toISOString() });
+        // Clock out — this sends to Supabase and re-fetches
+        await updateTimeEntry({ ...activeWorkEntry, endTime: now });
     };
 
     const handleStartBreak = async () => {

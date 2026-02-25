@@ -498,6 +498,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Time Entries
     const addTimeEntry = async (entry: TimeEntry) => {
+        // Optimistic: add to local state immediately so UI updates instantly
+        setTimeEntries(prev => [...prev, entry]);
         const { error } = await supabase.from('time_entries').insert({
             id: entry.id,
             engineer_id: entry.engineerId,
@@ -510,6 +512,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateTimeEntry = async (entry: TimeEntry) => {
+        // Optimistic: update local state immediately so the timer stops counting
+        setTimeEntries(prev => prev.map(te => te.id === entry.id ? { ...te, endTime: entry.endTime } : te));
         const { error } = await supabase.from('time_entries').update({
             end_time: entry.endTime
         }).eq('id', entry.id);
