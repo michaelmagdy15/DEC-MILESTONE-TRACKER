@@ -457,6 +457,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Meetings
     const addMeeting = async (meeting: Meeting) => {
+        console.log('DataContext: addMeeting called', meeting);
         const { error } = await supabase.from('meetings').insert({
             id: meeting.id,
             title: meeting.title,
@@ -466,8 +467,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             type: meeting.type,
             location_or_link: meeting.locationOrLink
         });
-        if (error) console.error('Error adding meeting:', error);
-        else await fetchData();
+        if (error) {
+            console.error('Error adding meeting:', error);
+            alert(`Failed to save meeting: ${error.message}`);
+        } else {
+            console.log('DataContext: addMeeting successful');
+            await fetchData();
+        }
     };
 
     const deleteMeeting = async (id: string) => {

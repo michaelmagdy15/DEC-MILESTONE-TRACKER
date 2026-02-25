@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.warn('AuthContext: getSession timed out, attempting localStorage fallback');
                     // Fallback: read the session directly from localStorage.
                     // Supabase default key format: sb-<project-ref>-auth-token
-                    const storageKey = 'sb-wvzfjhovumhwlrcawcwf-auth-token';
+                    const storageKey = 'dec-tracker-auth';
                     const raw = localStorage.getItem(storageKey);
                     if (raw) {
                         try {
