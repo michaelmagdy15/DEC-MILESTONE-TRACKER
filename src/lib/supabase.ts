@@ -19,6 +19,13 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         persistSession: true,
         storageKey: 'dec-tracker-auth',
         flowType: 'implicit',
+        // Disable Navigator Lock API — it frequently times out on Cloud Run
+        // (10s wait), blocking ALL database operations.  The no-op lock
+        // executes the callback immediately; session races are unlikely
+        // because flowType:'implicit' avoids PKCE server-side exchanges.
+        lock: async (_name: string, _acquireTimeout: number, cb: () => Promise<any>) => {
+            return await cb();
+        },
     },
     global: {
         fetch: (url, options = {}) => {
