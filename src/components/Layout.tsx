@@ -37,8 +37,10 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { role, signOut, user, engineerId } = useAuth();
-    const { projects, engineers, tasks, entries, notifications, markNotificationRead } = useData();
+    const { projects, engineers, tasks, entries, notifications, markNotificationRead, addNotification } = useData();
     const navigate = useNavigate();
+
+    const notifiedTasksRef = useRef<Set<string>>(new Set());
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -62,6 +64,33 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Check for overdue tasks
+    useEffect(() => {
+        if (!engineerId || tasks.length === 0) return;
+        const now = new Date();
+        tasks.forEach(task => {
+            if (task.status !== 'done' && task.dueDate && new Date(task.dueDate) < now) {
+                if (task.engineerId === engineerId) {
+                    const alreadyInDb = notifications.some(n => n.type === 'overdue_task' && n.projectId === task.id && n.engineerId === engineerId);
+                    if (!alreadyInDb && !notifiedTasksRef.current.has(task.id)) {
+                        notifiedTasksRef.current.add(task.id);
+                        if (addNotification) {
+                            addNotification({
+                                id: crypto.randomUUID(),
+                                engineerId: engineerId,
+                                message: `Overdue Task: ${task.title}`,
+                                isRead: false,
+                                createdAt: new Date().toISOString(),
+                                type: 'overdue_task',
+                                projectId: task.id
+                            });
+                        }
+                    }
+                }
+            }
+        });
+    }, [tasks, notifications, engineerId, addNotification]);
 
     const searchResults = React.useMemo(() => {
         if (!searchQuery.trim()) return [];

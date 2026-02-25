@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 
 export const Projects: React.FC = () => {
     const { role } = useAuth(); // getting role for permissions
-    const { projects, addProject, updateProject, deleteProject } = useData();
+    const { projects, engineers, addProject, updateProject, deleteProject } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -16,6 +16,7 @@ export const Projects: React.FC = () => {
     const [hourlyRate, setHourlyRate] = useState('');
     const [budget, setBudget] = useState('');
     const [phase, setPhase] = useState('Planning');
+    const [leadDesignerId, setLeadDesignerId] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,7 +27,8 @@ export const Projects: React.FC = () => {
             name,
             hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
             budget: budget ? parseFloat(budget) : 0,
-            phase: phase || 'Planning'
+            phase: phase || 'Planning',
+            leadDesignerId: leadDesignerId || undefined
         };
 
         if (editingId) {
@@ -44,6 +46,7 @@ export const Projects: React.FC = () => {
         setHourlyRate(project.hourlyRate?.toString() || '');
         setBudget(project.budget?.toString() || '');
         setPhase(project.phase || 'Planning');
+        setLeadDesignerId(project.leadDesignerId || '');
         setIsAdding(true);
     };
 
@@ -54,6 +57,7 @@ export const Projects: React.FC = () => {
         setHourlyRate('');
         setBudget('');
         setPhase('Planning');
+        setLeadDesignerId('');
     };
 
     const handleDelete = (id: string) => {
@@ -154,6 +158,19 @@ export const Projects: React.FC = () => {
                                     <option value="Completed" className="bg-[#1a1a1a]">Completed</option>
                                 </select>
                             </div>
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Lead Designer</label>
+                                <select
+                                    value={leadDesignerId}
+                                    onChange={(e) => setLeadDesignerId(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                >
+                                    <option value="" className="bg-[#1a1a1a]">None</option>
+                                    {engineers.map(e => (
+                                        <option key={e.id} value={e.id} className="bg-[#1a1a1a]">{e.name} ({e.role})</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="flex justify-end space-x-4 pt-4 border-t border-white/5">
                             <button
@@ -228,10 +245,16 @@ export const Projects: React.FC = () => {
                                     <p className="text-xl font-black text-emerald-400">AED {project.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                             )}
-                            <div className="mb-8">
+                            <div className="mb-4">
                                 <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Phase</p>
                                 <div className="inline-block px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-bold tracking-widest uppercase">
                                     {project.phase || 'Planning'}
+                                </div>
+                            </div>
+                            <div className="mb-8">
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Lead Designer</p>
+                                <div className="inline-block px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white text-xs font-bold tracking-widest uppercase">
+                                    {engineers.find(e => e.id === project.leadDesignerId)?.name || 'Unassigned'}
                                 </div>
                             </div>
                             <button

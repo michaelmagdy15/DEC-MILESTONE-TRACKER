@@ -7,15 +7,51 @@ import type { Engineer } from '../types';
 import { motion } from 'framer-motion';
 
 export const Engineers = () => {
-    const { engineers, addEngineer, updateEngineer, deleteEngineer } = useData();
+    const { engineers, projects, tasks, addEngineer, updateEngineer, deleteEngineer } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    const GoalEditor = ({ engineer }: { engineer: Engineer }) => {
+        const [isEditing, setIsEditing] = useState(false);
+        const [val, setVal] = useState(engineer.weeklyGoalHours?.toString() || '40');
+
+        const handleSave = () => {
+            updateEngineer({ ...engineer, weeklyGoalHours: parseInt(val) || 40 });
+            setIsEditing(false);
+        };
+
+        if (isEditing) {
+            return (
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            value={val}
+                            onChange={e => setVal(e.target.value)}
+                            className="w-20 bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-lg font-black focus:outline-none focus:border-orange-500"
+                        />
+                        <button onClick={handleSave} className="p-1 text-orange-400 hover:text-orange-300 bg-orange-500/10 rounded"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setIsEditing(false)} className="p-1 text-slate-400 hover:text-slate-300 bg-white/5 rounded"><X className="w-4 h-4" /></button>
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <div className="group/edit inline-flex items-center gap-2 cursor-pointer" onClick={() => setIsEditing(true)}>
+                <div className="text-2xl font-black text-white">{engineer.weeklyGoalHours}<span className="text-[10px] ml-1 text-slate-600">H</span></div>
+                <div className="p-1 bg-white/5 rounded opacity-0 group-hover/edit:opacity-100 transition-opacity">
+                    <Edit2 className="w-3 h-3 text-orange-400" />
+                </div>
+            </div>
+        );
+    };
 
     // Form State
     const [name, setName] = useState('');
     const [role, setRole] = useState('Engineer');
     const [hourlyRate, setHourlyRate] = useState<number>(0);
     const [weeklyGoalHours, setWeeklyGoalHours] = useState<number>(40);
+    const [location, setLocation] = useState<'Abu Dhabi' | 'Cairo'>('Cairo');
     const { role: currentUserRole } = useAuth();
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -27,7 +63,8 @@ export const Engineers = () => {
             name,
             role,
             hourlyRate,
-            weeklyGoalHours
+            weeklyGoalHours,
+            location
         };
 
         if (editingId) {
@@ -45,6 +82,7 @@ export const Engineers = () => {
         setRole(engineer.role || 'Engineer');
         setHourlyRate(engineer.hourlyRate || 0);
         setWeeklyGoalHours(engineer.weeklyGoalHours || 40);
+        setLocation(engineer.location || 'Cairo');
         setIsAdding(true);
     };
 
@@ -55,6 +93,7 @@ export const Engineers = () => {
         setRole('Engineer');
         setHourlyRate(0);
         setWeeklyGoalHours(40);
+        setLocation('Cairo');
     };
 
     const handleDelete = (id: string) => {
@@ -164,6 +203,17 @@ export const Engineers = () => {
                                     />
                                 </div>
                             </div>
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Office Location</label>
+                                <select
+                                    value={location}
+                                    onChange={(e) => setLocation(e.target.value as 'Abu Dhabi' | 'Cairo')}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                >
+                                    <option value="Cairo" className="bg-[#1a1a1a]">Cairo HQ</option>
+                                    <option value="Abu Dhabi" className="bg-[#1a1a1a]">Abu Dhabi Branch</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="flex justify-end space-x-6 pt-8 border-t border-white/5">
@@ -225,9 +275,27 @@ export const Engineers = () => {
                                     <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-orange-500/20 group-hover:text-orange-400">
                                         {engineer.role || 'Specialist'}
                                     </span>
+                                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 uppercase tracking-widest group-hover:border-purple-500/20 group-hover:text-purple-400">
+                                        {engineer.location || 'HQ'}
+                                    </span>
                                     <span className="px-3 py-1 bg-emerald-500/10 rounded-full text-[10px] font-black text-emerald-500 border border-emerald-500/20 uppercase tracking-widest">
                                         Active
                                     </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 py-4 border-t border-white/5">
+                                    <div>
+                                        <div className="text-2xl font-black text-emerald-400">
+                                            {tasks.filter(t => t.engineerId === engineer.id && t.status !== 'done').length}
+                                        </div>
+                                        <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Active Tasks</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-black text-orange-400">
+                                            {projects.filter(p => p.leadDesignerId === engineer.id).length}
+                                        </div>
+                                        <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Projects Led</div>
+                                    </div>
                                 </div>
 
                                 {currentUserRole === 'admin' && (
@@ -237,8 +305,8 @@ export const Engineers = () => {
                                             <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Rate</div>
                                         </div>
                                         <div>
-                                            <div className="text-2xl font-black text-white">{engineer.weeklyGoalHours}<span className="text-[10px] ml-1 text-slate-600">H</span></div>
-                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Goal</div>
+                                            <GoalEditor engineer={engineer} />
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">Goal</div>
                                         </div>
                                     </div>
                                 )}

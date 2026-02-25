@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -53,8 +53,11 @@ interface DataContextType {
     addTimeEntry: (entry: TimeEntry) => Promise<void>;
     updateTimeEntry: (entry: TimeEntry) => Promise<void>;
 
+    addAppUsageLog: (log: AppUsageLog) => Promise<void>;
+
     clearMonthlyData: () => Promise<void>;
 
+    appUsageLogs: AppUsageLog[];
     isLoading: boolean;
 }
 
@@ -72,6 +75,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [meetings, setMeetings] = useState<Meeting[]>([]);
     const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+    const [appUsageLogs, setAppUsageLogs] = useState<AppUsageLog[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
@@ -114,7 +118,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await Promise.allSettled([
                 fetchTable('projects', (p: any) => ({
                     id: p.id, name: p.name, hourlyRate: p.hourly_rate,
-                    budget: p.budget || 0, phase: p.phase || 'Planning'
+                    budget: p.budget || 0, phase: p.phase || 'Planning',
+                    leadDesignerId: p.lead_designer_id
                 }), setProjects),
 
                 fetchTable('engineers', (e: any) => ({
@@ -143,7 +148,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 fetchTable('tasks', (t: any) => ({
                     id: t.id, projectId: t.project_id, milestoneId: t.milestone_id,
                     engineerId: t.engineer_id, title: t.title,
-                    description: t.description, status: t.status, createdAt: t.created_at
+                    description: t.description, status: t.status, createdAt: t.created_at,
+                    startDate: t.start_date, dueDate: t.due_date
                 }), setTasks),
 
                 fetchTable('leave_requests', (l: any) => ({
@@ -173,6 +179,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: te.id, engineerId: te.engineer_id, entryType: te.entry_type,
                     startTime: te.start_time, endTime: te.end_time, createdAt: te.created_at
                 }), setTimeEntries),
+
+                fetchTable('app_usage_log', (l: any) => ({
+                    id: l.id, engineerId: l.engineer_id, timestamp: l.timestamp,
+                    activeWindow: l.active_window, durationSeconds: l.duration_seconds
+                }), setAppUsageLogs),
             ]);
 
             hasLoadedOnce.current = true;
@@ -216,7 +227,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: project.name,
             hourly_rate: project.hourlyRate,
             budget: project.budget || 0,
-            phase: project.phase || 'Planning'
+            phase: project.phase || 'Planning',
+            lead_designer_id: project.leadDesignerId
         });
         if (error) console.error('Error adding project:', error);
         else await fetchData();
@@ -227,7 +239,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: project.name,
             hourly_rate: project.hourlyRate,
             budget: project.budget,
-            phase: project.phase
+            phase: project.phase,
+            lead_designer_id: project.leadDesignerId
         }).eq('id', project.id);
 
         if (error) console.error('Error updating project:', error);
@@ -382,6 +395,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: task.title,
             description: task.description,
             status: task.status,
+            start_date: task.startDate,
             due_date: task.dueDate
         });
         if (error) console.error('Error adding task:', error);
@@ -395,6 +409,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: task.title,
             description: task.description,
             status: task.status,
+            start_date: task.startDate,
             due_date: task.dueDate
         }).eq('id', task.id);
         if (error) console.error('Error updating task:', error);
@@ -527,13 +542,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         else await fetchData();
     };
 
+    // App Usage Logs
+    const addAppUsageLog = async (log: AppUsageLog) => {
+        const { error } = await supabase.from('app_usage_log').insert({
+            id: log.id,
+            engineer_id: log.engineerId,
+            timestamp: log.timestamp,
+            active_window: log.activeWindow,
+            duration_seconds: log.durationSeconds
+        });
+        if (error) console.error('Error adding app usage log:', error);
+        else await fetchData();
+    };
+
     // Clear transient monthly data — keeps projects, engineers, and project files
     const clearMonthlyData = async () => {
         try {
             setIsLoading(true);
             const tables = ['entries', 'attendance', 'tasks', 'milestones', 'time_entries', 'notifications', 'leave_requests', 'meetings'];
             for (const table of tables) {
-                const { error } = await supabase.from(table).delete().neq('id', '');
+                const { error } = await supabase.from(table).delete().not('id', 'is', null);
                 if (error) console.error(`Error clearing ${table}:`, error);
             }
             // Reset local state
@@ -594,7 +622,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             deleteProjectFile,
             addTimeEntry,
             updateTimeEntry,
+            addAppUsageLog,
             clearMonthlyData,
+            appUsageLogs,
             isLoading
         }}>
             {children}

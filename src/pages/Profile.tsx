@@ -5,7 +5,7 @@ import { useData } from '../context/DataContext';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import { User, Mail, Shield, Save, Key, AlertCircle, CheckCircle2, DollarSign, Target, Award, ShieldCheck } from 'lucide-react';
+import { User, Mail, Shield, Save, Key, AlertCircle, CheckCircle2, DollarSign, Target, Award, ShieldCheck, Copy, Activity } from 'lucide-react';
 
 export const Profile: React.FC = () => {
     const { user, role, engineerId } = useAuth();
@@ -23,6 +23,15 @@ export const Profile: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyId = () => {
+        if (engineerId) {
+            navigator.clipboard.writeText(engineerId);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     useEffect(() => {
         if (engineer) {
@@ -252,6 +261,45 @@ export const Profile: React.FC = () => {
                                 <span>{loading ? 'Re-keying...' : 'Update Protocol'}</span>
                             </button>
                         </form>
+                    </div>
+
+                    {/* Companion App Settings */}
+                    <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-500/10 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-8 relative z-10">
+                            <div>
+                                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                                    <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                                        <Activity className="w-6 h-6 text-emerald-400" />
+                                    </div>
+                                    Companion Link
+                                </h3>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">Connect background tracking</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6 relative z-10">
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                To track your active software automatically, install the DEC Companion App and provide your Engineer ID.
+                            </p>
+
+                            <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-2 flex-1 w-full relative">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Your Unique Engineer ID</label>
+                                    <div className="flex items-center bg-white/5 border border-white/5 rounded-2xl px-5 py-4 w-full">
+                                        <code className="text-emerald-400 font-mono text-sm break-all select-all flex-1">{engineerId || 'N/A'}</code>
+                                        <button
+                                            onClick={handleCopyId}
+                                            disabled={!engineerId}
+                                            className="ml-4 p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-colors border border-emerald-500/20 disabled:opacity-50"
+                                            title="Copy to clipboard"
+                                        >
+                                            {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

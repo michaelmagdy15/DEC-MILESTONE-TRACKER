@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Clock } from 'lucide-react';
+import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Clock, Activity } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -9,9 +9,67 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { InvoiceTemplate } from '../components/InvoiceTemplate';
 
+// Helper to determine if a date falls in Ramadan (approximate for 2026 for example, or generally checking a range)
+// Note: In a real app, you'd want a dynamic way to set Ramadan dates or an API.
+const isRamadan = (date: Date) => {
+    // Example: Ramadan 2026 is approx Feb 17 to March 19
+    const year = date.getFullYear();
+    if (year === 2026) {
+        const start = new Date(2026, 1, 17); // Month is 0-indexed, 1 = Feb
+        const end = new Date(2026, 2, 19);   // 2 = March
+        return date >= start && date <= end;
+    }
+    return false; // Add logic for other years if needed
+};
+
+// Helper to calculate expected daily hours based on location, day of week, and Ramadan
+const getExpectedDailyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | undefined) => {
+    const dayOfWeek = date.getDay(); // 0 is Sunday, 5 is Friday
+    const isFriday = dayOfWeek === 5;
+    const isWeekend_AD = dayOfWeek === 6 || dayOfWeek === 0; // Saturday, Sunday
+    const isWeekend_Cairo = dayOfWeek === 5 || dayOfWeek === 6; // Friday, Saturday
+
+    const inRamadan = isRamadan(date);
+
+    if (location === 'Abu Dhabi') {
+        if (isWeekend_AD) return 0;
+        if (inRamadan) {
+            // Ramadan: 9:30 AM to 3:30 PM (6 hours)
+            // Exception: Friday break 12:30 PM to 2:00 PM (1.5 hours break) => 4.5 hours
+            return isFriday ? 4.5 : 6;
+        } else {
+            // Normal: 8:00 AM to 4:00 PM
+            return 8;
+        }
+    } else {
+        // Cairo (or default)
+        if (isWeekend_Cairo) return 0;
+        if (inRamadan) {
+            // Ramadan: 9:00 AM to 3:00 PM (6 hours)
+            return 6;
+        } else {
+            // Normal: 8:00 AM to 4:00 PM
+            return 8;
+        }
+    }
+};
+
+const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | undefined) => {
+    let total = 0;
+    const startOfWeek = new Date(date);
+    startOfWeek.setDate(date.getDate() - date.getDay() + 1); // Start on Monday
+
+    for (let i = 0; i < 7; i++) {
+        const currentDay = new Date(startOfWeek);
+        currentDay.setDate(startOfWeek.getDate() + i);
+        total += getExpectedDailyHours(currentDay, location);
+    }
+    return total;
+};
+
 export const Reports: React.FC = () => {
-    const { projects, engineers, entries, attendance, timeEntries } = useData();
-    const [view, setView] = useState<'projects' | 'engineers' | 'timeclock'>('projects');
+    const { projects, engineers, entries, attendance, timeEntries, appUsageLogs } = useData();
+    const [view, setView] = useState<'projects' | 'engineers' | 'timeclock' | 'activity'>('projects');
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
 
@@ -66,19 +124,26 @@ export const Reports: React.FC = () => {
         ).length;
 
         const hourlyRate = engineer.hourlyRate || 0;
-        const weeklyGoal = engineer.weeklyGoalHours || 0;
 
-        const expectedPayment = weeklyGoal * hourlyRate;
+        // Use dynamic weekly goal based on location and date (Ramadan) 
+        // fallback to engineer.weeklyGoalHours if location is missing or explicitly overridden
+        const calculatedWeeklyGoal = engineer.location ? getExpectedWeeklyHours(now, engineer.location) : (engineer.weeklyGoalHours || 40);
+        const weeklyGoal = calculatedWeeklyGoal;
+
+        // Auto-calculated overtime (smart overtime without intervening)
+        const weeklyOvertime = Math.max(0, weeklyHours - weeklyGoal);
+        const overtimePayment = weeklyOvertime * hourlyRate; // Or * 1.5 for OT standard
+
+        const expectedPayment = (weeklyGoal * hourlyRate) + overtimePayment;
         const deduction = weeklyAbsences * 8 * hourlyRate;
         const weeklyPayment = Math.max(0, expectedPayment - deduction);
 
-        return { ...engineer, totalHours, projectCount, weeklyHours, weeklyAbsences, weeklyPayment };
+        return { ...engineer, totalHours, projectCount, weeklyHours, weeklyOvertime, weeklyAbsences, weeklyPayment };
     });
 
-    // Calculate Timeclock Stats
+    // Calculate Timeclock Stats (All-Time Aggregate for Chart)
     const timeclockStats = engineers.map(engineer => {
         const engEntries = timeEntries.filter(e => e.engineerId === engineer.id);
-
         let totalWorkMs = 0;
         let totalBreakMs = 0;
 
@@ -86,47 +151,117 @@ export const Reports: React.FC = () => {
             const start = new Date(te.startTime).getTime();
             const end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
             const duration = end - start;
-
-            if (te.entryType === 'work') {
-                totalWorkMs += duration;
-            } else if (te.entryType === 'break') {
-                totalBreakMs += duration;
-            }
+            if (te.entryType === 'work') totalWorkMs += duration;
+            else if (te.entryType === 'break') totalBreakMs += duration;
         });
 
         const activeWorkDuration = Math.max(0, totalWorkMs - totalBreakMs);
-
-        const totalWorkHours = activeWorkDuration / (1000 * 60 * 60);
-        const totalBreakHours = totalBreakMs / (1000 * 60 * 60);
-
         return {
             id: engineer.id,
             name: engineer.name,
-            totalWorkHours: parseFloat(totalWorkHours.toFixed(2)),
-            totalBreakHours: parseFloat(totalBreakHours.toFixed(2)),
+            totalWorkHours: parseFloat((activeWorkDuration / 3600000).toFixed(2)),
+            totalBreakHours: parseFloat((totalBreakMs / 3600000).toFixed(2)),
             expectedWeeklyHours: engineer.weeklyGoalHours || 40,
         };
     });
 
+    // Daily Timeclock Stats for Table
+    const dailyTimeclockStats = React.useMemo(() => {
+        const stats: Record<string, any> = {};
+
+        timeEntries.forEach(te => {
+            const date = new Date(te.startTime).toISOString().split('T')[0];
+            const eng = engineers.find(e => e.id === te.engineerId);
+            if (!eng) return;
+
+            const key = `${eng.id}_${date}`;
+            if (!stats[key]) {
+                const expectedToday = getExpectedDailyHours(new Date(date), eng.location);
+                stats[key] = { id: eng.id, name: eng.name, location: eng.location || 'HQ', date, workMs: 0, breakMs: 0, expectedHours: expectedToday };
+            }
+
+            const rawStart = new Date(te.startTime).getTime();
+            const rawEnd = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+
+            const dayStart = new Date(date);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(date);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const start = Math.max(rawStart, dayStart.getTime());
+            const end = Math.min(rawEnd, dayEnd.getTime());
+            const duration = end - start;
+
+            if (duration > 0) {
+                if (te.entryType === 'work') stats[key].workMs += duration;
+                else if (te.entryType === 'break') stats[key].breakMs += duration;
+            }
+        });
+
+        return Object.values(stats).map(s => {
+            const activeWorkDuration = Math.max(0, s.workMs - s.breakMs);
+            const totalWorkHours = parseFloat((activeWorkDuration / 3600000).toFixed(2));
+            const totalBreakHours = parseFloat((s.breakMs / 3600000).toFixed(2));
+            const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
+
+            return {
+                ...s,
+                totalWorkHours,
+                totalBreakHours,
+                dailyOvertime: parseFloat(dailyOvertime.toFixed(2))
+            };
+        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [timeEntries, engineers]);
+
+    // App Usage Daily Stats
+    const dailyActivityStats = React.useMemo(() => {
+        const stats: any[] = [];
+        appUsageLogs.forEach(log => {
+            const date = new Date(log.timestamp).toISOString().split('T')[0];
+            const eng = engineers.find(e => e.id === log.engineerId);
+            if (!eng) return;
+
+            stats.push({
+                id: log.id,
+                date,
+                timestamp: new Date(log.timestamp).toLocaleTimeString(),
+                engineerName: eng.name,
+                activeWindow: log.activeWindow,
+                durationSeconds: log.durationSeconds
+            });
+        });
+        return stats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // sort newest first
+    }, [appUsageLogs, engineers]);
+
     const exportCSV = (data: any[], fileName: string) => {
         let headers: string[] = [];
+        let exportData: any[] = data;
+
         if (view === 'projects') {
             headers = ['Project Name', 'Total Hours', 'Total Cost (AED)', 'Engineers', 'Last Activity'];
         } else if (view === 'engineers') {
-            headers = ['Engineer Name', 'Role', 'Projects', 'Total Hours', 'Weekly Payment (AED)'];
-        } else {
-            headers = ['Engineer Name', 'Work Hours', 'Break Hours', 'Expected Weekly Hours'];
+            headers = ['Engineer Name', 'Role', 'Projects', 'Location', 'Weekly Goal (Hrs)', 'Weekly Hours', 'Weekly Overtime', 'Weekly Payment (AED)'];
+        } else if (view === 'timeclock') {
+            headers = ['Date', 'Engineer Name', 'Location', 'Expected Hours', 'Work Hours', 'Break Hours', 'Overtime'];
+            exportData = dailyTimeclockStats;
+        } else if (view === 'activity') {
+            headers = ['Date', 'Time', 'Engineer Name', 'Active Window', 'Duration (Seconds)'];
+            exportData = dailyActivityStats;
         }
 
         const csvContent = [
             headers.join(','),
-            ...data.map(item => {
+            ...exportData.map(item => {
                 if (view === 'projects') {
                     return [`"${item.name}"`, item.totalHours.toFixed(2), item.cost.toFixed(2), item.uniqueEngineers, item.lastActivity?.toISOString().split('T')[0] || 'N/A'];
                 } else if (view === 'engineers') {
-                    return [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, item.totalHours.toFixed(2), item.weeklyPayment.toFixed(2)];
-                } else {
-                    return [`"${item.name}"`, item.totalWorkHours, item.totalBreakHours, item.expectedWeeklyHours];
+                    const eng = engineers.find(e => e.id === item.id);
+                    const weeklyGoal = eng?.location ? getExpectedWeeklyHours(new Date(), eng.location) : (eng?.weeklyGoalHours || 40);
+                    return [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, `"${item.location || 'HQ'}"`, weeklyGoal.toFixed(1), item.weeklyHours.toFixed(2), item.weeklyOvertime.toFixed(2), item.weeklyPayment.toFixed(2)];
+                } else if (view === 'timeclock') {
+                    return [item.date, `"${item.name}"`, `"${item.location || 'HQ'}"`, item.expectedHours, item.totalWorkHours, item.totalBreakHours, item.dailyOvertime];
+                } else if (view === 'activity') {
+                    return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, item.durationSeconds];
                 }
             }).map(row => row.join(','))
         ].join('\n');
@@ -208,10 +343,20 @@ export const Reports: React.FC = () => {
                             <Clock className="w-4 h-4" />
                             Timeclock
                         </button>
+                        <button
+                            onClick={() => setView('activity')}
+                            className={clsx(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
+                                view === 'activity' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
+                            )}
+                        >
+                            <Activity className="w-4 h-4" />
+                            App Activity
+                        </button>
                     </div>
 
                     <button
-                        onClick={() => exportCSV(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : timeclockStats, view)}
+                        onClick={() => exportCSV(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : view === 'timeclock' ? timeclockStats : dailyActivityStats, view)}
                         className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-3.5 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 font-bold uppercase tracking-widest text-[10px]"
                     >
                         <Download className="w-4 h-4" />
@@ -221,134 +366,165 @@ export const Reports: React.FC = () => {
             </div>
 
             {/* CHARTS SECTION */}
-            <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
-                <div className="flex items-center justify-between mb-10 relative z-10">
-                    <div>
-                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
-                            <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
-                                <BarChart2 className="w-6 h-6 text-orange-400" />
-                            </div>
-                            {view === 'timeclock' ? 'Timeclock Analytics' : 'Performance Calibration'}
-                        </h3>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">
-                            {view === 'timeclock' ? 'Visualizing Work vs Break Duration' : 'Visualizing Resource Distribution'}
-                        </p>
+            {view !== 'activity' && (
+                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
+                    <div className="flex items-center justify-between mb-10 relative z-10">
+                        <div>
+                            <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                                <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
+                                    <BarChart2 className="w-6 h-6 text-orange-400" />
+                                </div>
+                                {view === 'timeclock' ? 'Timeclock Analytics' : 'Performance Calibration'}
+                            </h3>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">
+                                {view === 'timeclock' ? 'Visualizing Work vs Break Duration' : 'Visualizing Resource Distribution'}
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <div className="h-[400px] w-full relative z-10">
-                    <ResponsiveContainer width="100%" height="100%">
-                        {view === 'timeclock' ? (
-                            <BarChart layout="vertical" data={timeclockStats} margin={{ top: 20, right: 30, left: 40, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#ffffff05" />
-                                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                <RechartsTooltip
-                                    cursor={{ fill: '#ffffff05' }}
-                                    contentStyle={{
-                                        backgroundColor: '#0f0f0f',
-                                        border: '1px solid #ffffff10',
-                                        borderRadius: '16px',
-                                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                                    }}
-                                    itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
-                                    labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
-                                />
-                                <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>} />
-                                <Bar dataKey="totalWorkHours" name="Work Hours" fill="#10b981" radius={[0, 10, 10, 0]} maxBarSize={40} />
-                                <Bar dataKey="totalBreakHours" name="Break Hours" fill="#f59e0b" radius={[0, 10, 10, 0]} maxBarSize={40} />
-                            </BarChart>
-                        ) : (
-                            <BarChart data={view === 'projects' ? projectStats : engineerStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
-                                <XAxis
-                                    dataKey="name"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
-                                    dy={20}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
-                                />
-                                <RechartsTooltip
-                                    cursor={{ fill: '#ffffff05' }}
-                                    contentStyle={{
-                                        backgroundColor: '#0f0f0f',
-                                        border: '1px solid #ffffff10',
-                                        borderRadius: '16px',
-                                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                                    }}
-                                    itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
-                                    labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
-                                />
-                                <Legend
-                                    wrapperStyle={{ paddingTop: '40px' }}
-                                    iconType="circle"
-                                    formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>}
-                                />
-                                <Bar
-                                    dataKey={view === 'projects' ? "totalHours" : "weeklyHours"}
-                                    name={view === 'projects' ? "Resource Hours" : "Weekly Activity"}
-                                    fill="#6366f1"
-                                    radius={[10, 10, 0, 0]}
-                                    maxBarSize={40}
-                                />
-                                {view === 'projects' && (
+                    <div className="h-[400px] w-full relative z-10">
+                        <ResponsiveContainer width="100%" height="100%">
+                            {view === 'timeclock' ? (
+                                <BarChart layout="vertical" data={timeclockStats} margin={{ top: 20, right: 30, left: 40, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#ffffff05" />
+                                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                                    <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                                    <RechartsTooltip
+                                        cursor={{ fill: '#ffffff05' }}
+                                        contentStyle={{
+                                            backgroundColor: '#0f0f0f',
+                                            border: '1px solid #ffffff10',
+                                            borderRadius: '16px',
+                                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                        }}
+                                        itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
+                                        labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
+                                    />
+                                    <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>} />
+                                    <Bar dataKey="totalWorkHours" name="Work Hours" fill="#10b981" radius={[0, 10, 10, 0]} maxBarSize={40} />
+                                    <Bar dataKey="totalBreakHours" name="Break Hours" fill="#f59e0b" radius={[0, 10, 10, 0]} maxBarSize={40} />
+                                </BarChart>
+                            ) : (
+                                <BarChart data={view === 'projects' ? projectStats : engineerStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                                        dy={20}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                                    />
+                                    <RechartsTooltip
+                                        cursor={{ fill: '#ffffff05' }}
+                                        contentStyle={{
+                                            backgroundColor: '#0f0f0f',
+                                            border: '1px solid #ffffff10',
+                                            borderRadius: '16px',
+                                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                        }}
+                                        itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
+                                        labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
+                                    />
+                                    <Legend
+                                        wrapperStyle={{ paddingTop: '40px' }}
+                                        iconType="circle"
+                                        formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>}
+                                    />
                                     <Bar
-                                        dataKey="cost"
-                                        name="Fiscal Value (AED)"
-                                        fill="#10b981"
+                                        dataKey={view === 'projects' ? "totalHours" : "weeklyHours"}
+                                        name={view === 'projects' ? "Resource Hours" : "Weekly Activity"}
+                                        fill="#6366f1"
                                         radius={[10, 10, 0, 0]}
                                         maxBarSize={40}
                                     />
-                                )}
-                            </BarChart>
-                        )}
-                    </ResponsiveContainer>
+                                    {view === 'projects' && (
+                                        <Bar
+                                            dataKey="cost"
+                                            name="Fiscal Value (AED)"
+                                            fill="#10b981"
+                                            radius={[10, 10, 0, 0]}
+                                            maxBarSize={40}
+                                        />
+                                    )}
+                                </BarChart>
+                            )}
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* DATA CARDS/TABLE */}
             {view === 'timeclock' ? (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                    <h3 className="text-xl font-black text-white tracking-tight uppercase mb-6">Raw Timeclock Logs</h3>
+                    <h3 className="text-xl font-black text-white tracking-tight uppercase mb-6">Daily Timeclock Summary</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <th className="py-4 font-bold text-left px-4">Date</th>
                                     <th className="py-4 font-bold text-left px-4">Engineer</th>
-                                    <th className="py-4 font-bold text-left px-4">Type</th>
-                                    <th className="py-4 font-bold text-left px-4">Start Time</th>
-                                    <th className="py-4 font-bold text-left px-4">End Time</th>
-                                    <th className="py-4 font-bold text-right px-4">Duration</th>
+                                    <th className="py-4 font-bold text-left px-4">Location</th>
+                                    <th className="py-4 font-bold text-left px-4">Expected Hrs</th>
+                                    <th className="py-4 font-bold text-left px-4">Work Hours</th>
+                                    <th className="py-4 font-bold text-left px-4">Overtime</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
-                                {[...timeEntries].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map(te => {
-                                    const eng = engineers.find(e => e.id === te.engineerId);
-                                    const start = new Date(te.startTime);
-                                    const end = te.endTime ? new Date(te.endTime) : new Date();
-                                    const duration = ((end.getTime() - start.getTime()) / 3600000).toFixed(2);
-
-                                    return (
-                                        <tr key={te.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="py-4 px-4 font-bold text-white">{eng?.name || 'Unknown'}</td>
-                                            <td className="py-4 px-4">
-                                                <span className={clsx("px-3 py-1 rounded-xl text-[10px] uppercase font-bold tracking-widest border", te.entryType === 'work' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20')}>{te.entryType}</span>
-                                            </td>
-                                            <td className="py-4 px-4">{start.toLocaleString()}</td>
-                                            <td className="py-4 px-4">{te.endTime ? end.toLocaleString() : <span className="text-emerald-400 font-bold tracking-widest uppercase text-[10px] animate-pulse">In Progress</span>}</td>
-                                            <td className="py-4 px-4 text-right font-black text-white">{duration} h</td>
-                                        </tr>
-                                    )
-                                })}
-                                {timeEntries.length === 0 && (
+                                {dailyTimeclockStats.map((stat) => (
+                                    <tr key={`${stat.id}_${stat.date}`} className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="py-4 px-4 font-bold text-white">{stat.date}</td>
+                                        <td className="py-4 px-4 font-bold text-white">{stat.name}</td>
+                                        <td className="py-4 px-4 text-slate-400">{stat.location}</td>
+                                        <td className="py-4 px-4 text-slate-400">{stat.expectedHours} h</td>
+                                        <td className="py-4 px-4 text-emerald-400 font-black">{stat.totalWorkHours} h</td>
+                                        <td className="py-4 px-4 text-orange-400 font-black">{stat.dailyOvertime > 0 ? `+${stat.dailyOvertime} h` : '-'}</td>
+                                    </tr>
+                                ))}
+                                {dailyTimeclockStats.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="py-8 text-center text-slate-500 font-medium italic">No timeclock records exist.</td>
+                                        <td colSpan={4} className="py-8 text-center text-slate-500 font-medium italic">No timeclock records exist.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : view === 'activity' ? (
+                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-6">
+                        <Activity className="w-5 h-5 text-orange-500" />
+                        APPLICATION ACTIVITY TIMELINE (ADMIN VIEW)
+                    </h3>
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 bg-[#0a0a0a] z-10">
+                                <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <th className="py-4 font-bold text-left px-4">Date</th>
+                                    <th className="py-4 font-bold text-left px-4">Time</th>
+                                    <th className="py-4 font-bold text-left px-4">Engineer</th>
+                                    <th className="py-4 font-bold text-left px-4">Active Application/Window</th>
+                                    <th className="py-4 font-bold text-left px-4">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
+                                {dailyActivityStats.map((stat, idx) => (
+                                    <tr key={`${stat.id}_${idx}`} className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="py-4 px-4 font-bold text-white">{stat.date}</td>
+                                        <td className="py-4 px-4 text-slate-400">{stat.timestamp}</td>
+                                        <td className="py-4 px-4 font-bold text-white">{stat.engineerName}</td>
+                                        <td className="py-4 px-4 text-indigo-400 max-w-[300px] truncate" title={stat.activeWindow}>{stat.activeWindow}</td>
+                                        <td className="py-4 px-4 text-emerald-400 font-black">{stat.durationSeconds} s</td>
+                                    </tr>
+                                ))}
+                                {dailyActivityStats.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="py-8 text-center text-slate-500 font-medium italic">No background activity tracked yet.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -396,17 +572,17 @@ export const Reports: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4 py-6 border-y border-white/5">
                                         <div>
                                             <div className="text-2xl font-black text-white">
-                                                {(stat as any).totalHours.toFixed(1)}
+                                                {view === 'projects' ? (stat as any).totalHours.toFixed(1) : (stat as any).weeklyHours.toFixed(1)}
                                                 <span className="text-[10px] ml-1 text-slate-600">H</span>
                                             </div>
-                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Total Hours</div>
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Total Hours' : 'Weekly Activity'}</div>
                                         </div>
                                         <div>
                                             <div className="text-2xl font-black text-white">
-                                                {view === 'projects' ? (stat as any).cost.toLocaleString() : (stat as any).projectCount}
-                                                <span className="text-[10px] ml-1 text-slate-600">{view === 'projects' ? 'AED' : 'VNT'}</span>
+                                                {view === 'projects' ? (stat as any).cost.toLocaleString() : (stat as any).weeklyOvertime.toFixed(1)}
+                                                <span className="text-[10px] ml-1 text-slate-600">{view === 'projects' ? 'AED' : 'H'}</span>
                                             </div>
-                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Est. Cost' : 'Active Ventures'}</div>
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Est. Cost' : 'Auto Overtime'}</div>
                                         </div>
                                     </div>
                                 </div>

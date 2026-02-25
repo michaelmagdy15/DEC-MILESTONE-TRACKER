@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2,
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
 import { supabase } from '../lib/supabase';
+import { differenceInDays, format } from 'date-fns';
 
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -19,7 +20,7 @@ export const ProjectDetails: React.FC = () => {
     const pFiles = projectFiles.filter(f => f.projectId === id).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     const projectEntries = entries.filter(e => e.projectId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const [activeTab, setActiveTab] = useState<'milestones' | 'files' | 'entries'>('milestones');
+    const [activeTab, setActiveTab] = useState<'milestones' | 'gantt' | 'files' | 'entries'>('milestones');
     const [isUploading, setIsUploading] = useState(false);
 
     // UI state
@@ -31,6 +32,8 @@ export const ProjectDetails: React.FC = () => {
     const [taskTitle, setTaskTitle] = useState('');
     const [taskDesc, setTaskDesc] = useState('');
     const [taskEngineer, setTaskEngineer] = useState('');
+    const [taskStartDate, setTaskStartDate] = useState('');
+    const [taskDueDate, setTaskDueDate] = useState('');
 
     if (!project) {
         if (isLoading) {
@@ -71,7 +74,9 @@ export const ProjectDetails: React.FC = () => {
             engineerId: taskEngineer || undefined,
             title: taskTitle,
             description: taskDesc,
-            status: 'todo'
+            status: 'todo',
+            startDate: taskStartDate || undefined,
+            dueDate: taskDueDate || undefined
         });
 
         if (taskEngineer && taskEngineer !== currentEngineerId) {
@@ -86,6 +91,8 @@ export const ProjectDetails: React.FC = () => {
         setTaskTitle('');
         setTaskDesc('');
         setTaskEngineer('');
+        setTaskStartDate('');
+        setTaskDueDate('');
         setIsAddingTask(null);
     };
 
@@ -215,6 +222,12 @@ export const ProjectDetails: React.FC = () => {
                     className={`px-6 py-4 font-bold uppercase tracking-widest text-xs transition-colors border-b-2 ${activeTab === 'milestones' ? 'text-orange-400 border-orange-500' : 'text-slate-500 border-transparent hover:text-white'}`}
                 >
                     Milestones & Tasks
+                </button>
+                <button
+                    onClick={() => setActiveTab('gantt')}
+                    className={`px-6 py-4 font-bold uppercase tracking-widest text-xs transition-colors border-b-2 ${activeTab === 'gantt' ? 'text-orange-400 border-orange-500' : 'text-slate-500 border-transparent hover:text-white'}`}
+                >
+                    Timeline (Gantt)
                 </button>
                 <button
                     onClick={() => setActiveTab('files')}
@@ -358,6 +371,26 @@ export const ProjectDetails: React.FC = () => {
                                                             ))}
                                                         </select>
                                                     </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Start Date</label>
+                                                            <input
+                                                                type="date"
+                                                                value={taskStartDate}
+                                                                onChange={e => setTaskStartDate(e.target.value)}
+                                                                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all text-sm font-medium"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Due Date</label>
+                                                            <input
+                                                                type="date"
+                                                                value={taskDueDate}
+                                                                onChange={e => setTaskDueDate(e.target.value)}
+                                                                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all text-sm font-medium"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                     <div className="flex justify-end gap-3 pt-2">
                                                         <button
                                                             type="button"
@@ -482,6 +515,85 @@ export const ProjectDetails: React.FC = () => {
                     )
                 })}
             </div>
+
+            {activeTab === 'gantt' && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto"
+                >
+                    {projectTasks.filter(t => t.startDate && t.dueDate).length === 0 ? (
+                        <div className="text-center py-20">
+                            <h3 className="text-xl font-black text-white tracking-tight">No Timeline Data</h3>
+                            <p className="text-slate-500 font-medium mt-2">Ensure tasks have both a start date and due date to appear in the Gantt chart.</p>
+                        </div>
+                    ) : (
+                        <div className="min-w-[800px]">
+                            {/* Simple Gantt Visualization */}
+                            <div className="mb-6 flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest px-4">
+                                <div className="w-1/4">Task</div>
+                                <div className="w-1/4">Assignee</div>
+                                <div className="w-1/2">Timeline</div>
+                            </div>
+                            <div className="space-y-2">
+                                {projectTasks
+                                    .filter(t => t.startDate && t.dueDate)
+                                    .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())
+                                    .map(task => {
+                                        const start = new Date(task.startDate!);
+                                        const due = new Date(task.dueDate!);
+                                        const now = new Date();
+
+                                        // Calculate relative positions (simplified for visual representation)
+                                        // Find earliest start date across all project tasks to set as baseline
+                                        const allStarts = projectTasks.filter(t => t.startDate).map(t => new Date(t.startDate!).getTime());
+                                        const allDues = projectTasks.filter(t => t.dueDate).map(t => new Date(t.dueDate!).getTime());
+                                        const projectStart = new Date(Math.min(...allStarts));
+                                        const projectEnd = new Date(Math.max(...allDues));
+
+                                        const totalProjectDays = differenceInDays(projectEnd, projectStart) || 1;
+                                        const taskStartOffset = differenceInDays(start, projectStart);
+                                        const taskDuration = differenceInDays(due, start) || 1;
+
+                                        const leftPercent = Math.max(0, (taskStartOffset / totalProjectDays) * 100);
+                                        const widthPercent = Math.min(100 - leftPercent, Math.max(2, (taskDuration / totalProjectDays) * 100));
+
+                                        const isOverdue = task.status !== 'done' && due < now;
+
+                                        return (
+                                            <div key={task.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
+                                                <div className="w-1/4 truncate">
+                                                    <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-white'} truncate text-sm`}>{task.title}</p>
+                                                    <p className="text-[10px] text-slate-500 truncate">{milestones.find(m => m.id === task.milestoneId)?.name}</p>
+                                                </div>
+                                                <div className="w-1/4">
+                                                    <span className="px-2 py-1 bg-white/10 rounded-lg text-xs font-bold text-slate-300">
+                                                        {engineers.find(e => e.id === task.engineerId)?.name || 'Unassigned'}
+                                                    </span>
+                                                </div>
+                                                <div className="w-1/2 relative h-8 bg-[#1a1a1a]/80 rounded-full overflow-hidden border border-white/5">
+                                                    <div
+                                                        className={`absolute top-0 bottom-0 rounded-full flex items-center px-2 shadow-lg ${task.status === 'done' ? 'bg-emerald-500/80 border border-emerald-400/50' :
+                                                            isOverdue ? 'bg-red-500/80 border border-red-400/50 animate-pulse' :
+                                                                task.status === 'in_progress' ? 'bg-orange-500/80 border border-orange-400/50' :
+                                                                    'bg-slate-500/80 border border-slate-400/50'
+                                                            }`}
+                                                        style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                                                        title={`${format(start, 'MMM d')} - ${format(due, 'MMM d')}`}
+                                                    >
+                                                        <span className="text-[9px] font-black text-white/90 truncate pl-1 mix-blend-overlay">
+                                                            {format(start, 'MMM d')} - {format(due, 'MMM d')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                            </div>
+                        </div>
+                    )}
+                </motion.div>
+            )}
 
             {activeTab === 'files' && (
                 <motion.div

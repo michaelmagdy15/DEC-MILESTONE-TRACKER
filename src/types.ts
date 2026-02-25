@@ -4,6 +4,7 @@ export interface Project {
     hourlyRate?: number;
     budget?: number;
     phase?: string;
+    leadDesignerId?: string;
 }
 
 export interface Engineer {
@@ -12,6 +13,7 @@ export interface Engineer {
     role: string;
     hourlyRate?: number;
     weeklyGoalHours?: number;
+    location?: 'Abu Dhabi' | 'Cairo';
 }
 
 export interface Milestone {
@@ -32,6 +34,7 @@ export interface Task {
     description?: string;
     status: 'todo' | 'in_progress' | 'done';
     dueDate?: string;
+    startDate?: string;
     createdAt?: string;
 }
 
@@ -51,6 +54,8 @@ export interface Notification {
     message: string;
     isRead: boolean;
     createdAt?: string;
+    projectId?: string;
+    type?: string;
 }
 
 export interface AttendanceRecord {
@@ -102,6 +107,14 @@ export interface TimeEntry {
     createdAt?: string;
 }
 
+export interface AppUsageLog {
+    id: string;
+    engineerId: string;
+    timestamp: string;
+    activeWindow: string;
+    durationSeconds: number;
+}
+
 export interface AppData {
     projects: Project[];
     engineers: Engineer[];
@@ -114,4 +127,5 @@ export interface AppData {
     meetings: Meeting[];
     projectFiles: ProjectFile[];
     timeEntries: TimeEntry[];
+    appUsageLogs: AppUsageLog[];
 }

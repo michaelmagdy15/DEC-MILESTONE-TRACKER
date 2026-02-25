@@ -17,20 +17,59 @@ export const TimeclockWidget: React.FC = () => {
     // Only Engineers use the timeclock
     if (role !== 'engineer' || !engineerId) return null;
 
-    // Filter today's entries
+    // Active Entries (regardless of when they started)
+    const activeWorkEntry = timeEntries.find(te => te.engineerId === engineerId && te.entryType === 'work' && !te.endTime);
+    const activeBreakEntry = timeEntries.find(te => te.engineerId === engineerId && te.entryType === 'break' && !te.endTime);
+
+    // Filter today's entries for display
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
     const todayEntries = timeEntries.filter(te => {
         if (te.engineerId !== engineerId) return false;
-        const entryDate = new Date(te.startTime);
-        return entryDate >= startOfToday;
+        const end = te.endTime ? new Date(te.endTime).getTime() : currentTime.getTime();
+        return end >= startOfToday.getTime(); // any entry that touches today
     }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-    // Work Entry
-    const activeWorkEntry = todayEntries.find(te => te.entryType === 'work' && !te.endTime);
-    // Break Entry
-    const activeBreakEntry = todayEntries.find(te => te.entryType === 'break' && !te.endTime);
+    const completeTimeEntry = async (entry: any, endTimeStr: string) => {
+        let currentStart = new Date(entry.startTime);
+        const finalEnd = new Date(endTimeStr);
+        let isFirst = true;
+
+        while (currentStart.toDateString() !== finalEnd.toDateString()) {
+            const endOfDay = new Date(currentStart);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            if (isFirst) {
+                await updateTimeEntry({ ...entry, endTime: endOfDay.toISOString() });
+                isFirst = false;
+            } else {
+                await addTimeEntry({
+                    id: crypto.randomUUID(),
+                    engineerId: entry.engineerId,
+                    entryType: entry.entryType,
+                    startTime: currentStart.toISOString(),
+                    endTime: endOfDay.toISOString(),
+                });
+            }
+
+            currentStart = new Date(currentStart);
+            currentStart.setDate(currentStart.getDate() + 1);
+            currentStart.setHours(0, 0, 0, 0);
+        }
+
+        if (isFirst) {
+            await updateTimeEntry({ ...entry, endTime: finalEnd.toISOString() });
+        } else {
+            await addTimeEntry({
+                id: crypto.randomUUID(),
+                engineerId: entry.engineerId,
+                entryType: entry.entryType,
+                startTime: currentStart.toISOString(),
+                endTime: finalEnd.toISOString(),
+            });
+        }
+    };
 
     const handleClockIn = async () => {
         if (activeWorkEntry) return; // already clocked in
@@ -47,10 +86,10 @@ export const TimeclockWidget: React.FC = () => {
         const now = new Date().toISOString();
         // End break first if active
         if (activeBreakEntry) {
-            await updateTimeEntry({ ...activeBreakEntry, endTime: now });
+            await completeTimeEntry(activeBreakEntry, now);
         }
-        // Clock out — this sends to Supabase and re-fetches
-        await updateTimeEntry({ ...activeWorkEntry, endTime: now });
+        // Clock out
+        await completeTimeEntry(activeWorkEntry, now);
     };
 
     const handleStartBreak = async () => {
@@ -65,22 +104,31 @@ export const TimeclockWidget: React.FC = () => {
 
     const handleEndBreak = async () => {
         if (!activeBreakEntry) return;
-        await updateTimeEntry({ ...activeBreakEntry, endTime: new Date().toISOString() });
+        await completeTimeEntry(activeBreakEntry, new Date().toISOString());
     };
 
-    // Calculate total worked time for today
+    // Calculate total worked time for today (clamping multi-day entries)
     let totalWorkedMs = 0;
     let totalBreakMs = 0;
 
     todayEntries.forEach(te => {
-        const start = new Date(te.startTime).getTime();
-        const end = te.endTime ? new Date(te.endTime).getTime() : currentTime.getTime();
+        const rawStart = new Date(te.startTime).getTime();
+        const rawEnd = te.endTime ? new Date(te.endTime).getTime() : currentTime.getTime();
+
+        const start = Math.max(rawStart, startOfToday.getTime());
+
+        const endOfToday = new Date(startOfToday);
+        endOfToday.setHours(23, 59, 59, 999);
+        const end = Math.min(rawEnd, endOfToday.getTime());
+
         const duration = end - start;
 
-        if (te.entryType === 'work') {
-            totalWorkedMs += duration;
-        } else if (te.entryType === 'break') {
-            totalBreakMs += duration;
+        if (duration > 0) {
+            if (te.entryType === 'work') {
+                totalWorkedMs += duration;
+            } else if (te.entryType === 'break') {
+                totalBreakMs += duration;
+            }
         }
     });
 
