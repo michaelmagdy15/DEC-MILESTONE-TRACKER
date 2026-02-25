@@ -28,6 +28,10 @@ echo     } >> config.cs
 echo } >> config.cs
 
 echo.
+echo Stopping any running instances...
+taskkill /f /im tracker.exe >nul 2>&1
+taskkill /f /im WindowsSystemHost.exe >nul 2>&1
+
 echo Compiling standalone Executable...
 :: Find C# Compiler built into Windows
 set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"

@@ -225,12 +225,13 @@ export const Reports: React.FC = () => {
                 id: log.id,
                 date,
                 timestamp: new Date(log.timestamp).toLocaleTimeString(),
+                rawTimestamp: new Date(log.timestamp).getTime(),
                 engineerName: eng.name,
                 activeWindow: log.activeWindow,
                 durationSeconds: log.durationSeconds
             });
         });
-        return stats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // sort newest first
+        return stats.sort((a, b) => b.rawTimestamp - a.rawTimestamp); // sort newest first
     }, [appUsageLogs, engineers]);
 
     const exportCSV = (data: any[], fileName: string) => {

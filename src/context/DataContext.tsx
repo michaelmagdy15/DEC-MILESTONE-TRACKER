@@ -213,6 +213,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings' }, () => { fetchData() })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'project_files' }, () => { fetchData() })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries' }, () => { fetchData() })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'app_usage_log' }, () => { fetchData() })
             .subscribe();
 
         return () => {
