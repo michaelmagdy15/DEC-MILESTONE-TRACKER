@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target } from 'lucide-react';
+import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target, Copy } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { Engineer } from '../types';
@@ -281,6 +281,14 @@ export const Engineers = () => {
                                     <span className="px-3 py-1 bg-emerald-500/10 rounded-full text-[10px] font-black text-emerald-500 border border-emerald-500/20 uppercase tracking-widest">
                                         Active
                                     </span>
+                                </div>
+                                <div
+                                    onClick={() => navigator.clipboard.writeText(engineer.id)}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 hover:border-orange-500/30 transition-all text-slate-400 hover:text-white group/copy"
+                                    title="Click to copy Engineer ID"
+                                >
+                                    <Copy className="w-3 h-3 group-hover/copy:text-orange-400 transition-colors" />
+                                    <span className="text-[10px] font-mono tracking-wider">ID: {engineer.id.substring(0, 8)}...</span>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 py-4 border-t border-white/5">
