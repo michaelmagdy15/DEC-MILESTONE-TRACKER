@@ -183,7 +183,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 fetchTable('app_usage_log', (l: any) => ({
                     id: l.id, engineerId: l.engineer_id, timestamp: l.timestamp,
                     activeWindow: l.active_window, durationSeconds: l.duration_seconds
-                }), setAppUsageLogs),
+                }), setAppUsageLogs, 'timestamp'),
             ]);
 
             hasLoadedOnce.current = true;
