@@ -15,7 +15,6 @@ import {
     loadZohoTokensFromSupabase,
     clearZohoTokensFromSupabase,
     refreshAccessToken,
-    ZOHO_TOKENS_KEYS,
     type ZohoMailAccount,
     type ZohoFolder
 } from '../lib/zoho';
@@ -434,8 +433,8 @@ export const Emails = () => {
                             <button
                                 onClick={() => switchFolder('inbox')}
                                 className={`w-full flex items-center gap-3 px-3 md:px-4 py-3 rounded-xl font-medium transition-all cursor-pointer ${activeFolder === 'inbox'
-                                        ? 'bg-orange-500/10 text-orange-500'
-                                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                                    ? 'bg-orange-500/10 text-orange-500'
+                                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                                     }`}
                             >
                                 <Inbox className="w-5 h-5" />
@@ -449,8 +448,8 @@ export const Emails = () => {
                             <button
                                 onClick={() => switchFolder('sent')}
                                 className={`w-full flex items-center gap-3 px-3 md:px-4 py-3 rounded-xl font-medium transition-all cursor-pointer ${activeFolder === 'sent'
-                                        ? 'bg-orange-500/10 text-orange-500'
-                                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                                    ? 'bg-orange-500/10 text-orange-500'
+                                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                                     }`}
                             >
                                 <Send className="w-5 h-5" />
