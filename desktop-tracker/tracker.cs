@@ -97,11 +97,25 @@ namespace DecTracker
 
                 using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
                 {
+                    Console.WriteLine("Supabase Success: " + endpoint + " - " + method);
                     return true;
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Supabase Error [" + endpoint + "]: " + ex.Message);
+                if (ex is WebException)
+                {
+                    WebException wex = (WebException)ex;
+                    if (wex.Response != null)
+                    {
+                        using (StreamReader reader = new StreamReader(wex.Response.GetResponseStream()))
+                        {
+                            Console.WriteLine("Response Body: " + reader.ReadToEnd());
+                        }
+                    }
+                }
+                
                 File.AppendAllText("tracker_debug.log", "[" + DateTime.Now.ToString() + "] " + ex.Message + "\n");
                 return false;
             }
@@ -145,6 +159,7 @@ namespace DecTracker
                             {
                                 string safeWindow = EscapeJson(last_window);
                                 string payload = "{\"engineer_id\":\"" + Config.ENGINEER_ID + "\",\"active_window\":\"" + safeWindow + "\",\"duration_seconds\":" + duration_seconds + ",\"timestamp\":\"" + now_iso + "\"}";
+                                Console.WriteLine("Posting app_usage_log: " + payload);
                                 SupabaseRequest("POST", "app_usage_log", payload);
                             }
                         }
