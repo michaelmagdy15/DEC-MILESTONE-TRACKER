@@ -75,6 +75,9 @@ namespace DecTracker
         {
             try
             {
+                // Force TLS 1.2 (SecurityProtocolType.Tls12 is 3072)
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
+
                 string url = Config.SUPABASE_URL + "/rest/v1/" + endpoint;
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
                 req.Method = method;
@@ -97,8 +100,9 @@ namespace DecTracker
                     return true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                File.AppendAllText("tracker_debug.log", "[" + DateTime.Now.ToString() + "] " + ex.Message + "\n");
                 return false;
             }
         }
@@ -140,7 +144,7 @@ namespace DecTracker
                             if (duration_seconds > 10 && !is_idle)
                             {
                                 string safeWindow = EscapeJson(last_window);
-                                string payload = "{\"engineerId\":\"" + Config.ENGINEER_ID + "\",\"activeWindow\":\"" + safeWindow + "\",\"durationSeconds\":" + duration_seconds + ",\"timestamp\":\"" + now_iso + "\"}";
+                                string payload = "{\"engineer_id\":\"" + Config.ENGINEER_ID + "\",\"active_window\":\"" + safeWindow + "\",\"duration_seconds\":" + duration_seconds + ",\"timestamp\":\"" + now_iso + "\"}";
                                 SupabaseRequest("POST", "app_usage_log", payload);
                             }
                         }
@@ -155,7 +159,7 @@ namespace DecTracker
                     if (current_state != new_state)
                     {
                         string new_id = Guid.NewGuid().ToString();
-                        string payload = "{\"id\":\"" + new_id + "\",\"engineerId\":\"" + Config.ENGINEER_ID + "\",\"entryType\":\"" + new_state + "\",\"startTime\":\"" + now_iso + "\",\"createdAt\":\"" + now_iso + "\"}";
+                        string payload = "{\"id\":\"" + new_id + "\",\"engineer_id\":\"" + Config.ENGINEER_ID + "\",\"entry_type\":\"" + new_state + "\",\"start_time\":\"" + now_iso + "\",\"created_at\":\"" + now_iso + "\"}";
                         if (SupabaseRequest("POST", "time_entries", payload))
                         {
                             current_entry_id = new_id;
@@ -167,13 +171,16 @@ namespace DecTracker
                     {
                         if (current_entry_id != null && (now - last_timeclock_update_time).TotalSeconds > 60)
                         {
-                            string payload = "{\"endTime\":\"" + now_iso + "\"}";
+                            string payload = "{\"end_time\":\"" + now_iso + "\"}";
                             SupabaseRequest("PATCH", "time_entries?id=eq." + current_entry_id, payload);
                             last_timeclock_update_time = now;
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) 
+                {
+                    File.AppendAllText("tracker_debug.log", "[" + DateTime.Now.ToString() + "] Main Loop Error: " + ex.Message + "\n");
+                }
 
                 Thread.Sleep(10000);
             }
