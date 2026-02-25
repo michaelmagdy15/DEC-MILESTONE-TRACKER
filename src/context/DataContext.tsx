@@ -221,7 +221,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [user?.id]);
 
-    // Projects
     const addProject = async (project: Project) => {
         const { error } = await supabase.from('projects').insert({
             id: project.id,
@@ -229,7 +228,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hourly_rate: project.hourlyRate,
             budget: project.budget || 0,
             phase: project.phase || 'Planning',
-            lead_designer_id: project.leadDesignerId
+            lead_designer_id: project.leadDesignerId || null
         });
         if (error) console.error('Error adding project:', error);
         else await fetchData();
@@ -241,7 +240,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hourly_rate: project.hourlyRate,
             budget: project.budget,
             phase: project.phase,
-            lead_designer_id: project.leadDesignerId
+            lead_designer_id: project.leadDesignerId || null
         }).eq('id', project.id);
 
         if (error) console.error('Error updating project:', error);
