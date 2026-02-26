@@ -80,6 +80,43 @@ export const Reports: React.FC = () => {
         "SketchUp", "Lumion", "Twinmotion", "3ds Max", "Archicad"
     ];
 
+    const IDLE_THRESHOLD_SECONDS = 300;
+
+    const calculateAppUsageStats = (logs: any[], sinceDate?: Date) => {
+        let activeSeconds = 0;
+        let idleSeconds = 0;
+        let nonWorkSeconds = 0;
+
+        const filteredLogs = sinceDate ? logs.filter(l => new Date(l.timestamp) >= sinceDate) : logs;
+
+        filteredLogs.forEach(log => {
+            const isLockScreen = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
+
+            if (isLockScreen) {
+                idleSeconds += log.durationSeconds;
+                return;
+            }
+
+            const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
+            const cappedDuration = Math.min(log.durationSeconds, IDLE_THRESHOLD_SECONDS);
+            const idleExcess = Math.max(0, log.durationSeconds - IDLE_THRESHOLD_SECONDS);
+
+            idleSeconds += idleExcess;
+
+            if (isWorkApp) {
+                activeSeconds += cappedDuration;
+            } else {
+                nonWorkSeconds += cappedDuration;
+            }
+        });
+
+        return {
+            activeHours: activeSeconds / 3600,
+            idleHours: idleSeconds / 3600,
+            nonWorkHours: nonWorkSeconds / 3600
+        };
+    };
+
     // Calculate Project Stats
     const projectStats = projects.map(project => {
         const projectEntries = entries.filter(e => e.projectId === project.id);
@@ -110,19 +147,23 @@ export const Reports: React.FC = () => {
     const engineerStats = engineers.map(engineer => {
         const engineerEntries = entries.filter(e => e.engineerId === engineer.id);
         const engineerTimeclock = timeEntries.filter(te => te.engineerId === engineer.id);
+        const engineerAppLogs = appUsageLogs.filter(log => log.engineerId === engineer.id);
 
         const tcTotalMs = getTimeclockMs(engineerTimeclock);
-        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + (tcTotalMs / 3600000);
+        const totalAppStats = calculateAppUsageStats(engineerAppLogs);
+
+        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + (tcTotalMs / 3600000) + totalAppStats.activeHours;
         const projectCount = new Set(engineerEntries.map(e => e.projectId)).size;
 
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
         const tcWeeklyMs = getTimeclockMs(engineerTimeclock, te => new Date(te.startTime) >= oneWeekAgo);
+        const weeklyAppStats = calculateAppUsageStats(engineerAppLogs, oneWeekAgo);
 
         const weeklyHours = engineerEntries
             .filter(e => new Date(e.date) >= oneWeekAgo)
-            .reduce((sum, e) => sum + e.timeSpent, 0) + (tcWeeklyMs / 3600000);
+            .reduce((sum, e) => sum + e.timeSpent, 0) + (tcWeeklyMs / 3600000) + weeklyAppStats.activeHours;
 
         const weeklyAbsences = attendance.filter(a =>
             a.engineerId === engineer.id &&
@@ -145,7 +186,17 @@ export const Reports: React.FC = () => {
         const deduction = weeklyAbsences * 8 * hourlyRate;
         const weeklyPayment = Math.max(0, expectedPayment - deduction);
 
-        return { ...engineer, totalHours, projectCount, weeklyHours, weeklyOvertime, weeklyAbsences, weeklyPayment };
+        return {
+            ...engineer,
+            totalHours,
+            projectCount,
+            weeklyHours,
+            weeklyOvertime,
+            weeklyAbsences,
+            weeklyPayment,
+            totalIdleHours: totalAppStats.idleHours,
+            totalNonWorkHours: totalAppStats.nonWorkHours
+        };
     });
 
     // Calculate Timeclock Stats (All-Time Aggregate for Chart)
@@ -282,7 +333,9 @@ export const Reports: React.FC = () => {
 
     // Calculate weekly hours precisely for selected engineer
     const selectedEngWeeklyHours = React.useMemo(() => {
-        if (selectedActivityEngineer === 'all') return null;
+        if (selectedActivityEngineer === 'all') {
+            return engineerStats.reduce((sum, stat) => sum + (stat as any).weeklyHours, 0);
+        }
         const stat = engineerStats.find(s => (s as any).id === selectedActivityEngineer) as any;
         return stat ? stat.weeklyHours : 0;
     }, [selectedActivityEngineer, engineerStats]);

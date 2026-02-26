@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 
 export const Dashboard = () => {
-    const { projects, engineers, entries, timeEntries, clearMonthlyData } = useData();
+    const { projects, engineers, entries, timeEntries, clearMonthlyData, appUsageLogs } = useData();
     const { role } = useAuth();
 
     // Configurable target hours (persisted in localStorage)
@@ -22,6 +22,47 @@ export const Dashboard = () => {
     const updateTargetHours = (val: number) => {
         setTargetHours(val);
         localStorage.setItem('dec_target_hours', val.toString());
+    };
+
+    const WORK_PROGRAMS = [
+        "AutoCAD", "Revit", "ETABS", "SAFE", "Excel", "PowerPoint", "Word",
+        "SketchUp", "Lumion", "Twinmotion", "3ds Max", "Archicad"
+    ];
+    const IDLE_THRESHOLD_SECONDS = 300;
+
+    const calculateAppUsageStats = (logs: any[], sinceDate?: Date) => {
+        let activeSeconds = 0;
+        let idleSeconds = 0;
+        let nonWorkSeconds = 0;
+
+        const filteredLogs = sinceDate ? logs.filter(l => new Date(l.timestamp) >= sinceDate) : logs;
+
+        filteredLogs.forEach(log => {
+            const isLockScreen = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
+
+            if (isLockScreen) {
+                idleSeconds += log.durationSeconds;
+                return;
+            }
+
+            const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
+            const cappedDuration = Math.min(log.durationSeconds, IDLE_THRESHOLD_SECONDS);
+            const idleExcess = Math.max(0, log.durationSeconds - IDLE_THRESHOLD_SECONDS);
+
+            idleSeconds += idleExcess;
+
+            if (isWorkApp) {
+                activeSeconds += cappedDuration;
+            } else {
+                nonWorkSeconds += cappedDuration;
+            }
+        });
+
+        return {
+            activeHours: activeSeconds / 3600,
+            idleHours: idleSeconds / 3600,
+            nonWorkHours: nonWorkSeconds / 3600
+        };
     };
 
     // Filter entries: Everyone sees all for stats and overview
@@ -47,12 +88,15 @@ export const Dashboard = () => {
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
     const weeklyTimeclockHours = getTimeclockMs(te => new Date(te.startTime) >= startOfWeek) / 3600000;
 
+    const totalAppStats = calculateAppUsageStats(appUsageLogs || []);
+    const weeklyAppStats = calculateAppUsageStats(appUsageLogs || [], startOfWeek);
+
     // Calculate Metrics
-    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalTimeclockHours;
+    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalTimeclockHours + totalAppStats.activeHours;
 
     const weeklyHours = filteredEntries
         .filter(e => new Date(e.date) >= startOfWeek)
-        .reduce((sum, e) => sum + e.timeSpent, 0) + weeklyTimeclockHours;
+        .reduce((sum, e) => sum + e.timeSpent, 0) + weeklyTimeclockHours + weeklyAppStats.activeHours;
 
     // Active Projects (projects with entries in last 30 days)
     const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
