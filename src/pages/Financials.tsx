@@ -2,8 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { DollarSign, FileText, AlertCircle, Building2, TrendingUp, BarChart3, Download, Briefcase, Calculator, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Wallet, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 const OfficeOperations: React.FC = () => {
@@ -92,103 +90,230 @@ const OfficeOperations: React.FC = () => {
         setExpenseDesc('');
     };
 
-    const generateFinancialReport = () => {
-        const doc = new jsPDF();
+    const generateFinancialReport = async () => {
         const monthStr = format(selectedMonth, 'MMMM yyyy');
 
-        // Header
-        doc.setFontSize(24);
-        doc.setTextColor(16, 185, 129); // Emerald
-        doc.text("EXECUTIVE FINANCIAL REPORT", 14, 25);
+        // Dynamically import exceljs to reduce initial load time
+        const ExcelJS = (await import('exceljs')).default;
+        const { saveAs } = (await import('file-saver')).default;
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Period: ${monthStr}`, 14, 35);
-        doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 40);
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'DEC Milestone Tracker';
+        workbook.lastModifiedBy = 'System';
+        workbook.created = new Date();
+        workbook.modified = new Date();
 
-        // DEC details
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.text("DEC Engineering Consultants", 130, 25);
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text("Dubai, UAE", 130, 32);
+        const worksheet = workbook.addWorksheet(`Financials - ${monthStr}`, {
+            views: [{ showGridLines: false }]
+        });
 
-        let currentY = 55;
+        // Set default column widths early
+        worksheet.columns = [
+            { width: 5 },  // A - Padding
+            { width: 20 }, // B - Primary Info / Name / Date
+            { width: 30 }, // C - Category / Hours / Description
+            { width: 20 }, // D - Rate / Description
+            { width: 25 }, // E - Totals
+            { width: 5 }   // F - Padding
+        ];
 
-        // Generate tables for each location
+        // Ensure background is clean (white) for the main content area
+        for (let i = 1; i <= 100; i++) {
+            worksheet.getRow(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        }
+
+        // Add DEC Logo if we can find it in the DOM or fetch it
+        try {
+            // Attempt to grab the logo from the actual SVG on screen, or fallback to fetching
+            // We'll create a canvas and draw the SVG to it, then get base64 PNG
+            const fetchSvgAndConvertToPng = async () => {
+                return new Promise<string>((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 300; // Scaled width
+                        canvas.height = Math.floor(300 * (img.height / img.width));
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.fillStyle = '#1e1e1e'; // very dark background typical of the app
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 10, 10, canvas.width - 20, canvas.height - 20);
+                            resolve(canvas.toDataURL('image/png'));
+                        } else {
+                            reject(new Error("No context"));
+                        }
+                    };
+                    img.onerror = () => reject(img);
+                    // Use a recognizable logo URL
+                    img.src = '/dec-logo.svg';
+                });
+            };
+
+            const base64Png = await fetchSvgAndConvertToPng();
+            const imageId = workbook.addImage({
+                base64: base64Png,
+                extension: 'png',
+            });
+            // Place logo at top left
+            worksheet.addImage(imageId, {
+                tl: { col: 1, row: 1 },
+                ext: { width: 150, height: 40 }
+            });
+
+        } catch (e) {
+            console.warn("Could not embed logo in Excel block:", e);
+            // Fallback text if logo fails
+            worksheet.mergeCells('B2:C3');
+            const logoCell = worksheet.getCell('B2');
+            logoCell.value = 'DEC Engineering Consultants';
+            logoCell.font = { name: 'Arial', family: 2, size: 16, bold: true, color: { argb: 'FFD35400' } }; // Orange
+        }
+
+        // Title and Date info
+        worksheet.mergeCells('D2:E2');
+        const titleCell = worksheet.getCell('D2');
+        titleCell.value = 'EXECUTIVE FINANCIAL REPORT';
+        titleCell.font = { name: 'Arial', family: 2, size: 18, bold: true, color: { argb: 'FF10B981' } }; // Emerald
+        titleCell.alignment = { horizontal: 'right' };
+
+        worksheet.mergeCells('D3:E3');
+        const periodCell = worksheet.getCell('D3');
+        periodCell.value = `Period: ${monthStr}`;
+        periodCell.font = { name: 'Arial', family: 2, size: 11, bold: true, color: { argb: 'FF777777' } };
+        periodCell.alignment = { horizontal: 'right' };
+
+        worksheet.mergeCells('D4:E4');
+        const genDateCell = worksheet.getCell('D4');
+        genDateCell.value = `Generated: ${format(new Date(), 'MMM dd, yyyy')}`;
+        genDateCell.font = { name: 'Arial', family: 2, size: 10, italic: true, color: { argb: 'FFAAAAAA' } };
+        genDateCell.alignment = { horizontal: 'right' };
+
+        let currentRow = 7;
+
+        // Iterate over locations: Abu Dhabi and Cairo
         (['Abu Dhabi', 'Cairo'] as const).forEach(loc => {
             const d = opsData[loc];
-            const locColor = loc === 'Abu Dhabi' ? [16, 185, 129] : [249, 115, 22]; // Emerald or Orange
+            const isAbuDhabi = loc === 'Abu Dhabi';
+            const themeColor = isAbuDhabi ? 'FF10B981' : 'FFF97316'; // Emerald : Orange
+            const bgHeaderColor = isAbuDhabi ? 'FFE8F5E9' : 'FFFFF3E0'; // Light Emerald : Light Orange
 
-            // Section Header
-            doc.setFontSize(16);
-            doc.setTextColor(0);
-            doc.text(`${loc} Operations (${d.currency})`, 14, currentY);
-            currentY += 10;
+            // --- Section Header ---
+            worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+            const locHeader = worksheet.getCell(`B${currentRow}`);
+            locHeader.value = `${loc} Operations (${d.currency})`;
+            locHeader.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+            locHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColor } };
+            locHeader.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+            worksheet.getRow(currentRow).height = 25;
 
-            // Summary
-            doc.setFontSize(11);
-            doc.setTextColor(80);
-            doc.text(`Total Salaries: ${d.salaries.toLocaleString()}`, 14, currentY);
-            doc.text(`Total Expenses: ${d.expenses.toLocaleString()}`, 80, currentY);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Total Outgoings: ${d.currency} ${(d.salaries + d.expenses).toLocaleString()}`, 140, currentY);
-            doc.setFont('helvetica', 'normal');
-            currentY += 15;
+            currentRow += 2;
 
-            // Salaries Table
+            // --- Summary Block ---
+            worksheet.getCell(`B${currentRow}`).value = 'Total Salaries';
+            worksheet.getCell(`B${currentRow}`).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF555555' } };
+            worksheet.getCell(`C${currentRow}`).value = d.salaries;
+            worksheet.getCell(`C${currentRow}`).numFmt = '#,##0.00';
+            worksheet.getCell(`C${currentRow}`).font = { name: 'Arial', size: 11, bold: true };
+
+            worksheet.getCell(`D${currentRow}`).value = 'Total Expenses';
+            worksheet.getCell(`D${currentRow}`).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF555555' } };
+            worksheet.getCell(`E${currentRow}`).value = d.expenses;
+            worksheet.getCell(`E${currentRow}`).numFmt = '#,##0.00';
+            worksheet.getCell(`E${currentRow}`).font = { name: 'Arial', size: 11, bold: true };
+
+            currentRow += 1;
+            worksheet.getCell(`D${currentRow}`).value = 'Total Outgoings';
+            worksheet.getCell(`D${currentRow}`).font = { name: 'Arial', size: 12, bold: true, color: { argb: themeColor } };
+            worksheet.getCell(`E${currentRow}`).value = d.salaries + d.expenses;
+            worksheet.getCell(`E${currentRow}`).numFmt = `"${d.currency}" #,##0.00`;
+            worksheet.getCell(`E${currentRow}`).font = { name: 'Arial', size: 12, bold: true, color: { argb: themeColor } };
+
+            currentRow += 3;
+
+            // --- Salaries Table ---
             if (d.salaryDetails.length > 0) {
-                doc.setFontSize(12);
-                doc.text("Salaries Breakdown", 14, currentY);
-                currentY += 5;
+                // Table Title
+                worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+                const salTitle = worksheet.getCell(`B${currentRow}`);
+                salTitle.value = 'SALARY BREAKDOWN';
+                salTitle.font = { name: 'Arial', size: 10, bold: true, color: { argb: themeColor } };
+                salTitle.border = { bottom: { style: 'thick', color: { argb: themeColor } } };
+                currentRow += 1;
 
-                autoTable(doc, {
-                    head: [["Name", "Hours", "Rate", "Total"]],
-                    body: d.salaryDetails.map(s => [s.name, s.hours.toString(), s.rate.toString(), s.total.toLocaleString()]),
-                    startY: currentY,
-                    theme: 'grid',
-                    headStyles: { fillColor: locColor as [number, number, number] },
-                    styles: { fontSize: 9 }
+                // Table Header
+                const headers = ['Engineer Name', 'Total Hours', 'Hourly Rate', 'Total Salary'];
+                const cols = ['B', 'C', 'D', 'E'];
+                headers.forEach((h, i) => {
+                    const cell = worksheet.getCell(`${cols[i]}${currentRow}`);
+                    cell.value = h;
+                    cell.font = { bold: true, color: { argb: 'FF333333' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgHeaderColor } };
+                    cell.border = { bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
                 });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                currentRow += 1;
+
+                // Table Body
+                d.salaryDetails.forEach(s => {
+                    worksheet.getCell(`B${currentRow}`).value = s.name;
+                    worksheet.getCell(`C${currentRow}`).value = s.hours;
+                    worksheet.getCell(`D${currentRow}`).value = s.rate;
+                    worksheet.getCell(`D${currentRow}`).numFmt = '#,##0.00';
+                    worksheet.getCell(`E${currentRow}`).value = s.total;
+                    worksheet.getCell(`E${currentRow}`).numFmt = '#,##0.00';
+                    currentRow += 1;
+                });
+                currentRow += 2;
             }
 
-            // Expenses Table
+            // --- Expenses Table ---
             if (d.expenseList.length > 0) {
-                // Check if page break is needed
-                if (currentY > 230) {
-                    doc.addPage();
-                    currentY = 20;
-                }
+                // Table Title
+                worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+                const expTitle = worksheet.getCell(`B${currentRow}`);
+                expTitle.value = 'OPERATING EXPENSES';
+                expTitle.font = { name: 'Arial', size: 10, bold: true, color: { argb: themeColor } };
+                expTitle.border = { bottom: { style: 'thick', color: { argb: themeColor } } };
+                currentRow += 1;
 
-                doc.setFontSize(12);
-                doc.text("Operating Expenses", 14, currentY);
-                currentY += 5;
-
-                autoTable(doc, {
-                    head: [["Date", "Category", "Description", "Amount"]],
-                    body: d.expenseList.map(e => [
-                        format(new Date(e.date), 'MM/dd'),
-                        e.category,
-                        e.description || '-',
-                        e.amount.toLocaleString()
-                    ]),
-                    startY: currentY,
-                    theme: 'grid',
-                    headStyles: { fillColor: locColor as [number, number, number] },
-                    styles: { fontSize: 9 }
+                // Table Header
+                const headers = ['Date', 'Category', 'Description', 'Amount'];
+                const cols = ['B', 'C', 'D', 'E'];
+                headers.forEach((h, i) => {
+                    const cell = worksheet.getCell(`${cols[i]}${currentRow}`);
+                    cell.value = h;
+                    cell.font = { bold: true, color: { argb: 'FF333333' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgHeaderColor } };
+                    cell.border = { bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
                 });
-                currentY = (doc as any).lastAutoTable.finalY + 25;
+                currentRow += 1;
+
+                // Table Body
+                d.expenseList.forEach(e => {
+                    worksheet.getCell(`B${currentRow}`).value = format(new Date(e.date), 'MMM dd, yyyy');
+                    worksheet.getCell(`C${currentRow}`).value = e.category;
+                    worksheet.getCell(`D${currentRow}`).value = e.description || '-';
+                    worksheet.getCell(`E${currentRow}`).value = e.amount;
+                    worksheet.getCell(`E${currentRow}`).numFmt = '#,##0.00';
+                    currentRow += 1;
+                });
+                currentRow += 3;
+            } else {
+                currentRow += 2; // Extra padding if no expenses
             }
         });
 
-        // Footer
-        doc.setFontSize(10);
-        doc.setTextColor(150);
-        doc.text("CONFIDENTIAL - Internal Use Only", 14, doc.internal.pageSize.getHeight() - 15);
+        // Add Confidential Footer
+        worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
+        const footerInfo = worksheet.getCell(`B${currentRow}`);
+        footerInfo.value = 'CONFIDENTIAL - INTERNAL USE ONLY';
+        footerInfo.font = { name: 'Arial', size: 8, italic: true, bold: true, color: { argb: 'FF999999' } };
+        footerInfo.alignment = { horizontal: 'center' };
 
-        doc.save(`DEC_Financials_${format(selectedMonth, 'yyyy_MM')}.pdf`);
+        // Generate and Export
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, `DEC_Financials_${format(selectedMonth, 'yyyy_MM')}.xlsx`);
     };
 
     const renderOfficeCard = (loc: 'Abu Dhabi' | 'Cairo') => {
@@ -472,65 +597,164 @@ export const Financials: React.FC = () => {
         }), { totalBudget: 0, totalSpent: 0 });
     }, [financialsData]);
 
-    const generateInvoice = (projectData: typeof financialsData[0]) => {
-        const doc = new jsPDF();
+    const generateInvoice = async (projectData: typeof financialsData[0]) => {
+        // Dynamically import exceljs to reduce initial load time
+        const ExcelJS = (await import('exceljs')).default;
+        const { saveAs } = (await import('file-saver')).default;
 
-        // Header
-        doc.setFontSize(28);
-        doc.setTextColor(234, 88, 12); // Orange-600
-        doc.text("INVOICE", 14, 25);
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'DEC Milestone Tracker';
+        workbook.lastModifiedBy = 'System';
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Date: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 35);
-        doc.text(`Project: ${projectData.name}`, 14, 40);
-
-        if (projectData.budget > 0) {
-            doc.text(`Approved Budget: AED ${projectData.budget.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 14, 45);
-        }
-
-        // DEC details
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.text("DEC Engineering Consultants", 130, 25);
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text("Dubai, UAE", 130, 32);
-
-        // Expense Breakdown Table
-        doc.setFontSize(14);
-        doc.setTextColor(0);
-        doc.text("Professional Services Rendering", 14, 60);
-
-        const tableColumn = ["Personnel", "Designation", "Hours", "Rate (AED/hr)", "Subtotal (AED)"];
-        const tableRows = projectData.expenseBreakdown.map(eb => [
-            eb.engineerName,
-            eb.role,
-            eb.hours.toString(),
-            eb.rate.toLocaleString(),
-            eb.total.toLocaleString(undefined, { minimumFractionDigits: 2 })
-        ]);
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 65,
-            theme: 'striped',
-            headStyles: { fillColor: [234, 88, 12] }
+        const worksheet = workbook.addWorksheet(`Invoice - ${projectData.name.substring(0, 20)}`, {
+            views: [{ showGridLines: false }]
         });
 
-        // Totals
-        const finalY = (doc as any).lastAutoTable.finalY || 65;
-        doc.setFontSize(14);
-        doc.setTextColor(0);
-        doc.text(`Total Amount Due: AED ${projectData.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 14, finalY + 15);
+        worksheet.columns = [
+            { width: 5 },  // A - Padding
+            { width: 30 }, // B - Personnel
+            { width: 25 }, // C - Designation
+            { width: 15 }, // D - Hours
+            { width: 20 }, // E - Rate (AED/hr)
+            { width: 25 }, // F - Subtotal (AED)
+            { width: 5 }   // G - Padding
+        ];
+
+        // Clean background
+        for (let i = 1; i <= 60; i++) {
+            worksheet.getRow(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        }
+
+        // Add DEC Logo
+        try {
+            const fetchSvgAndConvertToPng = async () => {
+                return new Promise<string>((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 300;
+                        canvas.height = Math.floor(300 * (img.height / img.width));
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.fillStyle = '#1e1e1e';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 10, 10, canvas.width - 20, canvas.height - 20);
+                            resolve(canvas.toDataURL('image/png'));
+                        } else {
+                            reject(new Error("No context"));
+                        }
+                    };
+                    img.onerror = () => reject(img);
+                    img.src = '/dec-logo.svg';
+                });
+            };
+
+            const base64Png = await fetchSvgAndConvertToPng();
+            const imageId = workbook.addImage({ base64: base64Png, extension: 'png' });
+            worksheet.addImage(imageId, { tl: { col: 1, row: 1 }, ext: { width: 150, height: 40 } });
+        } catch (e) {
+            worksheet.mergeCells('B2:E3');
+            worksheet.getCell('B2').value = 'DEC Engineering Consultants';
+            worksheet.getCell('B2').font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFD35400' } };
+        }
+
+        // Title
+        worksheet.mergeCells('E2:F2');
+        const titleCell = worksheet.getCell('E2');
+        titleCell.value = 'INVOICE';
+        titleCell.font = { name: 'Arial', size: 24, bold: true, color: { argb: 'FFEA580C' } }; // Orange-600
+        titleCell.alignment = { horizontal: 'right' };
+
+        // Meta info
+        worksheet.mergeCells('E3:F3');
+        worksheet.getCell('E3').value = `Date: ${format(new Date(), 'MMM dd, yyyy')}`;
+        worksheet.getCell('E3').font = { name: 'Arial', size: 10, color: { argb: 'FF777777' } };
+        worksheet.getCell('E3').alignment = { horizontal: 'right' };
+
+        worksheet.mergeCells('E4:F4');
+        worksheet.getCell('E4').value = `Project: ${projectData.name}`;
+        worksheet.getCell('E4').font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF333333' } };
+        worksheet.getCell('E4').alignment = { horizontal: 'right' };
+
+        if (projectData.budget > 0) {
+            worksheet.mergeCells('E5:F5');
+            worksheet.getCell('E5').value = `Approved Budget: AED ${projectData.budget.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+            worksheet.getCell('E5').font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF888888' } };
+            worksheet.getCell('E5').alignment = { horizontal: 'right' };
+        }
+
+        let currentRow = 8;
+
+        // Table Title
+        worksheet.mergeCells(`B${currentRow}:F${currentRow}`);
+        const tableTitle = worksheet.getCell(`B${currentRow}`);
+        tableTitle.value = 'Professional Services Rendering';
+        tableTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF333333' } };
+        currentRow += 2;
+
+        // Headers
+        const headers = ['Personnel', 'Designation', 'Hours', 'Rate (AED/hr)', 'Subtotal (AED)'];
+        const cols = ['B', 'C', 'D', 'E', 'F'];
+        headers.forEach((h, i) => {
+            const cell = worksheet.getCell(`${cols[i]}${currentRow}`);
+            cell.value = h;
+            cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } }; // Orange Header
+            cell.alignment = { vertical: 'middle', horizontal: i >= 2 ? 'right' : 'left' };
+        });
+        currentRow += 1;
+
+        // Rows
+        projectData.expenseBreakdown.forEach(eb => {
+            worksheet.getCell(`B${currentRow}`).value = eb.engineerName;
+            worksheet.getCell(`C${currentRow}`).value = eb.role;
+
+            const hoursCell = worksheet.getCell(`D${currentRow}`);
+            hoursCell.value = Number(eb.hours);
+            hoursCell.alignment = { horizontal: 'right' };
+
+            const rateCell = worksheet.getCell(`E${currentRow}`);
+            rateCell.value = Number(eb.rate);
+            rateCell.numFmt = '#,##0.00';
+            rateCell.alignment = { horizontal: 'right' };
+
+            const totalCell = worksheet.getCell(`F${currentRow}`);
+            totalCell.value = Number(eb.total);
+            totalCell.numFmt = '#,##0.00';
+            totalCell.alignment = { horizontal: 'right' };
+
+            currentRow += 1;
+        });
+
+        // Add padding
+        currentRow += 1;
+
+        // Total
+        worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+        const totalLabel = worksheet.getCell(`D${currentRow}`);
+        totalLabel.value = 'Total Amount Due:';
+        totalLabel.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF555555' } };
+        totalLabel.alignment = { horizontal: 'right' };
+
+        const finalTotal = worksheet.getCell(`F${currentRow}`);
+        finalTotal.value = Number(projectData.totalSpent);
+        finalTotal.numFmt = '"AED" #,##0.00';
+        finalTotal.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFEA580C' } };
+        finalTotal.border = { top: { style: 'medium', color: { argb: 'FFEA580C' } } };
+
+        currentRow += 3;
 
         // Footer
-        doc.setFontSize(10);
-        doc.setTextColor(150);
-        doc.text("Thank you for your business.", 14, doc.internal.pageSize.getHeight() - 20);
+        worksheet.mergeCells(`B${currentRow}:F${currentRow}`);
+        const footerInfo = worksheet.getCell(`B${currentRow}`);
+        footerInfo.value = 'Thank you for your business.';
+        footerInfo.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF999999' } };
+        footerInfo.alignment = { horizontal: 'center' };
 
-        doc.save(`Invoice_${projectData.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, `Invoice_${projectData.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
     };
 
     return (
