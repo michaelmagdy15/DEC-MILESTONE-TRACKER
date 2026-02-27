@@ -156,17 +156,29 @@ export const Reports: React.FC = () => {
 
         engEntries.forEach(te => {
             const start = new Date(te.startTime).getTime();
-            const end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-            const duration = end - start;
-            if (te.entryType === 'work') totalWorkMs += duration;
-            else if (te.entryType === 'break') totalBreakMs += duration;
+            // If currently clocked in, calculate until NOW, but only up to 24 hours to avoid huge outliers
+            let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+
+            // Safety clamp: if duration is somehow more than 24 hours (e.g. forgot to clock out), clamp to 12 hours
+            if ((end - start) > 24 * 3600000) {
+                end = start + (12 * 3600000);
+            }
+
+            const duration = Math.max(0, end - start);
+
+            if (te.entryType === 'work') {
+                totalWorkMs += duration;
+            } else if (te.entryType === 'break') {
+                totalBreakMs += duration;
+            }
         });
 
-        const activeWorkDuration = Math.max(0, totalWorkMs - totalBreakMs);
+        // 'work' entries from the tracker are already paused during breaks, 
+        // DO NOT subtract break time from work time.
         return {
             id: engineer.id,
             name: engineer.name,
-            totalWorkHours: parseFloat((activeWorkDuration / 3600000).toFixed(2)),
+            totalWorkHours: parseFloat((totalWorkMs / 3600000).toFixed(2)),
             totalBreakHours: parseFloat((totalBreakMs / 3600000).toFixed(2)),
             expectedWeeklyHours: engineer.weeklyGoalHours || 40,
         };
@@ -193,13 +205,18 @@ export const Reports: React.FC = () => {
             }
 
             const rawStart = new Date(te.startTime).getTime();
-            const rawEnd = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+            let rawEnd = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+
+            // Safety clamp: if duration is somehow more than 24 hours (e.g. forgot to clock out), clamp to 12 hours
+            if ((rawEnd - rawStart) > 24 * 3600000) {
+                rawEnd = rawStart + (12 * 3600000);
+            }
 
             // Track first clock-in and last clock-out (across all entry types)
             if (!stats[key].firstClockIn || te.startTime < stats[key].firstClockIn) {
                 stats[key].firstClockIn = te.startTime;
             }
-            const endStr = te.endTime || new Date().toISOString();
+            const endStr = new Date(rawEnd).toISOString();
             if (!stats[key].lastClockOut || endStr > stats[key].lastClockOut) {
                 stats[key].lastClockOut = endStr;
             }
@@ -212,7 +229,7 @@ export const Reports: React.FC = () => {
 
             const start = Math.max(rawStart, dayStart.getTime());
             const end = Math.min(rawEnd, dayEnd.getTime());
-            const duration = end - start;
+            const duration = Math.max(0, end - start);
 
             if (duration > 0) {
                 if (te.entryType === 'work') stats[key].workMs += duration;
@@ -221,8 +238,9 @@ export const Reports: React.FC = () => {
         });
 
         return Object.values(stats).map(s => {
-            const activeWorkDuration = Math.max(0, s.workMs - s.breakMs);
-            const totalWorkHours = parseFloat((activeWorkDuration / 3600000).toFixed(2));
+            // 'work' entries from the tracker are already paused during breaks, 
+            // DO NOT subtract break time from work time.
+            const totalWorkHours = parseFloat((s.workMs / 3600000).toFixed(2));
             const totalBreakHours = parseFloat((s.breakMs / 3600000).toFixed(2));
             const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
 
