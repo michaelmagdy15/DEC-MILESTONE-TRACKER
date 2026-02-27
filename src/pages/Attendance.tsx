@@ -46,12 +46,19 @@ export const Attendance = () => {
     const handleLeaveSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentEngineerId) return;
+
+        // Validate dates
+        const today = new Date().toISOString().split('T')[0];
+        if (leaveStartDate < today) { alert('Start date must be today or in the future.'); return; }
+        if (leaveEndDate < leaveStartDate) { alert('End date must be on or after start date.'); return; }
+        if (!leaveReason.trim()) { alert('Please provide a reason for your leave.'); return; }
+
         await addLeaveRequest({
             id: crypto.randomUUID(),
             engineerId: currentEngineerId,
             startDate: leaveStartDate,
             endDate: leaveEndDate,
-            reason: leaveReason,
+            reason: leaveReason.trim(),
             status: 'pending'
         });
         setShowLeaveForm(false);
@@ -300,26 +307,46 @@ export const Attendance = () => {
 
                         <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl">
                             <h3 className="text-xl font-black text-white tracking-tight uppercase mb-6">Leave Allocation</h3>
-                            <div className="space-y-4">
-                                <div className="p-6 bg-white/5 rounded-[24px] border border-white/5">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <div className="text-3xl font-black text-white">24</div>
-                                        <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Annual Balance</div>
+                            {(() => {
+                                const ANNUAL_TOTAL = 24;
+                                const SICK_TOTAL = 12;
+                                // Calculate from actual approved leave requests for current user
+                                const myLeaves = leaveRequests.filter(lr =>
+                                    lr.engineerId === currentEngineerId && lr.status === 'approved'
+                                );
+                                const annualUsed = myLeaves.filter(lr =>
+                                    !lr.reason?.toLowerCase().includes('sick')
+                                ).length;
+                                const sickUsed = myLeaves.filter(lr =>
+                                    lr.reason?.toLowerCase().includes('sick')
+                                ).length;
+                                const annualRemaining = Math.max(0, ANNUAL_TOTAL - annualUsed);
+                                const annualPct = Math.round((annualRemaining / ANNUAL_TOTAL) * 100);
+                                const sickPct = Math.round((sickUsed / SICK_TOTAL) * 100);
+
+                                return (
+                                    <div className="space-y-4">
+                                        <div className="p-6 bg-white/5 rounded-[24px] border border-white/5">
+                                            <div className="flex justify-between items-end mb-2">
+                                                <div className="text-3xl font-black text-white">{String(annualRemaining).padStart(2, '0')}</div>
+                                                <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Annual Balance</div>
+                                            </div>
+                                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${annualPct}%` }}></div>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 bg-white/5 rounded-[24px] border border-white/5">
+                                            <div className="flex justify-between items-end mb-2">
+                                                <div className="text-3xl font-black text-white">{String(sickUsed).padStart(2, '0')}</div>
+                                                <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Sick Leave Used</div>
+                                            </div>
+                                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                                <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${sickPct}%` }}></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500 w-[70%]"></div>
-                                    </div>
-                                </div>
-                                <div className="p-6 bg-white/5 rounded-[24px] border border-white/5">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <div className="text-3xl font-black text-white">08</div>
-                                        <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Sick Leave Used</div>
-                                    </div>
-                                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                                        <div className="h-full bg-amber-500 w-[20%]"></div>
-                                    </div>
-                                </div>
-                            </div>
+                                );
+                            })()}
                         </div>
                     </div>
 

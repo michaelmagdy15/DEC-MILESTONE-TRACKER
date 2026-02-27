@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Plus, X, Video, MapPin, Calendar, Clock, Trash2, Check } from 'lucide-react';
+import type { Meeting } from '../types';
+import { Plus, X, Video, MapPin, Calendar, Clock, Trash2, Check, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const Meetings: React.FC = () => {
-    const { meetings, addMeeting, deleteMeeting } = useData();
+    const { meetings, addMeeting, updateMeeting, deleteMeeting } = useData();
     const [isAdding, setIsAdding] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form State
     const [title, setTitle] = useState('');
@@ -19,27 +21,51 @@ export const Meetings: React.FC = () => {
         e.preventDefault();
         if (!title.trim() || !date || !time) return;
 
-        addMeeting({
-            id: crypto.randomUUID(),
-            title,
-            description,
-            date,
-            time,
-            type,
-            locationOrLink
-        });
+        if (editingId) {
+            updateMeeting({
+                id: editingId,
+                title,
+                description,
+                date,
+                time,
+                type,
+                locationOrLink
+            });
+        } else {
+            addMeeting({
+                id: crypto.randomUUID(),
+                title,
+                description,
+                date,
+                time,
+                type,
+                locationOrLink
+            });
+        }
 
         resetForm();
     };
 
     const resetForm = () => {
         setIsAdding(false);
+        setEditingId(null);
         setTitle('');
         setDescription('');
         setDate('');
         setTime('');
         setType('online');
         setLocationOrLink('');
+    };
+
+    const handleEdit = (meeting: Meeting) => {
+        setEditingId(meeting.id);
+        setTitle(meeting.title);
+        setDescription(meeting.description || '');
+        setDate(meeting.date);
+        setTime(meeting.time);
+        setType(meeting.type as 'online' | 'in-house');
+        setLocationOrLink(meeting.locationOrLink || '');
+        setIsAdding(true);
     };
 
     const handleDelete = (id: string) => {
@@ -78,8 +104,12 @@ export const Meetings: React.FC = () => {
                     <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500"></div>
                     <div className="flex justify-between items-center mb-8">
                         <div>
-                            <h3 className="text-xl font-black text-white tracking-tight">Configure New Meeting</h3>
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Coordination Protocol</p>
+                            <h3 className="text-xl font-black text-white tracking-tight">
+                                {editingId ? 'Edit Meeting' : 'Configure New Meeting'}
+                            </h3>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+                                {editingId ? 'Reschedule Protocol' : 'Coordination Protocol'}
+                            </p>
                         </div>
                         <button onClick={resetForm} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
                             <X className="w-6 h-6" />
@@ -165,7 +195,7 @@ export const Meetings: React.FC = () => {
                                 className="px-10 py-4 bg-white text-black hover:bg-emerald-500 hover:text-white rounded-2xl transition-all duration-300 flex items-center space-x-3 shadow-xl font-bold uppercase tracking-widest text-[11px]"
                             >
                                 <Check className="w-4 h-4" />
-                                <span>Schedule Meeting</span>
+                                <span>{editingId ? 'Update Meeting' : 'Schedule Meeting'}</span>
                             </button>
                         </div>
                     </form>
@@ -191,6 +221,12 @@ export const Meetings: React.FC = () => {
                                 {meeting.type === 'online' ? <Video className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
                             </div>
                             <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+                                <button
+                                    onClick={() => handleEdit(meeting)}
+                                    className="p-2.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-xl transition-all"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
                                 <button
                                     onClick={() => handleDelete(meeting.id)}
                                     className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"

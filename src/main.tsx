@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Toaster } from 'react-hot-toast'
 import './index.css'
 import App from './App.tsx'
 
@@ -22,7 +23,6 @@ const initApp = async () => {
       if (currentVersion && currentVersion !== latestVersion) {
         console.log(`[Cache Buster] New version detected (${latestVersion}). Clearing cache...`);
 
-        // Clear API/HTTP caches if Service Worker / Cache API is used (keeps localStorage safe for Auth)
         if ('caches' in window) {
           const cacheNames = await caches.keys();
           for (const name of cacheNames) {
@@ -30,12 +30,10 @@ const initApp = async () => {
           }
         }
 
-        // Update version and hard reload
         localStorage.setItem('dec_app_version', latestVersion);
         window.location.reload();
-        return; // Stop rendering this stale version
+        return;
       } else if (!currentVersion) {
-        // First time loading the app with versioning
         localStorage.setItem('dec_app_version', latestVersion);
       }
     }
@@ -45,6 +43,26 @@ const initApp = async () => {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#1a1a1a',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            fontSize: '13px',
+            fontWeight: '600',
+          },
+          success: {
+            iconTheme: { primary: '#f97316', secondary: '#fff' },
+            duration: 2000,
+          },
+          error: {
+            duration: 4000,
+          },
+        }}
+      />
       <App />
     </StrictMode>,
   );

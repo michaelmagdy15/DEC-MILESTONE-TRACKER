@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 460" width="1024" height="460">
+  <!--
+    Faithful SVG trace of the DEC Engineering Consultant logo.
+    Colors: Orange #E8830C, Gray #B3B3B3
+  -->
+
+  <!-- ===== ICON: 2×2 Grid with Gear ===== -->
+  <g transform="translate(18, 12)">
+    <rect x="0" y="0" width="90" height="90" fill="#E8830C"/>
+    <rect x="100" y="0" width="90" height="90" fill="#B3B3B3"/>
+    <line x1="145" y1="0" x2="145" y2="90" stroke="white" stroke-width="3.5" opacity="0.75"/>
+    <line x1="100" y1="45" x2="190" y2="45" stroke="white" stroke-width="3.5" opacity="0.75"/>
+    <rect x="0" y="100" width="90" height="90" fill="#B3B3B3"/>
+    <rect x="100" y="100" width="90" height="90" fill="#E8830C"/>
+    <g transform="translate(95, 95)">
+      <g fill="white">
+        <path d="M-9,-78 L9,-78 L11,-62 C18,-60 24,-56 30,-51 L44,-58 L56,-46 L49,-32 C53,-26 56,-19 58,-12 L74,-9 L74,9 L58,12 C56,19 53,26 49,32 L56,46 L44,58 L30,51 C24,56 18,60 11,62 L9,78 L-9,78 L-11,62 C-18,60 -24,56 -30,51 L-44,58 L-56,46 L-49,32 C-53,26 -56,19 -58,12 L-74,9 L-74,-9 L-58,-12 C-56,-19 -53,-26 -49,-32 L-56,-46 L-44,-58 L-30,-51 C-24,-56 -18,-60 -11,-62 Z"/>
+        <circle cx="0" cy="0" r="28" fill="#E8830C"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- ===== "D" Letter ===== -->
+  <path fill="#B3B3B3" d="M238,14 L330,14 C362,14 388,24 406,44 C424,64 434,92 436,126 C437,132 437,136 436,142 C434,176 424,202 406,222 C388,242 362,252 330,252 L238,252 Z"/>
+  <path fill="white" d="M286,60 L320,60 C340,60 356,68 368,86 C380,104 388,124 390,133 C388,142 380,162 368,180 C356,198 340,206 320,206 L286,206 Z"/>
+
+  <!-- ===== "E" Letter ===== -->
+  <path fill="#B3B3B3" d="M468,14 L600,14 L600,60 L516,60 L516,110 L590,110 L590,156 L516,156 L516,206 L604,206 L604,252 L468,252 Z"/>
+
+  <!-- ===== "C" Letter ===== -->
+  <path fill="#B3B3B3" d="M710,14 L770,14 C810,14 838,30 854,58 L854,84 L806,84 C800,70 788,62 770,62 L730,62 C708,62 692,72 682,90 C672,108 668,128 668,138 C668,148 672,166 682,184 C692,202 708,210 730,210 L770,210 C788,210 800,204 806,190 L854,190 L854,216 C838,242 810,256 770,256 L710,256 C672,256 644,240 626,212 C608,184 600,158 600,138 C600,118 608,90 626,62 C644,34 672,14 710,14 Z"/>
+
+  <!-- ===== "ENGINEERING CONSULTANT" ===== -->
+  <text x="242" y="298"
+        font-family="'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif"
+        font-size="27" font-weight="300" letter-spacing="7"
+        fill="#E8830C">ENGINEERING  CONSULTANT</text>
+
+  <!-- ===== Arabic Text ===== -->
+  <!-- Using left-anchor with x=18 to avoid overflow, matching original layout -->
+  <text x="870" y="420"
+        font-family="'Cairo', 'Noto Sans Arabic', 'Traditional Arabic', 'Segoe UI', serif"
+        font-size="48" font-weight="700" fill="#E8830C"
+        text-anchor="end">دار الخليج للاستشارات الهندسية</text>
+</svg>

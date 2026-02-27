@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
+
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 // We map user role from the engineers table
 interface AuthContextType {
@@ -182,6 +184,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             window.location.href = '/login';
         }
     };
+
+    // ─── Idle timeout: auto-logout after 30 min inactivity ────────
+    const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const resetIdleTimer = useCallback(() => {
+        if (idleTimer.current) clearTimeout(idleTimer.current);
+        if (!user) return;
+        idleTimer.current = setTimeout(() => {
+            console.warn('AuthContext: Idle timeout — auto-signing out');
+            void signOut();
+        }, IDLE_TIMEOUT_MS);
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+        const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+        const handler = () => resetIdleTimer();
+        events.forEach(e => window.addEventListener(e, handler, { passive: true }));
+        resetIdleTimer(); // start timer
+        return () => {
+            events.forEach(e => window.removeEventListener(e, handler));
+            if (idleTimer.current) clearTimeout(idleTimer.current);
+        };
+    }, [user, resetIdleTimer]);
 
     return (
         <AuthContext.Provider value={{ user, role, engineerId, isLoadingAuth, signOut }}>

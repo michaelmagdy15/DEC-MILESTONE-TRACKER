@@ -2,19 +2,15 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import logo from '../assets/logo.png';
 
 export const Login: React.FC = () => {
     const { user, isLoadingAuth } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [role, setRole] = useState('Engineer');
-    const [hourlyRate, setHourlyRate] = useState('');
-    const [weeklyGoalHours, setWeeklyGoalHours] = useState('40');
     const [loading, setLoading] = useState(false);
-    const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
+    const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -35,40 +31,7 @@ export const Login: React.FC = () => {
         setMessage(null);
 
         try {
-            if (mode === 'signup') {
-                if (!name.trim()) throw new Error('Full Name is required for signup.');
-
-                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        emailRedirectTo: window.location.origin,
-                        data: {
-                            name: name.trim(),
-                            role,
-                            hourly_rate: parseFloat(hourlyRate) || 0,
-                            weekly_goal_hours: parseInt(weeklyGoalHours, 10) || 40,
-                        }
-                    }
-                });
-                if (signUpError) throw signUpError;
-
-                // Insert engineer record immediately so the user has a DB profile
-                if (signUpData?.user) {
-                    const { error: engineerInsertError } = await supabase.from('engineers').insert({
-                        id: signUpData.user.id,
-                        name: name.trim(),
-                        role: role.toLowerCase().replace(/ /g, '_'),
-                        hourly_rate: parseFloat(hourlyRate) || 0,
-                        weekly_goal_hours: parseInt(weeklyGoalHours, 10) || 40,
-                    });
-                    if (engineerInsertError) {
-                        console.warn('Could not create engineer profile:', engineerInsertError.message);
-                    }
-                }
-
-                setMessage('Account created! You can now sign in.');
-            } else if (mode === 'login') {
+            if (mode === 'login') {
                 const { error: signInError } = await supabase.auth.signInWithPassword({
                     email,
                     password,
@@ -104,14 +67,11 @@ export const Login: React.FC = () => {
                         <img src={logo} alt="DEC Logo" className="w-full h-full object-contain relative z-10 animate-pulse-slow" />
                     </div>
                     <h2 className="text-center text-3xl font-extrabold text-white tracking-tight">
-                        {mode === 'login' ? 'Welcome Back' :
-                            mode === 'signup' ? 'Join DEC' :
-                                'Reset Access'}
+                        {mode === 'login' ? 'Welcome Back' : 'Reset Access'}
                     </h2>
                     <p className="mt-2 text-center text-sm text-slate-400 font-medium">
                         {mode === 'login' ? 'DEC Engineering Consultant Tracker' :
-                            mode === 'signup' ? 'Create your professional account' :
-                                'Enter your email to receive a reset link'}
+                            'Enter your email to receive a reset link'}
                     </p>
                 </div>
 
@@ -136,15 +96,13 @@ export const Login: React.FC = () => {
                             <div>
                                 <div className="flex items-center justify-between mb-2 ml-1">
                                     <label htmlFor="password" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest">Password</label>
-                                    {mode === 'login' && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setMode('forgot-password')}
-                                            className="text-[11px] font-bold text-orange-400 hover:text-orange-300 uppercase tracking-wider transition-colors"
-                                        >
-                                            Reset?
-                                        </button>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setMode('forgot-password')}
+                                        className="text-[11px] font-bold text-orange-400 hover:text-orange-300 uppercase tracking-wider transition-colors"
+                                    >
+                                        Reset?
+                                    </button>
                                 </div>
                                 <input
                                     id="password"
@@ -159,72 +117,6 @@ export const Login: React.FC = () => {
                                 />
                             </div>
                         )}
-
-                        <AnimatePresence>
-                            {mode === 'signup' && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 10 }}
-                                    className="space-y-4 pt-4 border-t border-white/5 overflow-hidden"
-                                >
-                                    <div>
-                                        <label htmlFor="name" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
-                                        <input
-                                            id="name"
-                                            type="text"
-                                            required={mode === 'signup'}
-                                            className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
-                                            placeholder="John Doe"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="role" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Professional Role</label>
-                                        <select
-                                            id="role"
-                                            value={role}
-                                            onChange={(e) => setRole(e.target.value)}
-                                            className="appearance-none relative block w-full px-4 py-3 bg-[#1a1a1a] border border-white/5 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 sm:text-sm font-medium"
-                                        >
-                                            <option value="Engineer">Engineer</option>
-                                            <option value="Senior Engineer">Senior Engineer</option>
-                                            <option value="Architect">Architect</option>
-                                            <option value="Project Manager">Project Manager</option>
-                                            <option value="Draftsman">Draftsman</option>
-                                        </select>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label htmlFor="hourly-rate" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Rate (AED)</label>
-                                            <input
-                                                id="hourly-rate"
-                                                type="number"
-                                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 sm:text-sm font-medium"
-                                                placeholder="50"
-                                                min="0"
-                                                step="0.01"
-                                                value={hourlyRate}
-                                                onChange={(e) => setHourlyRate(e.target.value)}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="weekly-goal" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Goal (Hrs)</label>
-                                            <input
-                                                id="weekly-goal"
-                                                type="number"
-                                                className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all duration-300 sm:text-sm font-medium"
-                                                placeholder="40"
-                                                min="0"
-                                                value={weeklyGoalHours}
-                                                onChange={(e) => setWeeklyGoalHours(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
                     </div>
 
                     {error && (
@@ -262,31 +154,25 @@ export const Login: React.FC = () => {
                                     Processing...
                                 </span>
                             ) :
-                                mode === 'login' ? 'Sign In' :
-                                    mode === 'signup' ? 'Create Account' :
-                                        'Reset Password'}
+                                mode === 'login' ? 'Sign In' : 'Reset Password'}
                         </button>
                     </div>
 
-                    <div className="text-center pt-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (mode === 'forgot-password') {
+                    {mode === 'forgot-password' && (
+                        <div className="text-center pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
                                     setMode('login');
-                                } else {
-                                    setMode(mode === 'login' ? 'signup' : 'login');
-                                }
-                                setMessage(null);
-                                setError(null);
-                            }}
-                            className="text-[11px] font-bold text-slate-500 hover:text-white uppercase tracking-[0.2em] transition-colors"
-                        >
-                            {mode === 'login' ? "New to DEC? Join Now" :
-                                mode === 'signup' ? 'Secure Login' :
-                                    'Back to Login'}
-                        </button>
-                    </div>
+                                    setMessage(null);
+                                    setError(null);
+                                }}
+                                className="text-[11px] font-bold text-slate-500 hover:text-white uppercase tracking-[0.2em] transition-colors"
+                            >
+                                Back to Login
+                            </button>
+                        </div>
+                    )}
                 </form>
             </div>
         </div>

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Clock, Activity } from 'lucide-react';
+import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Clock, Activity, Shield, ChevronLeft, Filter } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -68,54 +68,17 @@ const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | un
 };
 
 export const Reports: React.FC = () => {
-    const { projects, engineers, entries, attendance, timeEntries, appUsageLogs } = useData();
-    const [view, setView] = useState<'projects' | 'engineers' | 'timeclock' | 'activity'>('projects');
-    const [showWorkAppsOnly, setShowWorkAppsOnly] = useState(false);
-    const [selectedActivityEngineer, setSelectedActivityEngineer] = useState<string | 'all'>('all');
+    const { projects, engineers, entries, attendance, timeEntries, appUsageLogs, auditLogs } = useData();
+    const [view, setView] = useState<'projects' | 'engineers' | 'timeclock' | 'activity' | 'audit'>('projects');
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
 
-    const WORK_PROGRAMS = [
-        "AutoCAD", "Revit", "ETABS", "SAFE", "Excel", "PowerPoint", "Word",
-        "SketchUp", "Lumion", "Twinmotion", "3ds Max", "Archicad"
-    ];
-
-    const IDLE_THRESHOLD_SECONDS = 300;
-
-    const calculateAppUsageStats = (logs: any[], sinceDate?: Date) => {
-        let activeSeconds = 0;
-        let idleSeconds = 0;
-        let nonWorkSeconds = 0;
-
-        const filteredLogs = sinceDate ? logs.filter(l => new Date(l.timestamp) >= sinceDate) : logs;
-
-        filteredLogs.forEach(log => {
-            const isLockScreen = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
-
-            if (isLockScreen) {
-                idleSeconds += log.durationSeconds;
-                return;
-            }
-
-            const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
-            const cappedDuration = Math.min(log.durationSeconds, IDLE_THRESHOLD_SECONDS);
-            const idleExcess = Math.max(0, log.durationSeconds - IDLE_THRESHOLD_SECONDS);
-
-            idleSeconds += idleExcess;
-
-            if (isWorkApp) {
-                activeSeconds += cappedDuration;
-            } else {
-                nonWorkSeconds += cappedDuration;
-            }
-        });
-
-        return {
-            activeHours: activeSeconds / 3600,
-            idleHours: idleSeconds / 3600,
-            nonWorkHours: nonWorkSeconds / 3600
-        };
-    };
+    // Filters & Pagination
+    const [filterEngineer, setFilterEngineer] = useState('');
+    const [filterFrom, setFilterFrom] = useState('');
+    const [filterTo, setFilterTo] = useState('');
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 20;
 
     // Calculate Project Stats
     const projectStats = projects.map(project => {
@@ -147,23 +110,19 @@ export const Reports: React.FC = () => {
     const engineerStats = engineers.map(engineer => {
         const engineerEntries = entries.filter(e => e.engineerId === engineer.id);
         const engineerTimeclock = timeEntries.filter(te => te.engineerId === engineer.id);
-        const engineerAppLogs = appUsageLogs.filter(log => log.engineerId === engineer.id);
 
         const tcTotalMs = getTimeclockMs(engineerTimeclock);
-        const totalAppStats = calculateAppUsageStats(engineerAppLogs);
-
-        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + (tcTotalMs / 3600000) + totalAppStats.activeHours;
+        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + (tcTotalMs / 3600000);
         const projectCount = new Set(engineerEntries.map(e => e.projectId)).size;
 
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
         const tcWeeklyMs = getTimeclockMs(engineerTimeclock, te => new Date(te.startTime) >= oneWeekAgo);
-        const weeklyAppStats = calculateAppUsageStats(engineerAppLogs, oneWeekAgo);
 
         const weeklyHours = engineerEntries
             .filter(e => new Date(e.date) >= oneWeekAgo)
-            .reduce((sum, e) => sum + e.timeSpent, 0) + (tcWeeklyMs / 3600000) + weeklyAppStats.activeHours;
+            .reduce((sum, e) => sum + e.timeSpent, 0) + (tcWeeklyMs / 3600000);
 
         const weeklyAbsences = attendance.filter(a =>
             a.engineerId === engineer.id &&
@@ -186,17 +145,7 @@ export const Reports: React.FC = () => {
         const deduction = weeklyAbsences * 8 * hourlyRate;
         const weeklyPayment = Math.max(0, expectedPayment - deduction);
 
-        return {
-            ...engineer,
-            totalHours,
-            projectCount,
-            weeklyHours,
-            weeklyOvertime,
-            weeklyAbsences,
-            weeklyPayment,
-            totalIdleHours: totalAppStats.idleHours,
-            totalNonWorkHours: totalAppStats.nonWorkHours
-        };
+        return { ...engineer, totalHours, projectCount, weeklyHours, weeklyOvertime, weeklyAbsences, weeklyPayment };
     });
 
     // Calculate Timeclock Stats (All-Time Aggregate for Chart)
@@ -223,7 +172,7 @@ export const Reports: React.FC = () => {
         };
     });
 
-    // Daily Timeclock Stats for Table
+    // Daily Timeclock Stats for Table (Enhanced with start/end times, total time, break time)
     const dailyTimeclockStats = React.useMemo(() => {
         const stats: Record<string, any> = {};
 
@@ -235,12 +184,27 @@ export const Reports: React.FC = () => {
             const key = `${eng.id}_${date}`;
             if (!stats[key]) {
                 const expectedToday = getExpectedDailyHours(new Date(date), eng.location);
-                stats[key] = { id: eng.id, name: eng.name, location: eng.location || 'HQ', date, workMs: 0, breakMs: 0, expectedHours: expectedToday };
+                stats[key] = {
+                    id: eng.id, name: eng.name, location: eng.location || 'HQ', date,
+                    workMs: 0, breakMs: 0, expectedHours: expectedToday,
+                    firstClockIn: null as string | null,
+                    lastClockOut: null as string | null,
+                };
             }
 
             const rawStart = new Date(te.startTime).getTime();
             const rawEnd = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
 
+            // Track first clock-in and last clock-out (across all entry types)
+            if (!stats[key].firstClockIn || te.startTime < stats[key].firstClockIn) {
+                stats[key].firstClockIn = te.startTime;
+            }
+            const endStr = te.endTime || new Date().toISOString();
+            if (!stats[key].lastClockOut || endStr > stats[key].lastClockOut) {
+                stats[key].lastClockOut = endStr;
+            }
+
+            // Clamp to the specific day
             const dayStart = new Date(date);
             dayStart.setHours(0, 0, 0, 0);
             const dayEnd = new Date(date);
@@ -262,83 +226,49 @@ export const Reports: React.FC = () => {
             const totalBreakHours = parseFloat((s.breakMs / 3600000).toFixed(2));
             const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
 
+            // Total time = first clock-in to last clock-out
+            let totalTimeMs = 0;
+            if (s.firstClockIn && s.lastClockOut) {
+                totalTimeMs = new Date(s.lastClockOut).getTime() - new Date(s.firstClockIn).getTime();
+            }
+            const totalTimeHours = parseFloat((totalTimeMs / 3600000).toFixed(2));
+
+            const formatTime = (iso: string | null) => {
+                if (!iso) return '-';
+                return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            };
+
             return {
                 ...s,
                 totalWorkHours,
                 totalBreakHours,
-                dailyOvertime: parseFloat(dailyOvertime.toFixed(2))
+                totalTimeHours,
+                dailyOvertime: parseFloat(dailyOvertime.toFixed(2)),
+                firstClockInFormatted: formatTime(s.firstClockIn),
+                lastClockOutFormatted: formatTime(s.lastClockOut),
             };
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [timeEntries, engineers]);
 
-    // App Usage Daily Stats (Used for Export)
+    // App Usage Daily Stats
     const dailyActivityStats = React.useMemo(() => {
         const stats: any[] = [];
         appUsageLogs.forEach(log => {
-            if (selectedActivityEngineer !== 'all' && log.engineerId !== selectedActivityEngineer) return;
-
-            if (showWorkAppsOnly) {
-                const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
-                if (!isWorkApp) return;
-            }
-
             const date = new Date(log.timestamp).toISOString().split('T')[0];
             const eng = engineers.find(e => e.id === log.engineerId);
+            if (!eng) return;
 
             stats.push({
                 id: log.id,
                 date,
                 timestamp: new Date(log.timestamp).toLocaleTimeString(),
-                rawTimestamp: new Date(log.timestamp).getTime(),
-                engineerName: eng ? eng.name : 'Unknown Engineer',
+                engineerName: eng.name,
                 activeWindow: log.activeWindow,
                 durationSeconds: log.durationSeconds
             });
         });
-        return stats.sort((a, b) => b.rawTimestamp - a.rawTimestamp); // sort newest first
-    }, [appUsageLogs, engineers, showWorkAppsOnly, selectedActivityEngineer]);
-
-    // App Usage Gantt Chart Data
-    const activityGanttData = React.useMemo(() => {
-        let logs = appUsageLogs;
-        if (selectedActivityEngineer !== 'all') {
-            logs = logs.filter(log => log.engineerId === selectedActivityEngineer);
-        }
-
-        const groupedByApp: Record<string, { app: string, logs: any[] }> = {};
-
-        logs.forEach(log => {
-            if (showWorkAppsOnly) {
-                const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
-                if (!isWorkApp) return;
-            }
-
-            // Consolidate app names if filtering for clean UI
-            let appGroup = log.activeWindow || 'Unknown';
-            if (showWorkAppsOnly) {
-                const matched = WORK_PROGRAMS.find(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
-                if (matched) appGroup = matched;
-            } else {
-                // Heuristic: take text before the first dash if it's long, or just the whole thing
-                const dashIndex = appGroup.indexOf(' - ');
-                if (dashIndex > 0) appGroup = appGroup.substring(0, dashIndex).trim();
-            }
-
-            if (!groupedByApp[appGroup]) groupedByApp[appGroup] = { app: appGroup, logs: [] };
-            groupedByApp[appGroup].logs.push(log);
-        });
-
-        return Object.values(groupedByApp).sort((a, b) => a.app.localeCompare(b.app));
-    }, [appUsageLogs, showWorkAppsOnly, selectedActivityEngineer, WORK_PROGRAMS]);
-
-    // Calculate weekly hours precisely for selected engineer
-    const selectedEngWeeklyHours = React.useMemo(() => {
-        if (selectedActivityEngineer === 'all') {
-            return engineerStats.reduce((sum, stat) => sum + (stat as any).weeklyHours, 0);
-        }
-        const stat = engineerStats.find(s => (s as any).id === selectedActivityEngineer) as any;
-        return stat ? stat.weeklyHours : 0;
-    }, [selectedActivityEngineer, engineerStats]);
+        return stats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // sort newest first
+    }, [appUsageLogs, engineers]);
 
     const exportCSV = (data: any[], fileName: string) => {
         let headers: string[] = [];
@@ -460,6 +390,16 @@ export const Reports: React.FC = () => {
                             <Activity className="w-4 h-4" />
                             App Activity
                         </button>
+                        <button
+                            onClick={() => { setView('audit'); setPage(1); }}
+                            className={clsx(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
+                                view === 'audit' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
+                            )}
+                        >
+                            <Shield className="w-4 h-4" />
+                            Audit Trail
+                        </button>
                     </div>
 
                     <button
@@ -473,7 +413,7 @@ export const Reports: React.FC = () => {
             </div>
 
             {/* CHARTS SECTION */}
-            {view !== 'activity' && (
+            {view !== 'activity' && view !== 'audit' && (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
                     <div className="flex items-center justify-between mb-10 relative z-10">
@@ -567,135 +507,226 @@ export const Reports: React.FC = () => {
             )}
 
             {/* DATA CARDS/TABLE */}
-            {view === 'timeclock' ? (
+            {view === 'timeclock' ? (() => {
+                // Apply filters
+                const filtered = dailyTimeclockStats
+                    .filter(s => !filterEngineer || s.id === filterEngineer)
+                    .filter(s => !filterFrom || s.date >= filterFrom)
+                    .filter(s => !filterTo || s.date <= filterTo);
+                const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+                const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+                return (
+                    <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                            <h3 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-3">
+                                <Clock className="w-5 h-5 text-orange-500" />
+                                Daily Timeclock Summary
+                            </h3>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <Filter className="w-4 h-4 text-slate-600" />
+                                <select
+                                    value={filterEngineer}
+                                    onChange={(e) => { setFilterEngineer(e.target.value); setPage(1); }}
+                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all appearance-none"
+                                >
+                                    <option value="" className="bg-[#1a1a1a]">All Engineers</option>
+                                    {engineers.map(e => <option key={e.id} value={e.id} className="bg-[#1a1a1a]">{e.name}</option>)}
+                                </select>
+                                <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
+                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                                <span className="text-slate-600 text-xs font-bold">→</span>
+                                <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
+                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                                {(filterEngineer || filterFrom || filterTo) && (
+                                    <button onClick={() => { setFilterEngineer(''); setFilterFrom(''); setFilterTo(''); setPage(1); }}
+                                        className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
+                                        Clear
+                                    </button>
+                                )}
+                                <div className="px-3 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
+                                    {filtered.length} Records
+                                </div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                        <th className="py-4 font-bold text-left px-3">Date</th>
+                                        <th className="py-4 font-bold text-left px-3">Engineer</th>
+                                        <th className="py-4 font-bold text-left px-3">Location</th>
+                                        <th className="py-4 font-bold text-left px-3">First In</th>
+                                        <th className="py-4 font-bold text-left px-3">Last Out</th>
+                                        <th className="py-4 font-bold text-left px-3">Total Time</th>
+                                        <th className="py-4 font-bold text-left px-3">Effective</th>
+                                        <th className="py-4 font-bold text-left px-3">Break</th>
+                                        <th className="py-4 font-bold text-left px-3">Expected</th>
+                                        <th className="py-4 font-bold text-left px-3">Overtime</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
+                                    {paged.map((stat) => (
+                                        <tr key={`${stat.id}_${stat.date}`} className="hover:bg-white/[0.02] transition-colors">
+                                            <td className="py-4 px-3 font-bold text-white">{stat.date}</td>
+                                            <td className="py-4 px-3 font-bold text-white">{stat.name}</td>
+                                            <td className="py-4 px-3 text-slate-400">{stat.location}</td>
+                                            <td className="py-4 px-3 text-sky-400 font-mono">{stat.firstClockInFormatted}</td>
+                                            <td className="py-4 px-3 text-purple-400 font-mono">{stat.lastClockOutFormatted}</td>
+                                            <td className="py-4 px-3 text-white font-black">{stat.totalTimeHours} h</td>
+                                            <td className="py-4 px-3 text-emerald-400 font-black">{stat.totalWorkHours} h</td>
+                                            <td className="py-4 px-3 text-amber-400">{stat.totalBreakHours} h</td>
+                                            <td className="py-4 px-3 text-slate-400">{stat.expectedHours} h</td>
+                                            <td className="py-4 px-3 text-orange-400 font-black">{stat.dailyOvertime > 0 ? `+${stat.dailyOvertime} h` : '-'}</td>
+                                        </tr>
+                                    ))}
+                                    {paged.length === 0 && (
+                                        <tr><td colSpan={10} className="py-8 text-center text-slate-500 font-medium italic">No timeclock records found.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
+                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                                </button>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                    Next <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
+            })() : view === 'audit' ? (() => {
+                const filteredAudit = auditLogs
+                    .filter(a => !filterFrom || (a.createdAt && a.createdAt >= filterFrom))
+                    .filter(a => !filterTo || (a.createdAt && a.createdAt <= filterTo + 'T23:59:59'));
+                const totalPages = Math.max(1, Math.ceil(filteredAudit.length / PAGE_SIZE));
+                const paged = filteredAudit.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+                return (
+                    <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                            <h3 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-3">
+                                <Shield className="w-5 h-5 text-orange-500" />
+                                Audit Trail
+                            </h3>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
+                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                                <span className="text-slate-600 text-xs font-bold">→</span>
+                                <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
+                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                                {(filterFrom || filterTo) && (
+                                    <button onClick={() => { setFilterFrom(''); setFilterTo(''); setPage(1); }}
+                                        className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
+                                        Clear
+                                    </button>
+                                )}
+                                <div className="px-3 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
+                                    {filteredAudit.length} Events
+                                </div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 bg-[#0a0a0a] z-10">
+                                    <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                        <th className="py-4 px-3">Timestamp</th>
+                                        <th className="py-4 px-3">User</th>
+                                        <th className="py-4 px-3">Action</th>
+                                        <th className="py-4 px-3">Table</th>
+                                        <th className="py-4 px-3">Record ID</th>
+                                        <th className="py-4 px-3">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium">
+                                    {paged.map((log) => {
+                                        const eng = engineers.find(e => e.id === log.userId);
+                                        return (
+                                            <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                                                <td className="py-4 px-3 text-white font-mono text-xs whitespace-nowrap">
+                                                    {log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}
+                                                </td>
+                                                <td className="py-4 px-3 font-bold text-white">{eng?.name || log.userId.slice(0, 8)}</td>
+                                                <td className="py-4 px-3">
+                                                    <span className={clsx(
+                                                        "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
+                                                        log.action === 'created' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                            log.action === 'updated' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
+                                                                'bg-red-500/10 text-red-400 border-red-500/20'
+                                                    )}>{log.action}</span>
+                                                </td>
+                                                <td className="py-4 px-3 text-slate-400 uppercase text-xs">{log.tableName}</td>
+                                                <td className="py-4 px-3 text-slate-600 font-mono text-xs">{log.recordId.slice(0, 8)}...</td>
+                                                <td className="py-4 px-3 text-indigo-400 text-xs max-w-[250px] truncate" title={JSON.stringify(log.changes)}>
+                                                    {Object.keys(log.changes).length > 0 ? JSON.stringify(log.changes).slice(0, 60) : '-'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {paged.length === 0 && (
+                                        <tr><td colSpan={6} className="py-8 text-center text-slate-500 font-medium italic">No audit records yet. Actions will appear here after CRUD operations.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
+                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                                </button>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {page} of {totalPages}</span>
+                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                    Next <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
+            })() : view === 'activity' ? (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                    <h3 className="text-xl font-black text-white tracking-tight uppercase mb-6">Daily Timeclock Summary</h3>
-                    <div className="overflow-x-auto">
+                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-6">
+                        <Activity className="w-5 h-5 text-orange-500" />
+                        APPLICATION ACTIVITY TIMELINE (ADMIN VIEW)
+                    </h3>
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                         <table className="w-full text-left border-collapse">
-                            <thead>
+                            <thead className="sticky top-0 bg-[#0a0a0a] z-10">
                                 <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <th className="py-4 font-bold text-left px-4">Date</th>
+                                    <th className="py-4 font-bold text-left px-4">Time</th>
                                     <th className="py-4 font-bold text-left px-4">Engineer</th>
-                                    <th className="py-4 font-bold text-left px-4">Location</th>
-                                    <th className="py-4 font-bold text-left px-4">Expected Hrs</th>
-                                    <th className="py-4 font-bold text-left px-4">Work Hours</th>
-                                    <th className="py-4 font-bold text-left px-4">Overtime</th>
+                                    <th className="py-4 font-bold text-left px-4">Active Application/Window</th>
+                                    <th className="py-4 font-bold text-left px-4">Duration</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
-                                {dailyTimeclockStats.map((stat) => (
-                                    <tr key={`${stat.id}_${stat.date}`} className="hover:bg-white/[0.02] transition-colors">
+                                {dailyActivityStats.map((stat, idx) => (
+                                    <tr key={`${stat.id}_${idx}`} className="hover:bg-white/[0.02] transition-colors">
                                         <td className="py-4 px-4 font-bold text-white">{stat.date}</td>
-                                        <td className="py-4 px-4 font-bold text-white">{stat.name}</td>
-                                        <td className="py-4 px-4 text-slate-400">{stat.location}</td>
-                                        <td className="py-4 px-4 text-slate-400">{stat.expectedHours} h</td>
-                                        <td className="py-4 px-4 text-emerald-400 font-black">{stat.totalWorkHours} h</td>
-                                        <td className="py-4 px-4 text-orange-400 font-black">{stat.dailyOvertime > 0 ? `+${stat.dailyOvertime} h` : '-'}</td>
+                                        <td className="py-4 px-4 text-slate-400">{stat.timestamp}</td>
+                                        <td className="py-4 px-4 font-bold text-white">{stat.engineerName}</td>
+                                        <td className="py-4 px-4 text-indigo-400 max-w-[300px] truncate" title={stat.activeWindow}>{stat.activeWindow}</td>
+                                        <td className="py-4 px-4 text-emerald-400 font-black">{stat.durationSeconds} s</td>
                                     </tr>
                                 ))}
-                                {dailyTimeclockStats.length === 0 && (
+                                {dailyActivityStats.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="py-8 text-center text-slate-500 font-medium italic">No timeclock records exist.</td>
+                                        <td colSpan={5} className="py-8 text-center text-slate-500 font-medium italic">No background activity tracked yet.</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-            ) : view === 'activity' ? (
-                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-2">
-                                <Activity className="w-5 h-5 text-orange-500" />
-                                APPLICATION ACTIVITY GANTT CHART
-                            </h3>
-                            {selectedEngWeeklyHours !== null && (
-                                <p className="text-sm font-medium text-slate-400">
-                                    Total Hours Worked This Week: <span className="text-white font-bold">{selectedEngWeeklyHours.toFixed(1)} hrs</span>
-                                </p>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <select
-                                value={selectedActivityEngineer}
-                                onChange={(e) => setSelectedActivityEngineer(e.target.value)}
-                                className="bg-[#0a0a0a] border border-white/10 rounded-xl px-4 py-2 text-sm font-bold text-white outline-none focus:border-orange-500/50"
-                            >
-                                <option value="all">All Engineers</option>
-                                {engineers.map(e => (
-                                    <option key={e.id} value={e.id}>{e.name}</option>
-                                ))}
-                            </select>
-                            <div className="flex bg-white/5 p-1 rounded-xl">
-                                <button
-                                    onClick={() => setShowWorkAppsOnly(false)}
-                                    className={clsx(
-                                        "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                                        !showWorkAppsOnly ? "bg-white text-black" : "text-slate-500 hover:text-white"
-                                    )}
-                                >
-                                    All Apps
-                                </button>
-                                <button
-                                    onClick={() => setShowWorkAppsOnly(true)}
-                                    className={clsx(
-                                        "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                                        showWorkAppsOnly ? "bg-orange-500 text-white" : "text-slate-500 hover:text-white"
-                                    )}
-                                >
-                                    Arch. Software
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="overflow-x-auto custom-scrollbar pb-6 relative">
-                        <div className="min-w-[800px]">
-                            {/* X-Axis Timeline Header */}
-                            <div className="flex ml-[180px] border-b border-white/10 pb-2 mb-4">
-                                {Array.from({ length: 25 }).map((_, i) => (
-                                    <div key={i} className="flex-1 text-[10px] font-bold text-slate-500 relative">
-                                        <span className="absolute -translate-x-1/2">{i}:00</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Gantt Rows */}
-                            <div className="space-y-4">
-                                {activityGanttData.length === 0 ? (
-                                    <div className="py-12 text-center text-slate-500 font-medium italic">No application activity found for parameters.</div>
-                                ) : activityGanttData.map((group, idx) => (
-                                    <div key={idx} className="flex items-center hover:bg-white/[0.02] p-2 rounded-xl transition-colors">
-                                        <div className="w-[180px] shrink-0 pr-4">
-                                            <p className="text-xs font-bold text-white truncate" title={group.app}>{group.app}</p>
-                                        </div>
-                                        <div className="flex-1 h-8 bg-white/5 rounded-lg relative overflow-hidden">
-                                            {group.logs.map((log: any, lidx: number) => {
-                                                const d = new Date(log.timestamp);
-                                                // Calculate decimal hour (0 - 24)
-                                                const hourDec = d.getHours() + (d.getMinutes() / 60) + (d.getSeconds() / 3600);
-                                                const leftPercent = (hourDec / 24) * 100;
-                                                const widthPercent = (log.durationSeconds / 3600 / 24) * 100;
-
-                                                return (
-                                                    <div
-                                                        key={lidx}
-                                                        className="absolute top-1 bottom-1 bg-orange-500 rounded-sm hover:bg-orange-400 hover:scale-y-110 hover:z-10 transition-all group/block cursor-pointer"
-                                                        style={{ left: `${Math.max(0, leftPercent)}%`, width: `${Math.max(0.1, widthPercent)}%` }}
-                                                    >
-                                                        <div className="absolute opacity-0 group-hover/block:opacity-100 bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black border border-white/10 text-white text-[10px] py-1.5 px-3 rounded-lg whitespace-nowrap pointer-events-none z-50 shadow-xl">
-                                                            <div className="font-bold text-orange-400">{d.toLocaleTimeString()}</div>
-                                                            <div className="text-slate-300">{log.activeWindow} ({log.durationSeconds}s)</div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
                     </div>
                 </div>
             ) : (

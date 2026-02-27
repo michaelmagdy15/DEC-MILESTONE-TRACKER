@@ -1,8 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
+import { supabase } from '../lib/supabase';
 import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfWeek as getStartOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,7 +12,7 @@ export const Dashboard = () => {
     const { projects, engineers, entries, timeEntries, clearMonthlyData, appUsageLogs } = useData();
     const { role } = useAuth();
 
-    // Configurable target hours (persisted in localStorage)
+    // Configurable target hours (Supabase app_settings with localStorage fallback)
     const [targetHours, setTargetHours] = useState(() => {
         const saved = localStorage.getItem('dec_target_hours');
         return saved ? parseInt(saved) : 100;
@@ -19,9 +20,26 @@ export const Dashboard = () => {
     const [isClearing, setIsClearing] = useState(false);
     const [clearSuccess, setClearSuccess] = useState(false);
 
-    const updateTargetHours = (val: number) => {
+    // Load target hours from Supabase on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data } = await supabase.from('app_settings').select('value').eq('key', 'target_hours').maybeSingle();
+                if (data?.value) {
+                    const val = parseInt(data.value);
+                    if (!isNaN(val)) setTargetHours(val);
+                }
+            } catch { /* table may not exist yet, use localStorage fallback */ }
+        })();
+    }, []);
+
+    const updateTargetHours = async (val: number) => {
         setTargetHours(val);
         localStorage.setItem('dec_target_hours', val.toString());
+        // Persist to Supabase (ignore errors if table doesn't exist yet)
+        await supabase.from('app_settings')
+            .upsert({ key: 'target_hours', value: val.toString(), updated_at: new Date().toISOString() })
+            .then(() => { });
     };
 
     const WORK_PROGRAMS = [
@@ -84,8 +102,7 @@ export const Dashboard = () => {
     const totalTimeclockHours = getTimeclockMs() / 3600000;
 
     // Weekly hours
-    const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const startOfWeek = getStartOfWeek(new Date(), { weekStartsOn: 0 });
     const weeklyTimeclockHours = getTimeclockMs(te => new Date(te.startTime) >= startOfWeek) / 3600000;
 
     const totalAppStats = calculateAppUsageStats(appUsageLogs || []);
@@ -113,8 +130,10 @@ export const Dashboard = () => {
         .slice(0, 5);
 
     const handleClearData = async () => {
-        if (!window.confirm('⚠️ This will permanently delete all entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings.\n\nProjects, engineers, and files will be kept.\n\nAre you sure?')) return;
-        if (!window.confirm('This action CANNOT be undone. Type confirm by clicking OK.')) return;
+        const confirmation = window.prompt(
+            '⚠️ DANGER: This will permanently delete ALL entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings.\n\nProjects, engineers, and files will be kept.\n\nType DELETE to confirm:'
+        );
+        if (confirmation !== 'DELETE') return;
         setIsClearing(true);
         setClearSuccess(false);
         await clearMonthlyData();

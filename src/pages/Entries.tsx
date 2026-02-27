@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trash2, FileText, X, Check, Wrench, Clock, Calendar, Plus } from 'lucide-react';
+import { Trash2, FileText, X, Check, Wrench, Clock, Calendar, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { LogEntry } from '../types';
@@ -26,6 +26,14 @@ export const Entries: React.FC = () => {
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
 
+    // Date-range filter
+    const [filterFrom, setFilterFrom] = useState('');
+    const [filterTo, setFilterTo] = useState('');
+
+    // Pagination
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 20;
+
     const toggleSoftware = (sw: string) => {
         setSoftwareUsed(prev =>
             prev.includes(sw) ? prev.filter(s => s !== sw) : [...prev, sw]
@@ -50,16 +58,25 @@ export const Entries: React.FC = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const finalEngineerId = role === 'admin' ? engineerId : currentEngineerId;
-        if (!projectId || !finalEngineerId || !taskDescription || !timeSpent) return;
+        if (!projectId || !finalEngineerId || !taskDescription.trim() || !timeSpent) return;
+
+        // Validate hours  
+        const hours = parseFloat(timeSpent);
+        if (isNaN(hours) || hours <= 0) { alert('Hours must be greater than zero.'); return; }
+        if (hours > 24) { alert('Hours cannot exceed 24 per entry.'); return; }
+
+        // Validate date (no future dates)
+        const today = new Date().toISOString().split('T')[0];
+        if (date > today) { alert('Cannot log entries for future dates.'); return; }
 
         const entry: LogEntry = {
             id: crypto.randomUUID(),
             projectId,
             engineerId: finalEngineerId,
             date,
-            taskDescription,
+            taskDescription: taskDescription.trim(),
             softwareUsed,
-            timeSpent: parseFloat(timeSpent),
+            timeSpent: hours,
             milestone,
             tags
         };
@@ -86,6 +103,11 @@ export const Entries: React.FC = () => {
 
     const sortedEntries = [...entries]
         .filter(e => role === 'admin' || e.engineerId === currentEngineerId)
+        .filter(e => {
+            if (filterFrom && e.date < filterFrom) return false;
+            if (filterTo && e.date > filterTo) return false;
+            return true;
+        })
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
@@ -280,90 +302,140 @@ export const Entries: React.FC = () => {
             )}
 
             <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl">
-                <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/0">
-                    <h3 className="text-xl font-black text-white tracking-tight uppercase">Operational Logs</h3>
-                    <div className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
-                        {sortedEntries.length} Records Found
+                <div className="p-8 border-b border-white/5 bg-white/0">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <h3 className="text-xl font-black text-white tracking-tight uppercase">Operational Logs</h3>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <input
+                                type="date"
+                                value={filterFrom}
+                                onChange={(e) => setFilterFrom(e.target.value)}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all"
+                                placeholder="From"
+                            />
+                            <span className="text-slate-600 text-xs font-bold">→</span>
+                            <input
+                                type="date"
+                                value={filterTo}
+                                onChange={(e) => setFilterTo(e.target.value)}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all"
+                                placeholder="To"
+                            />
+                            {(filterFrom || filterTo) && (
+                                <button
+                                    onClick={() => { setFilterFrom(''); setFilterTo(''); }}
+                                    className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                            <div className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
+                                {sortedEntries.length} Records
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="divide-y divide-white/5">
-                    {sortedEntries.map((entry, idx) => {
-                        const project = projects.find(p => p.id === entry.projectId);
-                        const engineer = engineers.find(e => e.id === entry.engineerId);
+                    {(() => {
+                        const totalPages = Math.max(1, Math.ceil(sortedEntries.length / PAGE_SIZE));
+                        const pagedEntries = sortedEntries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
                         return (
-                            <motion.div
-                                key={entry.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.05 }}
-                                className="p-8 hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
-                            >
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
-                                    <div className="flex items-start gap-6 flex-1 min-w-0">
-                                        <div className="w-16 h-16 bg-white/5 rounded-[20px] flex items-center justify-center border border-white/5 group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all duration-500 flex-shrink-0">
-                                            <Calendar className="w-7 h-7 text-slate-500 group-hover:text-orange-400" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                <h4 className="font-black text-white text-xl tracking-tight group-hover:text-orange-400 transition-colors">
-                                                    {project?.name || 'Unidentified Venture'}
-                                                </h4>
-                                                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 group-hover:border-orange-500/20 group-hover:text-orange-400">
-                                                    {format(new Date(entry.date), 'MMMM d, yyyy')}
-                                                </span>
-                                                {entry.milestone && (
-                                                    <span className="px-3 py-1 bg-amber-500/10 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/20">
-                                                        {entry.milestone}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-slate-400 font-medium leading-relaxed max-w-3xl mb-4">{entry.taskDescription}</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                <div className="flex items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest mr-4">
-                                                    <Wrench className="w-3.5 h-3.5 mr-2 opacity-40" />
-                                                    {engineer?.name || 'Unknown'}
+                            <>
+                                {pagedEntries.map((entry, idx) => {
+                                    const project = projects.find(p => p.id === entry.projectId);
+                                    const engineer = engineers.find(e => e.id === entry.engineerId);
+                                    return (
+                                        <motion.div
+                                            key={entry.id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: idx * 0.05 }}
+                                            className="p-8 hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
+                                        >
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
+                                                <div className="flex items-start gap-6 flex-1 min-w-0">
+                                                    <div className="w-16 h-16 bg-white/5 rounded-[20px] flex items-center justify-center border border-white/5 group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all duration-500 flex-shrink-0">
+                                                        <Calendar className="w-7 h-7 text-slate-500 group-hover:text-orange-400" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                                            <h4 className="font-black text-white text-xl tracking-tight group-hover:text-orange-400 transition-colors">
+                                                                {project?.name || 'Unidentified Venture'}
+                                                            </h4>
+                                                            <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5 group-hover:border-orange-500/20 group-hover:text-orange-400">
+                                                                {format(new Date(entry.date), 'MMMM d, yyyy')}
+                                                            </span>
+                                                            {entry.milestone && (
+                                                                <span className="px-3 py-1 bg-amber-500/10 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/20">
+                                                                    {entry.milestone}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-slate-400 font-medium leading-relaxed max-w-3xl mb-4">{entry.taskDescription}</p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <div className="flex items-center text-[10px] font-bold text-slate-600 uppercase tracking-widest mr-4">
+                                                                <Wrench className="w-3.5 h-3.5 mr-2 opacity-40" />
+                                                                {engineer?.name || 'Unknown'}
+                                                            </div>
+                                                            {entry.softwareUsed.map(sw => (
+                                                                <span key={sw} className="px-3 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-slate-500 border border-white/5">
+                                                                    {sw}
+                                                                </span>
+                                                            ))}
+                                                            {(entry.tags || []).map(tag => (
+                                                                <span key={tag} className="px-3 py-1 bg-orange-500/5 rounded-lg text-[10px] font-bold text-orange-400/60 border border-orange-500/10">
+                                                                    #{tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                {entry.softwareUsed.map(sw => (
-                                                    <span key={sw} className="px-3 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-slate-500 border border-white/5">
-                                                        {sw}
-                                                    </span>
-                                                ))}
-                                                {(entry.tags || []).map(tag => (
-                                                    <span key={tag} className="px-3 py-1 bg-orange-500/5 rounded-lg text-[10px] font-bold text-orange-400/60 border border-orange-500/10">
-                                                        #{tag}
-                                                    </span>
-                                                ))}
+                                                <div className="flex items-center gap-8 justify-between lg:justify-end">
+                                                    <div className="text-right">
+                                                        <div className="text-4xl font-black text-white group-hover:text-orange-400 transition-colors">{entry.timeSpent}h</div>
+                                                        <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Efficiency Logged</div>
+                                                    </div>
+                                                    {role === 'admin' && (
+                                                        <button
+                                                            onClick={() => handleDelete(entry.id)}
+                                                            className="p-4 bg-white/5 text-slate-600 hover:bg-red-500/10 hover:text-red-500 rounded-2xl border border-white/5 hover:border-red-500/20 transition-all"
+                                                        >
+                                                            <Trash2 className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
+                                        </motion.div>
+                                    );
+                                })}
+                                {sortedEntries.length === 0 && (
+                                    <div className="py-32 text-center">
+                                        <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mx-auto mb-8 border border-white/5">
+                                            <FileText className="w-12 h-12 text-slate-700" />
                                         </div>
+                                        <h3 className="text-2xl font-black text-white tracking-tight">No operations on record</h3>
+                                        <p className="text-slate-500 mt-2 font-medium">Initialize your first engineering log to see activity here.</p>
                                     </div>
-                                    <div className="flex items-center gap-8 justify-between lg:justify-end">
-                                        <div className="text-right">
-                                            <div className="text-4xl font-black text-white group-hover:text-orange-400 transition-colors">{entry.timeSpent}h</div>
-                                            <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Efficiency Logged</div>
-                                        </div>
-                                        {role === 'admin' && (
-                                            <button
-                                                onClick={() => handleDelete(entry.id)}
-                                                className="p-4 bg-white/5 text-slate-600 hover:bg-red-500/10 hover:text-red-500 rounded-2xl border border-white/5 hover:border-red-500/20 transition-all"
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
-                                        )}
+                                )}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-between p-6 border-t border-white/5">
+                                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                                            className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                            <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                                        </button>
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            Page {page} of {totalPages}
+                                        </span>
+                                        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                                            className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                            Next <ChevronRight className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
-                                </div>
-                            </motion.div>
+                                )}
+                            </>
                         );
-                    })}
-                    {sortedEntries.length === 0 && (
-                        <div className="py-32 text-center">
-                            <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mx-auto mb-8 border border-white/5">
-                                <FileText className="w-12 h-12 text-slate-700" />
-                            </div>
-                            <h3 className="text-2xl font-black text-white tracking-tight">No operations on record</h3>
-                            <p className="text-slate-500 mt-2 font-medium">Initialize your first engineering log to see activity here.</p>
-                        </div>
-                    )}
+                    })()}
                 </div>
             </div>
         </motion.div>

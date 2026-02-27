@@ -5,6 +5,9 @@ export interface Project {
     budget?: number;
     phase?: string;
     leadDesignerId?: string;
+    teamMembers?: string[];
+    startDate?: string;
+    endDate?: string;
 }
 
 export interface Engineer {
@@ -128,4 +131,14 @@ export interface AppData {
     projectFiles: ProjectFile[];
     timeEntries: TimeEntry[];
     appUsageLogs: AppUsageLog[];
+}
+
+export interface AuditLog {
+    id: string;
+    userId: string;
+    action: 'created' | 'updated' | 'deleted';
+    tableName: string;
+    recordId: string;
+    changes: Record<string, any>;
+    createdAt?: string;
 }
