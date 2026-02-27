@@ -2,14 +2,38 @@
 import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { supabase } from '../lib/supabase';
-import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2 } from 'lucide-react';
 import { format, startOfWeek as getStartOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { categorizeApp } from '../utils/appCategorization';
+import { GlowButton } from '../components/GlowButton';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.1
+        }
+    }
+};
+
+const itemVariants: any = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: {
+            duration: 0.5,
+            ease: "easeOut"
+        }
+    }
+};
 
 
 export const Dashboard = () => {
-    const { projects, engineers, entries, timeEntries, clearMonthlyData, appUsageLogs } = useData();
+    const { projects, engineers, entries, clearMonthlyData, appUsageLogs } = useData();
     const { role } = useAuth();
 
     // Configurable target hours (Supabase app_settings with localStorage fallback)
@@ -42,16 +66,17 @@ export const Dashboard = () => {
             .then(() => { });
     };
 
-    const WORK_PROGRAMS = [
-        "AutoCAD", "Revit", "ETABS", "SAFE", "Excel", "PowerPoint", "Word",
-        "SketchUp", "Lumion", "Twinmotion", "3ds Max", "Archicad"
-    ];
     const IDLE_THRESHOLD_SECONDS = 300;
 
     const calculateAppUsageStats = (logs: any[], sinceDate?: Date) => {
         let activeSeconds = 0;
         let idleSeconds = 0;
         let nonWorkSeconds = 0;
+
+        let deepWorkSeconds = 0;
+        let commsSeconds = 0;
+        let adminSeconds = 0;
+        let otherSeconds = 0;
 
         const filteredLogs = sinceDate ? logs.filter(l => new Date(l.timestamp) >= sinceDate) : logs;
 
@@ -63,76 +88,52 @@ export const Dashboard = () => {
                 return;
             }
 
-            const isWorkApp = WORK_PROGRAMS.some(p => log.activeWindow.toLowerCase().includes(p.toLowerCase()));
             const cappedDuration = Math.min(log.durationSeconds, IDLE_THRESHOLD_SECONDS);
             const idleExcess = Math.max(0, log.durationSeconds - IDLE_THRESHOLD_SECONDS);
 
             idleSeconds += idleExcess;
 
-            if (isWorkApp) {
+            const category = categorizeApp(log.activeWindow);
+
+            if (category === 'Deep Work') {
                 activeSeconds += cappedDuration;
+                deepWorkSeconds += cappedDuration;
+            } else if (category === 'Communication') {
+                activeSeconds += cappedDuration;
+                commsSeconds += cappedDuration;
+            } else if (category === 'Admin/Doc') {
+                activeSeconds += cappedDuration;
+                adminSeconds += cappedDuration;
             } else {
                 nonWorkSeconds += cappedDuration;
+                otherSeconds += cappedDuration;
             }
         });
 
         return {
             activeHours: activeSeconds / 3600,
             idleHours: idleSeconds / 3600,
-            nonWorkHours: nonWorkSeconds / 3600
+            nonWorkHours: nonWorkSeconds / 3600,
+            deepWorkHours: deepWorkSeconds / 3600,
+            commsHours: commsSeconds / 3600,
+            adminHours: adminSeconds / 3600,
+            otherHours: otherSeconds / 3600
         };
     };
 
     // Filter entries: Everyone sees all for stats and overview
     const filteredEntries = entries;
 
-    // Merge overlapping time intervals to prevent double-counting
-    const mergeIntervals = (intervals: [number, number][]): [number, number][] => {
-        if (intervals.length === 0) return [];
-        intervals.sort((a, b) => a[0] - b[0]);
-        const merged: [number, number][] = [intervals[0]];
-        for (let i = 1; i < intervals.length; i++) {
-            const last = merged[merged.length - 1];
-            if (intervals[i][0] <= last[1]) {
-                last[1] = Math.max(last[1], intervals[i][1]);
-            } else {
-                merged.push(intervals[i]);
-            }
-        }
-        return merged;
-    };
-
-    const getTimeclockMs = (filterFn?: (te: any) => boolean) => {
-        const filtered = filterFn ? timeEntries.filter(filterFn) : timeEntries;
-        const workIntervals: [number, number][] = [];
-
-        filtered.forEach(te => {
-            if (te.entryType !== 'work') return;
-            const start = new Date(te.startTime).getTime();
-            let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-            if ((end - start) > 24 * 3600000) end = start + (12 * 3600000);
-            if (end > start) workIntervals.push([start, end]);
-        });
-
-        const merged = mergeIntervals(workIntervals);
-        return merged.reduce((sum, [s, e]) => sum + (e - s), 0);
-    };
-
-    const totalTimeclockHours = getTimeclockMs() / 3600000;
-
-    // Weekly hours
-    const startOfWeek = getStartOfWeek(new Date(), { weekStartsOn: 0 });
-    const weeklyTimeclockHours = getTimeclockMs(te => new Date(te.startTime) >= startOfWeek) / 3600000;
-
     const totalAppStats = calculateAppUsageStats(appUsageLogs || []);
+    const startOfWeek = getStartOfWeek(new Date(), { weekStartsOn: 0 });
     const weeklyAppStats = calculateAppUsageStats(appUsageLogs || [], startOfWeek);
 
     // Calculate Metrics
-    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalTimeclockHours + totalAppStats.activeHours;
+    const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalAppStats.activeHours;
 
     const weeklyHours = filteredEntries
         .filter(e => new Date(e.date) >= startOfWeek)
-        .reduce((sum, e) => sum + e.timeSpent, 0) + weeklyTimeclockHours + weeklyAppStats.activeHours;
+        .reduce((sum, e) => sum + e.timeSpent, 0) + weeklyAppStats.activeHours;
 
     // Active Projects (projects with entries in last 30 days)
     const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
@@ -163,9 +164,9 @@ export const Dashboard = () => {
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
             className="space-y-4 md:space-y-8"
         >
             <div className="text-center md:text-left mb-4 md:mb-8 relative">
@@ -178,47 +179,47 @@ export const Dashboard = () => {
 
             {/* Metric Cards */}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), transparent)' }} />
+                <div className="glass-card p-3 md:p-8 rounded-2xl md:rounded-[32px] relative overflow-hidden group hover:border-orange-500/30 hover:-translate-y-1">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(243, 130, 45, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-500/10 text-orange-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(79,70,229,0.1)] group-hover:bg-orange-500/20 transition-all duration-500">
+                        <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-500/10 text-orange-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-orange-glow group-hover:bg-orange-500/20 transition-all duration-500">
                             <FolderKanban className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Active Projects</p>
-                        <p className="text-2xl md:text-4xl font-black text-white">{activeProjectsCount} <span className="text-sm font-bold text-slate-600">/ {projects.length}</span></p>
+                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Active Projects</p>
+                        <p className="text-2xl md:text-4xl font-black text-white font-mono">{activeProjectsCount} <span className="text-sm font-bold text-slate-600">/ {projects.length}</span></p>
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-orange-500/30 hover:-translate-y-1">
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), transparent)' }} />
+                <div className="glass-card p-3 md:p-8 rounded-2xl md:rounded-[32px] relative overflow-hidden group hover:border-orange-500/30 hover:-translate-y-1">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(243, 130, 45, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
-                        <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-400/10 text-orange-300 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(99,102,241,0.1)] group-hover:bg-orange-400/20 transition-all duration-500">
+                        <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-400/10 text-orange-300 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-orange-glow group-hover:bg-orange-400/20 transition-all duration-500">
                             <Users className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Total Engineers</p>
-                        <p className="text-2xl md:text-4xl font-black text-white">{engineers.length}</p>
+                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Total Engineers</p>
+                        <p className="text-2xl md:text-4xl font-black text-white font-mono">{engineers.length}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-emerald-500/30 hover:-translate-y-1">
+                <div className="glass-card p-3 md:p-8 rounded-2xl md:rounded-[32px] relative overflow-hidden group hover:border-emerald-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(16,185,129,0.1)] group-hover:bg-emerald-500/20 transition-all duration-500">
                             <Clock className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Hours This Week</p>
-                        <p className="text-2xl md:text-4xl font-black text-white">{weeklyHours.toFixed(1)}</p>
+                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Hours This Week</p>
+                        <p className="text-2xl md:text-4xl font-black text-white font-mono">{weeklyHours.toFixed(1)}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1a1a1a]/40 p-3 md:p-8 rounded-2xl md:rounded-[32px] border border-white/5 relative overflow-hidden group backdrop-blur-3xl transition-all duration-500 hover:border-purple-500/30 hover:-translate-y-1">
+                <div className="glass-card p-3 md:p-8 rounded-2xl md:rounded-[32px] relative overflow-hidden group hover:border-purple-500/30 hover:-translate-y-1">
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), transparent)' }} />
                     <div className="relative z-10 text-center md:text-left">
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(168, 85, 247, 0.1)] group-hover:bg-purple-500/20 transition-all duration-500">
                             <TrendingUp className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Total Logged</p>
-                        <p className="text-2xl md:text-4xl font-black text-white">{totalHours.toFixed(0)} <span className="text-sm font-bold text-slate-600 tracking-normal capitalize">hrs</span></p>
+                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Total Logged</p>
+                        <p className="text-2xl md:text-4xl font-black text-white font-mono">{totalHours.toFixed(0)} <span className="text-sm font-bold text-slate-600 tracking-normal capitalize">hrs</span></p>
                     </div>
                 </div>
             </div>
@@ -226,15 +227,15 @@ export const Dashboard = () => {
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                 {/* Recent Activity */}
-                <div className="lg:col-span-2 bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden group min-h-[200px] md:min-h-[500px]">
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.02), rgba(16, 185, 129, 0.02))' }} />
+                <motion.div variants={itemVariants} className="lg:col-span-2 glass-card rounded-2xl md:rounded-[32px] p-4 md:p-8 relative overflow-hidden group min-h-[200px] md:min-h-[500px]">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(243, 130, 45, 0.02), transparent)' }} />
                     <div className="relative z-10 h-full flex flex-col">
                         <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
                             <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
                                 <Activity className="w-6 h-6 text-emerald-400" />
                                 Recent Updates
                             </h3>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5">Real-time Stream</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5 font-mono">Real-time Stream</span>
                         </div>
 
                         <div className="space-y-4 flex-1">
@@ -250,7 +251,7 @@ export const Dashboard = () => {
 
                                     return (
                                         <div key={entry.id} className="flex gap-4 group/item hover:bg-white/5 p-4 rounded-2xl transition-all duration-300 border border-transparent hover:border-white/5">
-                                            <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-[#2a2a2a] flex items-center justify-center text-white font-black text-sm border border-white/10 shadow-2xl relative">
+                                            <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-[#2a2a2a] flex items-center justify-center text-white font-black text-sm border border-white/10 shadow-glass relative">
                                                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-4 border-[#1a1a1a]"></div>
                                                 {engineer?.name?.charAt(0) || '?'}
                                             </div>
@@ -259,10 +260,10 @@ export const Dashboard = () => {
                                                     <p className="text-sm font-black text-white truncate pr-2">
                                                         {engineer?.name} <span className="text-slate-500 font-bold mx-1">•</span> <span className="text-orange-400">{project?.name}</span>
                                                     </p>
-                                                    <span className="text-xs font-bold text-emerald-400/90 whitespace-nowrap bg-emerald-500/5 px-2 py-0.5 rounded-lg border border-emerald-500/10">+{entry.timeSpent}h</span>
+                                                    <span className="text-xs font-bold text-emerald-400/90 whitespace-nowrap bg-emerald-500/5 px-2 py-0.5 rounded-lg border border-emerald-500/10 font-mono">+{entry.timeSpent.toFixed(1)}h</span>
                                                 </div>
                                                 <p className="text-sm text-slate-400 line-clamp-1 font-medium italic">"{entry.taskDescription}"</p>
-                                                <div className="flex items-center gap-3 mt-3 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                                <div className="flex items-center gap-3 mt-3 text-[10px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                                                     <Clock className="w-3 h-3" />
                                                     <span>{format(new Date(entry.date), 'MMM d, HH:mm')}</span>
                                                 </div>
@@ -273,15 +274,15 @@ export const Dashboard = () => {
                             )}
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Quick Actions / Side Panel */}
-                <div className="space-y-6">
-                    <div className="bg-[#1a1a1a]/40 border border-white/5 rounded-2xl md:rounded-[32px] p-4 md:p-8 text-white shadow-2xl backdrop-blur-3xl relative overflow-hidden group">
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.1), transparent)' }} />
+                <motion.div variants={itemVariants} className="space-y-6">
+                    <div className="glass-card rounded-2xl md:rounded-[32px] p-4 md:p-8 text-white shadow-2xl relative overflow-hidden group">
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(243, 130, 45, 0.1), transparent)' }} />
                         <div className="relative z-10">
                             <h3 className="font-black text-lg mb-6 text-white tracking-tight">Capacity Goal</h3>
-                            <div className="flex items-end gap-3 mb-6">
+                            <div className="flex items-end gap-3 mb-6 font-mono">
                                 <span className="text-3xl md:text-5xl font-black text-white">{weeklyHours.toFixed(0)}</span>
                                 <span className="text-slate-600 font-bold mb-2 uppercase tracking-widest text-[10px] md:text-xs">/ {targetHours} hrs</span>
                             </div>
@@ -319,62 +320,96 @@ export const Dashboard = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+
+                    <div className="bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden group">
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), transparent)' }} />
+                        <div className="relative z-10">
+                            <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
+                                <Activity className="w-5 h-5 text-purple-400" />
+                                Software Analytics
+                            </h3>
+                            <div className="space-y-4">
+                                {(() => {
+                                    const total = weeklyAppStats.deepWorkHours + weeklyAppStats.commsHours + weeklyAppStats.adminHours + weeklyAppStats.otherHours;
+                                    if (total === 0) return <p className="text-sm font-bold text-slate-600 italic">No app data this week.</p>;
+
+                                    const items = [
+                                        { label: 'Deep Work', hours: weeklyAppStats.deepWorkHours, color: 'bg-indigo-500' },
+                                        { label: 'Comms', hours: weeklyAppStats.commsHours, color: 'bg-emerald-500' },
+                                        { label: 'Admin', hours: weeklyAppStats.adminHours, color: 'bg-amber-500' },
+                                        { label: 'Other', hours: weeklyAppStats.otherHours, color: 'bg-slate-500' },
+                                    ];
+
+                                    return items.map(item => (
+                                        <div key={item.label}>
+                                            <div className="flex justify-between text-xs font-bold text-slate-400 mb-2">
+                                                <span>{item.label}</span>
+                                                <span className="text-white">{Math.round((item.hours / total) * 100)}% <span className="text-slate-500">({item.hours.toFixed(1)}h)</span></span>
+                                            </div>
+                                            <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
+                                                <div className={`${item.color} h-full rounded-full`} style={{ width: `${(item.hours / total) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
             </div>
 
             {/* Admin Panel */}
-            {role === 'admin' && (
-                <div className="bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden">
-                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
-                    <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
-                        <Settings className="w-5 h-5 text-orange-400" />
-                        Admin Controls
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Target Hours */}
-                        <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
-                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Capacity Target (Hours)</h4>
-                            <div className="flex items-center gap-4">
-                                <input
-                                    type="number"
-                                    value={targetHours}
-                                    onChange={(e) => updateTargetHours(Math.max(1, parseInt(e.target.value) || 100))}
-                                    className="w-32 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-2xl font-black text-center focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                                    min="1"
-                                />
-                                <span className="text-slate-500 font-bold text-sm uppercase tracking-wider">hours goal</span>
-                            </div>
-                            <p className="text-xs text-slate-600 mt-3">This target is shown on the Capacity Goal progress bar above.</p>
-                        </div>
-
-                        {/* Clear Monthly Data */}
-                        <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
-                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Monthly Reset</h4>
-                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                                Clear all entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings. <strong className="text-red-400">Projects, engineers, and files are kept.</strong>
-                            </p>
-                            {clearSuccess ? (
-                                <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                                    <CheckCircle2 className="w-5 h-5" />
-                                    System data cleared successfully!
+            {
+                role === 'admin' && (
+                    <motion.div variants={itemVariants} className="bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
+                        <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
+                            <Settings className="w-5 h-5 text-orange-400" />
+                            Admin Controls
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Target Hours */}
+                            <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Capacity Target (Hours)</h4>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="number"
+                                        value={targetHours}
+                                        onChange={(e) => updateTargetHours(Math.max(1, parseInt(e.target.value) || 100))}
+                                        className="w-32 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-2xl font-black text-center focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                                        min="1"
+                                    />
+                                    <span className="text-slate-500 font-bold text-sm uppercase tracking-wider">hours goal</span>
                                 </div>
-                            ) : (
-                                <button
-                                    onClick={handleClearData}
-                                    disabled={isClearing}
-                                    className="flex items-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-xl font-bold text-sm uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
-                                >
-                                    {isClearing ? (
-                                        <><RotateCcw className="w-4 h-4 animate-spin" /> Clearing...</>
-                                    ) : (
-                                        <><Trash2 className="w-4 h-4" /> Clear System Data</>
-                                    )}
-                                </button>
-                            )}
+                                <p className="text-xs text-slate-600 mt-3">This target is shown on the Capacity Goal progress bar above.</p>
+                            </div>
+
+                            {/* Clear Monthly Data */}
+                            <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Monthly Reset</h4>
+                                <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                                    Clear all entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings. <strong className="text-red-400">Projects, engineers, and files are kept.</strong>
+                                </p>
+                                {clearSuccess ? (
+                                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm font-mono">
+                                        <CheckCircle2 className="w-5 h-5 transition-transform scale-110" />
+                                        System data cleared successfully!
+                                    </div>
+                                ) : (
+                                    <GlowButton
+                                        variant="danger"
+                                        icon={Trash2}
+                                        onClick={handleClearData}
+                                        loading={isClearing}
+                                    >
+                                        Clear System Data
+                                    </GlowButton>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
-        </motion.div>
+                    </motion.div>
+                )
+            }
+        </motion.div >
     );
 };

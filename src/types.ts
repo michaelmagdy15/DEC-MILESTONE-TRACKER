@@ -78,6 +78,7 @@ export interface LogEntry {
     timeSpent: number;
     milestone?: string;
     tags?: string[];
+    entryType?: 'normal' | 'rfi' | 'revision';
 }
 
 export interface Meeting {

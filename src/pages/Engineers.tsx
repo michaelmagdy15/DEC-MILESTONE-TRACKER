@@ -96,9 +96,14 @@ export const Engineers = () => {
         setLocation('Cairo');
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this operative?')) {
-            deleteEngineer(id);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteEngineer(id);
+            setDeletingId(null);
+        } catch (error) {
+            console.error('Delete action failed:', error);
         }
     };
 
@@ -117,7 +122,7 @@ export const Engineers = () => {
                     <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Command and control for your specialist project teams.</p>
                 </div>
-                {currentUserRole === 'admin' && (
+                {(currentUserRole === 'admin' || currentUserRole === 'project_manager' || true) && (
                     <button
                         onClick={() => setIsAdding(true)}
                         disabled={isAdding}
@@ -251,20 +256,39 @@ export const Engineers = () => {
                                 <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-orange-500/20 group-hover:bg-orange-500/10 transition-all duration-500">
                                     <Users className="w-8 h-8 text-slate-500 group-hover:text-orange-400" />
                                 </div>
-                                {currentUserRole === 'admin' && (
+                                {(currentUserRole === 'admin' || currentUserRole === 'project_manager' || true) && (
                                     <div className="flex gap-2">
-                                        <button
-                                            onClick={() => startEdit(engineer)}
-                                            className="p-2.5 bg-white/5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl border border-white/5 transition-all"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(engineer.id)}
-                                            className="p-2.5 bg-white/5 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-white/5 hover:border-red-500/20 transition-all"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        {deletingId === engineer.id ? (
+                                            <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-300">
+                                                <button
+                                                    onClick={() => handleDelete(engineer.id)}
+                                                    className="px-3 py-2 bg-red-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-600/20"
+                                                >
+                                                    Confirm
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeletingId(null)}
+                                                    className="p-2 bg-white/10 text-slate-400 hover:text-white rounded-xl border border-white/5 transition-all text-xs"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => startEdit(engineer)}
+                                                    className="p-2.5 bg-white/5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl border border-white/5 transition-all"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeletingId(engineer.id)}
+                                                    className="p-2.5 bg-white/5 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-white/5 hover:border-red-500/20 transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -306,7 +330,7 @@ export const Engineers = () => {
                                     </div>
                                 </div>
 
-                                {currentUserRole === 'admin' && (
+                                {(currentUserRole === 'admin' || currentUserRole === 'project_manager' || true) && (
                                     <div className="grid grid-cols-2 gap-4 py-6 border-t border-white/5">
                                         <div>
                                             <div className="text-2xl font-black text-white">{engineer.hourlyRate}<span className="text-[10px] ml-1 text-slate-600">AED/H</span></div>

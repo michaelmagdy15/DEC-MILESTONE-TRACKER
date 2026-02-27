@@ -25,6 +25,7 @@ export const Entries: React.FC = () => {
     const [milestone, setMilestone] = useState('');
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    const [entryType, setEntryType] = useState<'normal' | 'rfi' | 'revision'>('normal');
 
     // Date-range filter
     const [filterFrom, setFilterFrom] = useState('');
@@ -78,7 +79,8 @@ export const Entries: React.FC = () => {
             softwareUsed,
             timeSpent: hours,
             milestone,
-            tags
+            tags,
+            entryType
         };
 
         addEntry(entry);
@@ -93,6 +95,7 @@ export const Entries: React.FC = () => {
         setMilestone('');
         setTags([]);
         setTagInput('');
+        setEntryType('normal');
     };
 
     const handleDelete = (id: string) => {
@@ -214,6 +217,18 @@ export const Entries: React.FC = () => {
                                         required
                                     />
                                 </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Type of Work</label>
+                                <select
+                                    value={entryType}
+                                    onChange={(e) => setEntryType(e.target.value as any)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
+                                >
+                                    <option value="normal" className="bg-[#1a1a1a]">Standard Engineering</option>
+                                    <option value="rfi" className="bg-[#1a1a1a]">RFI Response/Processing</option>
+                                    <option value="revision" className="bg-[#1a1a1a]">Client Revision (Change Order)</option>
+                                </select>
                             </div>
                         </div>
 
@@ -369,6 +384,11 @@ export const Entries: React.FC = () => {
                                                             {entry.milestone && (
                                                                 <span className="px-3 py-1 bg-amber-500/10 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/20">
                                                                     {entry.milestone}
+                                                                </span>
+                                                            )}
+                                                            {entry.entryType && entry.entryType !== 'normal' && (
+                                                                <span className={clsx("px-3 py-1 rounded-full text-[10px] font-black border", entry.entryType === 'rfi' ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20")}>
+                                                                    {entry.entryType.toUpperCase()}
                                                                 </span>
                                                             )}
                                                         </div>

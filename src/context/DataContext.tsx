@@ -90,7 +90,7 @@ const TABLE_CONFIGS: Record<TableName, TableConfig> = {
         orderBy: 'created_at', ascending: false,
     },
     entries: {
-        mapper: (e: any) => ({ id: e.id, projectId: e.project_id, engineerId: e.engineer_id, date: e.date, taskDescription: e.task_description, softwareUsed: e.software_used || [], timeSpent: e.time_spent, milestone: e.milestone, tags: e.tags || [] }),
+        mapper: (e: any) => ({ id: e.id, projectId: e.project_id, engineerId: e.engineer_id, date: e.date, taskDescription: e.task_description, softwareUsed: e.software_used || [], timeSpent: e.time_spent, milestone: e.milestone, tags: e.tags || [], entryType: e.entry_type || 'normal' }),
         orderBy: 'date', ascending: false,
     },
     attendance: {
@@ -323,10 +323,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchSingleTable('engineers');
     };
 
+
     const deleteEngineer = async (id: string) => {
         const { error } = await supabase.from('engineers').delete().eq('id', id);
-        if (error) { toast.error(`Failed to delete engineer: ${error.message}`); return; }
-        toast.success('Engineer deleted');
+        if (error) {
+            console.error('Delete Engineer Error:', error);
+            if (error.code === '23503') {
+                toast.error('Cannot remove specialist: They have active project entries or assigned tasks. Reassign or clear their data first.');
+            } else {
+                toast.error(`Failed to delete engineer: ${error.message}`);
+            }
+            return;
+        }
+        toast.success('Engineer record purged from roster');
         void logAudit('deleted', 'engineers', id);
         await fetchSingleTable('engineers');
     };
@@ -337,7 +346,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: entry.id, project_id: entry.projectId, engineer_id: entry.engineerId,
             date: entry.date, task_description: entry.taskDescription,
             software_used: entry.softwareUsed, time_spent: entry.timeSpent,
-            milestone: entry.milestone, tags: entry.tags
+            milestone: entry.milestone, tags: entry.tags, entry_type: entry.entryType
         });
         if (error) { toast.error(`Failed to add entry: ${error.message}`); return; }
         toast.success('Entry logged');
@@ -350,7 +359,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             project_id: entry.projectId, engineer_id: entry.engineerId,
             date: entry.date, task_description: entry.taskDescription,
             software_used: entry.softwareUsed, time_spent: entry.timeSpent,
-            milestone: entry.milestone, tags: entry.tags
+            milestone: entry.milestone, tags: entry.tags, entry_type: entry.entryType
         }).eq('id', entry.id);
         if (error) { toast.error(`Failed to update entry: ${error.message}`); return; }
         toast.success('Entry updated');

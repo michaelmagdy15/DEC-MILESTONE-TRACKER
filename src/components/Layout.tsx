@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
 import { MailNotifier } from './MailNotifier';
-import { TimeclockWidget } from './TimeclockWidget';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 
@@ -18,18 +17,18 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
             className={clsx(
                 'flex items-center space-x-3 px-4 py-3 rounded-xl border transition-all duration-500 relative overflow-hidden group',
                 isActive
-                    ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_20px_rgba(79,70,229,0.1)]'
+                    ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-glow'
                     : 'bg-transparent border-transparent text-slate-400 hover:border-white/5 hover:text-white hover:bg-white/5'
             )}
         >
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(16, 185, 129, 0.05))' }} />
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(243, 130, 45, 0.05), transparent)' }} />
             <div className={clsx(
                 "p-2 rounded-lg transition-all duration-300 relative z-10",
-                isActive ? "bg-orange-500/20 text-orange-400" : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
+                isActive ? "bg-orange-500/20 text-orange-400 shadow-orange-glow" : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
             )}>
                 <Icon className="w-5 h-5" />
             </div>
-            <span className="relative z-10 font-medium tracking-wide">{label}</span>
+            <span className="relative z-10 font-mono text-sm font-medium tracking-wide uppercase">{label}</span>
         </Link>
     );
 };
@@ -137,7 +136,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
             {/* Sidebar */}
             <aside className={clsx(
-                "fixed inset-y-0 left-0 z-50 w-72 bg-[#0a0a0a] backdrop-blur-3xl border-r border-white/5 transform transition-all duration-500 ease-in-out lg:translate-x-0 lg:static lg:block h-full shadow-[20px_0_40px_rgba(0,0,0,0.5)]",
+                "fixed inset-y-0 left-0 z-50 w-72 glass-morphism transform transition-all duration-500 ease-in-out lg:translate-x-0 lg:static lg:block h-full shadow-2xl",
                 isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
@@ -167,7 +166,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </nav>
 
                     <div className="pt-6 border-t border-white/5 flex flex-col space-y-4 shrink-0 mt-auto">
-                        <TimeclockWidget />
 
                         <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] border border-white/5 rounded-2xl p-4 text-white shadow-xl">
                             <p className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-40 mb-1">DEC Engineering</p>
@@ -245,12 +243,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 {/* Top Desktop Bar (Search & Notifications placeholder) */}
                 <div className="hidden lg:flex items-center justify-between p-8 pb-0">
                     <div ref={searchRef} className="relative w-full max-w-lg z-30">
-                        <div className="bg-white/5 backdrop-blur-md px-5 py-3 rounded-2xl text-slate-400 border border-white/5 flex items-center w-full shadow-2xl focus-within:border-orange-500/50 focus-within:bg-white/10 transition-all duration-300 group">
+                        <div className="glass-morphism px-5 py-3 rounded-2xl text-slate-400 flex items-center w-full shadow-2xl focus-within:border-orange-500/50 focus-within:bg-white/5 transition-all duration-300 group">
                             <Search className="w-5 h-5 mr-3 text-slate-500 group-focus-within:text-orange-400 transition-colors" />
                             <input
                                 type="text"
                                 placeholder="Search everything..."
-                                className="bg-transparent w-full outline-none text-white placeholder-slate-600 text-sm font-medium"
+                                className="bg-transparent w-full outline-none text-white placeholder-slate-600 text-sm font-mono"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);

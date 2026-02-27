@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Clock, Activity, Shield, ChevronLeft, Filter } from 'lucide-react';
+import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Activity, Shield, ChevronLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -65,8 +65,8 @@ const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | st
 };
 
 export const Reports: React.FC = () => {
-    const { projects, engineers, entries, attendance, timeEntries, appUsageLogs, auditLogs } = useData();
-    const [view, setView] = useState<'projects' | 'engineers' | 'timeclock' | 'activity' | 'audit'>('projects');
+    const { projects, engineers, entries, attendance, appUsageLogs, auditLogs, tasks } = useData();
+    const [view, setView] = useState<'projects' | 'engineers' | 'activity' | 'audit' | 'capacity'>('projects');
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
 
@@ -90,53 +90,34 @@ export const Reports: React.FC = () => {
         return { ...project, totalHours, cost, uniqueEngineers, lastActivity };
     });
 
-    // Merge overlapping time intervals to prevent double-counting
-    const mergeIntervals = (intervals: [number, number][]): [number, number][] => {
-        if (intervals.length === 0) return [];
-        intervals.sort((a, b) => a[0] - b[0]);
-        const merged: [number, number][] = [intervals[0]];
-        for (let i = 1; i < intervals.length; i++) {
-            const last = merged[merged.length - 1];
-            if (intervals[i][0] <= last[1]) {
-                last[1] = Math.max(last[1], intervals[i][1]);
-            } else {
-                merged.push(intervals[i]);
-            }
-        }
-        return merged;
-    };
-
-    const getTimeclockMs = (f_entries: any[], filterFn?: (te: any) => boolean) => {
-        const filtered = filterFn ? f_entries.filter(filterFn) : f_entries;
-        const workIntervals: [number, number][] = [];
-        filtered.forEach(te => {
-            if (te.entryType !== 'work') return;
-            const start = new Date(te.startTime).getTime();
-            let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-            if ((end - start) > 24 * 3600000) end = start + (12 * 3600000);
-            if (end > start) workIntervals.push([start, end]);
-        });
-        const merged = mergeIntervals(workIntervals);
-        return merged.reduce((sum, [s, e]) => sum + (e - s), 0);
-    };
-
     // Calculate Engineer Stats
     const engineerStats = engineers.map(engineer => {
         const engineerEntries = entries.filter(e => e.engineerId === engineer.id);
-        const engineerTimeclock = timeEntries.filter(te => te.engineerId === engineer.id);
+        const engineerLogs = appUsageLogs.filter(l => l.engineerId === engineer.id);
 
-        const tcTotalMs = getTimeclockMs(engineerTimeclock);
-        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + (tcTotalMs / 3600000);
+        const calculateActiveHours = (logs: any[], sinceDate?: Date) => {
+            const filtered = sinceDate ? logs.filter(l => new Date(l.timestamp) >= sinceDate) : logs;
+            const IDLE_THRESHOLD = 300;
+            let activeSecs = 0;
+            filtered.forEach(log => {
+                const isLock = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
+                if (isLock) return;
+                activeSecs += Math.min(log.durationSeconds, IDLE_THRESHOLD);
+            });
+            return activeSecs / 3600;
+        };
+
+        const totalAppHours = calculateActiveHours(engineerLogs);
+        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalAppHours;
         const projectCount = new Set(engineerEntries.map(e => e.projectId)).size;
 
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        const tcWeeklyMs = getTimeclockMs(engineerTimeclock, te => new Date(te.startTime) >= oneWeekAgo);
-
+        const weeklyAppHours = calculateActiveHours(engineerLogs, oneWeekAgo);
         const weeklyHours = engineerEntries
             .filter(e => new Date(e.date) >= oneWeekAgo)
-            .reduce((sum, e) => sum + e.timeSpent, 0) + (tcWeeklyMs / 3600000);
+            .reduce((sum, e) => sum + e.timeSpent, 0) + weeklyAppHours;
 
         const weeklyAbsences = attendance.filter(a =>
             a.engineerId === engineer.id &&
@@ -145,15 +126,11 @@ export const Reports: React.FC = () => {
         ).length;
 
         const hourlyRate = engineer.hourlyRate || 0;
-
-        // Use dynamic weekly goal based on location and date (Ramadan) 
-        // fallback to engineer.weeklyGoalHours if location is missing or explicitly overridden
         const calculatedWeeklyGoal = engineer.location ? getExpectedWeeklyHours(now, engineer.location) : (engineer.weeklyGoalHours || 40);
         const weeklyGoal = calculatedWeeklyGoal;
 
-        // Auto-calculated overtime (smart overtime without intervening)
         const weeklyOvertime = Math.max(0, weeklyHours - weeklyGoal);
-        const overtimePayment = weeklyOvertime * hourlyRate; // Or * 1.5 for OT standard
+        const overtimePayment = weeklyOvertime * hourlyRate;
 
         const expectedPayment = (weeklyGoal * hourlyRate) + overtimePayment;
         const deduction = weeklyAbsences * 8 * hourlyRate;
@@ -162,149 +139,70 @@ export const Reports: React.FC = () => {
         return { ...engineer, totalHours, projectCount, weeklyHours, weeklyOvertime, weeklyAbsences, weeklyPayment };
     });
 
-    // Calculate Timeclock Stats (All-Time Aggregate for Chart) — with overlap merging
-    const timeclockStats = engineers.map(engineer => {
-        const engEntries = timeEntries.filter(e => e.engineerId === engineer.id);
-        const workIntervals: [number, number][] = [];
-        const breakIntervals: [number, number][] = [];
-
-        engEntries.forEach(te => {
-            const start = new Date(te.startTime).getTime();
-            let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-            if ((end - start) > 24 * 3600000) end = start + (12 * 3600000);
-            if (end <= start) return;
-            if (te.entryType === 'work') workIntervals.push([start, end]);
-            else if (te.entryType === 'break') breakIntervals.push([start, end]);
-        });
-
-        const mergedWork = mergeIntervals(workIntervals);
-        const totalWorkMs = mergedWork.reduce((s, [a, b]) => s + (b - a), 0);
-
-        // Calculate total span (earliest start to latest end) for break derivation
-        const allIntervals = [...workIntervals, ...breakIntervals];
-        let totalSpanMs = 0;
-        if (allIntervals.length > 0) {
-            const earliest = Math.min(...allIntervals.map(([a]) => a));
-            const latest = Math.max(...allIntervals.map(([, b]) => b));
-            totalSpanMs = latest - earliest;
-        }
-        const totalBreakMs = Math.max(0, totalSpanMs - totalWorkMs);
-
-        return {
-            id: engineer.id,
-            name: engineer.name,
-            totalWorkHours: parseFloat((totalWorkMs / 3600000).toFixed(2)),
-            totalBreakHours: parseFloat((totalBreakMs / 3600000).toFixed(2)),
-            expectedWeeklyHours: engineer.weeklyGoalHours || 40,
-        };
-    });
-
-    // Daily Timeclock Stats for Table (Enhanced with start/end times, total time, break time)
-    const dailyTimeclockStats = React.useMemo(() => {
-        const stats: Record<string, any> = {};
-
-        timeEntries.forEach(te => {
-            const date = new Date(te.startTime).toISOString().split('T')[0];
-            const eng = engineers.find(e => e.id === te.engineerId);
-            if (!eng) return;
-
-            const key = `${eng.id}_${date}`;
-            if (!stats[key]) {
-                const expectedToday = getExpectedDailyHours(new Date(date), eng.location);
-                stats[key] = {
-                    id: eng.id, name: eng.name, location: eng.location || 'HQ', date,
-                    workIntervals: [] as [number, number][],
-                    breakIntervals: [] as [number, number][],
-                    expectedHours: expectedToday,
-                    firstClockIn: null as string | null,
-                    lastClockOut: null as string | null,
-                };
-            }
-
-            const rawStart = new Date(te.startTime).getTime();
-            let rawEnd = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-
-            // Safety clamp: if duration is somehow more than 24 hours (e.g. forgot to clock out), clamp to 12 hours
-            if ((rawEnd - rawStart) > 24 * 3600000) {
-                rawEnd = rawStart + (12 * 3600000);
-            }
-
-            // Track first clock-in and last clock-out (across all entry types)
-            if (!stats[key].firstClockIn || te.startTime < stats[key].firstClockIn) {
-                stats[key].firstClockIn = te.startTime;
-            }
-            const endStr = new Date(rawEnd).toISOString();
-            if (!stats[key].lastClockOut || endStr > stats[key].lastClockOut) {
-                stats[key].lastClockOut = endStr;
-            }
-
-            // Clamp to the specific day
-            const dayStart = new Date(date);
-            dayStart.setHours(0, 0, 0, 0);
-            const dayEnd = new Date(date);
-            dayEnd.setHours(23, 59, 59, 999);
-
-            const start = Math.max(rawStart, dayStart.getTime());
-            const end = Math.min(rawEnd, dayEnd.getTime());
-            if (end > start) {
-                if (te.entryType === 'work') stats[key].workIntervals.push([start, end] as [number, number]);
-                else if (te.entryType === 'break') stats[key].breakIntervals.push([start, end] as [number, number]);
-            }
-        });
-
-        return Object.values(stats).map(s => {
-            // Merge overlapping work intervals to get actual effective work time
-            const mergedWork = mergeIntervals(s.workIntervals);
-            const totalWorkHours = parseFloat((mergedWork.reduce((sum: number, [a, b]: [number, number]) => sum + (b - a), 0) / 3600000).toFixed(2));
-
-            // Total time = first clock-in to last clock-out
-            let totalTimeMs = 0;
-            if (s.firstClockIn && s.lastClockOut) {
-                totalTimeMs = new Date(s.lastClockOut).getTime() - new Date(s.firstClockIn).getTime();
-            }
-            const totalTimeHours = parseFloat((totalTimeMs / 3600000).toFixed(2));
-
-            // Break = total time on clock minus effective work (the gap/idle time)
-            const totalBreakHours = parseFloat(Math.max(0, totalTimeHours - totalWorkHours).toFixed(2));
-            const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
-
-            const formatTime = (iso: string | null) => {
-                if (!iso) return '-';
-                return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            };
-
-            return {
-                ...s,
-                totalWorkHours,
-                totalBreakHours,
-                totalTimeHours,
-                dailyOvertime: parseFloat(dailyOvertime.toFixed(2)),
-                firstClockInFormatted: formatTime(s.firstClockIn),
-                lastClockOutFormatted: formatTime(s.lastClockOut),
-            };
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [timeEntries, engineers]);
 
     // App Usage Daily Stats
     const dailyActivityStats = React.useMemo(() => {
         const stats: any[] = [];
-        appUsageLogs.forEach(log => {
-            const date = new Date(log.timestamp).toISOString().split('T')[0];
-            const eng = engineers.find(e => e.id === log.engineerId);
-            if (!eng) return;
+        appUsageLogs
+            .filter(l => !filterEngineer || l.engineerId === filterEngineer)
+            .filter(l => !filterFrom || l.timestamp >= filterFrom)
+            .filter(l => !filterTo || l.timestamp <= filterTo + 'T23:59:59')
+            .forEach(log => {
+                const date = new Date(log.timestamp).toISOString().split('T')[0];
+                const eng = engineers.find(e => e.id === log.engineerId);
+                if (!eng) return;
 
-            stats.push({
-                id: log.id,
-                date,
-                timestamp: new Date(log.timestamp).toLocaleTimeString(),
-                rawTimestamp: log.timestamp,
-                engineerName: eng.name,
-                activeWindow: log.activeWindow,
-                durationSeconds: log.durationSeconds
+                stats.push({
+                    id: log.id,
+                    date,
+                    timestamp: new Date(log.timestamp).toLocaleTimeString(),
+                    rawTimestamp: log.timestamp,
+                    engineerName: eng.name,
+                    activeWindow: log.activeWindow,
+                    durationSeconds: log.durationSeconds
+                });
             });
-        });
         return stats.sort((a, b) => new Date(b.rawTimestamp).getTime() - new Date(a.rawTimestamp).getTime()); // sort newest first
-    }, [appUsageLogs, engineers]);
+    }, [appUsageLogs, engineers, filterEngineer, filterFrom, filterTo]);
+
+    // Capacity Map Stats (Restored)
+    const capacityStats = React.useMemo(() => {
+        return engineers.map(engineer => {
+            const allocations = [0, 0, 0, 0];
+            tasks
+                .filter(t => t.engineerId === engineer.id && t.status !== 'done')
+                .forEach(task => {
+                    const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+                    if (!dueDate) return;
+                    const diffWeeks = Math.floor((dueDate.getTime() - new Date().getTime()) / (7 * 24 * 60 * 60 * 1000));
+                    if (diffWeeks >= 0 && diffWeeks < 4) {
+                        allocations[diffWeeks] += 10; // Placeholder 10h per task
+                    }
+                });
+
+            const weeklyGoal = engineer.location ? getExpectedWeeklyHours(new Date(), engineer.location) : (engineer.weeklyGoalHours || 40);
+            return {
+                id: engineer.id,
+                name: engineer.name,
+                role: engineer.role || 'Specialist',
+                allocations,
+                weeklyGoal
+            };
+        });
+    }, [engineers, tasks]);
+
+    // Filtered Audit Logs with pagination
+    const filteredAudit = React.useMemo(() => {
+        return auditLogs
+            .filter(a => !filterFrom || (a.createdAt && a.createdAt >= filterFrom))
+            .filter(a => !filterTo || (a.createdAt && a.createdAt <= filterTo + 'T23:59:59'))
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    }, [auditLogs, filterFrom, filterTo]);
+
+    const totalAuditPages = Math.max(1, Math.ceil(filteredAudit.length / PAGE_SIZE));
+    const pagedAudit = React.useMemo(() => {
+        return filteredAudit.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    }, [filteredAudit, page, PAGE_SIZE]);
 
     const exportCSV = (data: any[], fileName: string) => {
         let headers: string[] = [];
@@ -314,12 +212,12 @@ export const Reports: React.FC = () => {
             headers = ['Project Name', 'Total Hours', 'Total Cost (AED)', 'Engineers', 'Last Activity'];
         } else if (view === 'engineers') {
             headers = ['Engineer Name', 'Role', 'Projects', 'Location', 'Weekly Goal (Hrs)', 'Weekly Hours', 'Weekly Overtime', 'Weekly Payment (AED)'];
-        } else if (view === 'timeclock') {
-            headers = ['Date', 'Engineer Name', 'Location', 'Expected Hours', 'Work Hours', 'Break Hours', 'Overtime'];
-            exportData = dailyTimeclockStats;
         } else if (view === 'activity') {
             headers = ['Date', 'Time', 'Engineer Name', 'Active Window', 'Duration (Seconds)'];
             exportData = dailyActivityStats;
+        } else if (view === 'capacity') {
+            headers = ['Engineer Name', 'Role', 'Week 1', 'Week 2', 'Week 3', 'Week 4'];
+            exportData = capacityStats;
         }
 
         const csvContent = [
@@ -331,10 +229,10 @@ export const Reports: React.FC = () => {
                     const eng = engineers.find(e => e.id === item.id);
                     const weeklyGoal = eng?.location ? getExpectedWeeklyHours(new Date(), eng.location) : (eng?.weeklyGoalHours || 40);
                     return [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, `"${item.location || 'HQ'}"`, weeklyGoal.toFixed(1), item.weeklyHours.toFixed(2), item.weeklyOvertime.toFixed(2), item.weeklyPayment.toFixed(2)];
-                } else if (view === 'timeclock') {
-                    return [item.date, `"${item.name}"`, `"${item.location || 'HQ'}"`, item.expectedHours, item.totalWorkHours, item.totalBreakHours, item.dailyOvertime];
                 } else if (view === 'activity') {
                     return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, item.durationSeconds];
+                } else if (view === 'capacity') {
+                    return [`"${item.name}"`, `"${item.role}"`, ...item.allocations];
                 }
             }).filter((row): row is any[] => row !== undefined).map(row => row.join(','))
         ].join('\n');
@@ -407,16 +305,6 @@ export const Reports: React.FC = () => {
                             Engineers
                         </button>
                         <button
-                            onClick={() => setView('timeclock')}
-                            className={clsx(
-                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
-                                view === 'timeclock' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
-                            )}
-                        >
-                            <Clock className="w-4 h-4" />
-                            Timeclock
-                        </button>
-                        <button
                             onClick={() => setView('activity')}
                             className={clsx(
                                 "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
@@ -436,10 +324,20 @@ export const Reports: React.FC = () => {
                             <Shield className="w-4 h-4" />
                             Audit Trail
                         </button>
+                        <button
+                            onClick={() => { setView('capacity'); setPage(1); }}
+                            className={clsx(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
+                                view === 'capacity' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
+                            )}
+                        >
+                            <Calendar className="w-4 h-4" />
+                            Capacity Map
+                        </button>
                     </div>
 
                     <button
-                        onClick={() => exportCSV(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : view === 'timeclock' ? timeclockStats : dailyActivityStats, view)}
+                        onClick={() => exportCSV(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : dailyActivityStats, view)}
                         className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-3.5 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 font-bold uppercase tracking-widest text-[10px]"
                     >
                         <Download className="w-4 h-4" />
@@ -449,7 +347,7 @@ export const Reports: React.FC = () => {
             </div>
 
             {/* CHARTS SECTION */}
-            {view !== 'activity' && view !== 'audit' && (
+            {view !== 'activity' && view !== 'audit' && view !== 'capacity' && (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
                     <div className="flex items-center justify-between mb-10 relative z-10">
@@ -458,283 +356,181 @@ export const Reports: React.FC = () => {
                                 <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
                                     <BarChart2 className="w-6 h-6 text-orange-400" />
                                 </div>
-                                {view === 'timeclock' ? 'Timeclock Analytics' : 'Performance Calibration'}
+                                Performance Calibration
                             </h3>
                             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">
-                                {view === 'timeclock' ? 'Visualizing Work vs Break Duration' : 'Visualizing Resource Distribution'}
+                                Visualizing Resource Distribution
                             </p>
                         </div>
                     </div>
 
                     <div className="h-[400px] w-full relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
-                            {view === 'timeclock' ? (
-                                <BarChart layout="vertical" data={timeclockStats} margin={{ top: 20, right: 30, left: 40, bottom: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#ffffff05" />
-                                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                    <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                    <RechartsTooltip
-                                        cursor={{ fill: '#ffffff05' }}
-                                        contentStyle={{
-                                            backgroundColor: '#0f0f0f',
-                                            border: '1px solid #ffffff10',
-                                            borderRadius: '16px',
-                                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                                        }}
-                                        itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
-                                        labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
-                                    />
-                                    <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="circle" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>} />
-                                    <Bar dataKey="totalWorkHours" name="Work Hours" fill="#10b981" radius={[0, 10, 10, 0]} maxBarSize={40} />
-                                    <Bar dataKey="totalBreakHours" name="Break Hours" fill="#f59e0b" radius={[0, 10, 10, 0]} maxBarSize={40} />
-                                </BarChart>
-                            ) : (
-                                <BarChart data={view === 'projects' ? projectStats : engineerStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
-                                    <XAxis
-                                        dataKey="name"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
-                                        dy={20}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
-                                    />
-                                    <RechartsTooltip
-                                        cursor={{ fill: '#ffffff05' }}
-                                        contentStyle={{
-                                            backgroundColor: '#0f0f0f',
-                                            border: '1px solid #ffffff10',
-                                            borderRadius: '16px',
-                                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                                        }}
-                                        itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
-                                        labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
-                                    />
-                                    <Legend
-                                        wrapperStyle={{ paddingTop: '40px' }}
-                                        iconType="circle"
-                                        formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>}
-                                    />
+                            <BarChart data={view === 'projects' ? projectStats : engineerStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                                    dy={20}
+                                />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                                />
+                                <RechartsTooltip
+                                    cursor={{ fill: '#ffffff05' }}
+                                    contentStyle={{
+                                        backgroundColor: '#0f0f0f',
+                                        border: '1px solid #ffffff10',
+                                        borderRadius: '16px',
+                                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                    }}
+                                    itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
+                                    labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
+                                />
+                                <Legend
+                                    wrapperStyle={{ paddingTop: '40px' }}
+                                    iconType="circle"
+                                    formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>}
+                                />
+                                <Bar
+                                    dataKey={view === 'projects' ? "totalHours" : "weeklyHours"}
+                                    name={view === 'projects' ? "Resource Hours" : "Weekly Activity"}
+                                    fill="#6366f1"
+                                    radius={[10, 10, 0, 0]}
+                                    maxBarSize={40}
+                                />
+                                {view === 'projects' && (
                                     <Bar
-                                        dataKey={view === 'projects' ? "totalHours" : "weeklyHours"}
-                                        name={view === 'projects' ? "Resource Hours" : "Weekly Activity"}
-                                        fill="#6366f1"
+                                        dataKey="cost"
+                                        name="Fiscal Value (AED)"
+                                        fill="#10b981"
                                         radius={[10, 10, 0, 0]}
                                         maxBarSize={40}
                                     />
-                                    {view === 'projects' && (
-                                        <Bar
-                                            dataKey="cost"
-                                            name="Fiscal Value (AED)"
-                                            fill="#10b981"
-                                            radius={[10, 10, 0, 0]}
-                                            maxBarSize={40}
-                                        />
-                                    )}
-                                </BarChart>
-                            )}
+                                )}
+                            </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
             )}
 
             {/* DATA CARDS/TABLE */}
-            {view === 'timeclock' ? (() => {
-                // Apply filters
-                const filtered = dailyTimeclockStats
-                    .filter(s => !filterEngineer || s.id === filterEngineer)
-                    .filter(s => !filterFrom || s.date >= filterFrom)
-                    .filter(s => !filterTo || s.date <= filterTo);
-                const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-                const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-                return (
-                    <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                            <h3 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-3">
-                                <Clock className="w-5 h-5 text-orange-500" />
-                                Daily Timeclock Summary
-                            </h3>
-                            <div className="flex items-center gap-3 flex-wrap">
-                                <Filter className="w-4 h-4 text-slate-600" />
-                                <select
-                                    value={filterEngineer}
-                                    onChange={(e) => { setFilterEngineer(e.target.value); setPage(1); }}
-                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all appearance-none"
-                                >
-                                    <option value="" className="bg-[#1a1a1a]">All Engineers</option>
-                                    {engineers.map(e => <option key={e.id} value={e.id} className="bg-[#1a1a1a]">{e.name}</option>)}
-                                </select>
-                                <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
-                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
-                                <span className="text-slate-600 text-xs font-bold">→</span>
-                                <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
-                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
-                                {(filterEngineer || filterFrom || filterTo) && (
-                                    <button onClick={() => { setFilterEngineer(''); setFilterFrom(''); setFilterTo(''); setPage(1); }}
-                                        className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
-                                        Clear
-                                    </button>
-                                )}
-                                <div className="px-3 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
-                                    {filtered.length} Records
-                                </div>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        <th className="py-4 font-bold text-left px-3">Date</th>
-                                        <th className="py-4 font-bold text-left px-3">Engineer</th>
-                                        <th className="py-4 font-bold text-left px-3">Location</th>
-                                        <th className="py-4 font-bold text-left px-3">First In</th>
-                                        <th className="py-4 font-bold text-left px-3">Last Out</th>
-                                        <th className="py-4 font-bold text-left px-3">Total Time</th>
-                                        <th className="py-4 font-bold text-left px-3">Effective</th>
-                                        <th className="py-4 font-bold text-left px-3">Break</th>
-                                        <th className="py-4 font-bold text-left px-3">Expected</th>
-                                        <th className="py-4 font-bold text-left px-3">Overtime</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
-                                    {paged.map((stat) => (
-                                        <tr key={`${stat.id}_${stat.date}`} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="py-4 px-3 font-bold text-white">{stat.date}</td>
-                                            <td className="py-4 px-3 font-bold text-white">{stat.name}</td>
-                                            <td className="py-4 px-3 text-slate-400">{stat.location}</td>
-                                            <td className="py-4 px-3 text-sky-400 font-mono">{stat.firstClockInFormatted}</td>
-                                            <td className="py-4 px-3 text-purple-400 font-mono">{stat.lastClockOutFormatted}</td>
-                                            <td className="py-4 px-3 text-white font-black">{stat.totalTimeHours} h</td>
-                                            <td className="py-4 px-3 text-emerald-400 font-black">{stat.totalWorkHours} h</td>
-                                            <td className="py-4 px-3 text-amber-400">{stat.totalBreakHours} h</td>
-                                            <td className="py-4 px-3 text-slate-400">{stat.expectedHours} h</td>
-                                            <td className="py-4 px-3 text-orange-400 font-black">{stat.dailyOvertime > 0 ? `+${stat.dailyOvertime} h` : '-'}</td>
-                                        </tr>
-                                    ))}
-                                    {paged.length === 0 && (
-                                        <tr><td colSpan={10} className="py-8 text-center text-slate-500 font-medium italic">No timeclock records found.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
-                                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                                </button>
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                    Page {page} of {totalPages}
-                                </span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
-                                    Next <ChevronRight className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                );
-            })() : view === 'audit' ? (() => {
-                const filteredAudit = auditLogs
-                    .filter(a => !filterFrom || (a.createdAt && a.createdAt >= filterFrom))
-                    .filter(a => !filterTo || (a.createdAt && a.createdAt <= filterTo + 'T23:59:59'));
-                const totalPages = Math.max(1, Math.ceil(filteredAudit.length / PAGE_SIZE));
-                const paged = filteredAudit.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-                return (
-                    <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                            <h3 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-3">
-                                <Shield className="w-5 h-5 text-orange-500" />
-                                Audit Trail
-                            </h3>
-                            <div className="flex items-center gap-3 flex-wrap">
-                                <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
-                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
-                                <span className="text-slate-600 text-xs font-bold">→</span>
-                                <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
-                                    className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
-                                {(filterFrom || filterTo) && (
-                                    <button onClick={() => { setFilterFrom(''); setFilterTo(''); setPage(1); }}
-                                        className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
-                                        Clear
-                                    </button>
-                                )}
-                                <div className="px-3 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
-                                    {filteredAudit.length} Events
-                                </div>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="sticky top-0 bg-[#0a0a0a] z-10">
-                                    <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        <th className="py-4 px-3">Timestamp</th>
-                                        <th className="py-4 px-3">User</th>
-                                        <th className="py-4 px-3">Action</th>
-                                        <th className="py-4 px-3">Table</th>
-                                        <th className="py-4 px-3">Record ID</th>
-                                        <th className="py-4 px-3">Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium">
-                                    {paged.map((log) => {
-                                        const eng = engineers.find(e => e.id === log.userId);
-                                        return (
-                                            <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                                                <td className="py-4 px-3 text-white font-mono text-xs whitespace-nowrap">
-                                                    {log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}
-                                                </td>
-                                                <td className="py-4 px-3 font-bold text-white">{eng?.name || log.userId.slice(0, 8)}</td>
-                                                <td className="py-4 px-3">
-                                                    <span className={clsx(
-                                                        "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                                                        log.action === 'created' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                            log.action === 'updated' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
-                                                                'bg-red-500/10 text-red-400 border-red-500/20'
-                                                    )}>{log.action}</span>
-                                                </td>
-                                                <td className="py-4 px-3 text-slate-400 uppercase text-xs">{log.tableName}</td>
-                                                <td className="py-4 px-3 text-slate-600 font-mono text-xs">{log.recordId.slice(0, 8)}...</td>
-                                                <td className="py-4 px-3 text-indigo-400 text-xs max-w-[250px] truncate" title={JSON.stringify(log.changes)}>
-                                                    {Object.keys(log.changes).length > 0 ? JSON.stringify(log.changes).slice(0, 60) : '-'}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {paged.length === 0 && (
-                                        <tr><td colSpan={6} className="py-8 text-center text-slate-500 font-medium italic">No audit records yet. Actions will appear here after CRUD operations.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
-                                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                                </button>
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {page} of {totalPages}</span>
-                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
-                                    Next <ChevronRight className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                );
-            })() : view === 'activity' ? (
+            {view === 'audit' && (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
-                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-6">
-                        <Activity className="w-5 h-5 text-orange-500" />
-                        APPLICATION ACTIVITY TIMELINE (ADMIN VIEW)
-                    </h3>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <h3 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-3">
+                            <Shield className="w-5 h-5 text-orange-500" />
+                            Audit Trail
+                        </h3>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            <span className="text-slate-600 text-xs font-bold">→</span>
+                            <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            {(filterFrom || filterTo) && (
+                                <button onClick={() => { setFilterFrom(''); setFilterTo(''); setPage(1); }}
+                                    className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
+                                    Clear
+                                </button>
+                            )}
+                            <div className="px-3 py-2 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5">
+                                {filteredAudit.length} Events
+                            </div>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 bg-[#0a0a0a] z-10">
+                                <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <th className="py-4 px-3">Timestamp</th>
+                                    <th className="py-4 px-3">User</th>
+                                    <th className="py-4 px-3">Action</th>
+                                    <th className="py-4 px-3">Table</th>
+                                    <th className="py-4 px-3">Record ID</th>
+                                    <th className="py-4 px-3">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium">
+                                {pagedAudit.map((log) => {
+                                    const eng = engineers.find(e => e.id === log.userId);
+                                    return (
+                                        <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                                            <td className="py-4 px-3 text-white font-mono text-xs whitespace-nowrap">
+                                                {log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}
+                                            </td>
+                                            <td className="py-4 px-3 font-bold text-white">{eng?.name || log.userId?.slice(0, 8) || 'System'}</td>
+                                            <td className="py-4 px-3">
+                                                <span className={clsx(
+                                                    "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
+                                                    log.action === 'created' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                        log.action === 'updated' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
+                                                            'bg-red-500/10 text-red-400 border-red-500/20'
+                                                )}>{log.action}</span>
+                                            </td>
+                                            <td className="py-4 px-3 text-slate-400 uppercase text-xs">{log.tableName}</td>
+                                            <td className="py-4 px-3 text-slate-600 font-mono text-xs">{log.recordId?.slice(0, 8) || '—'}...</td>
+                                            <td className="py-4 px-3 text-indigo-400 text-xs max-w-[250px] truncate" title={JSON.stringify(log.changes)}>
+                                                {Object.keys(log.changes || {}).length > 0 ? JSON.stringify(log.changes).slice(0, 60) : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {pagedAudit.length === 0 && (
+                                    <tr><td colSpan={6} className="py-8 text-center text-slate-500 font-medium italic">No audit records yet.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {totalAuditPages > 1 && (
+                        <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
+                            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                            </button>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Page {page} of {totalAuditPages}</span>
+                            <button onClick={() => setPage(p => Math.min(totalAuditPages, p + 1))} disabled={page >= totalAuditPages}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-30 transition-all border border-white/5">
+                                Next <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {view === 'activity' ? (
+                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                            <Activity className="w-5 h-5 text-orange-500" />
+                            APPLICATION ACTIVITY TIMELINE
+                        </h3>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <select
+                                value={filterEngineer}
+                                onChange={(e) => { setFilterEngineer(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all appearance-none"
+                            >
+                                <option value="" className="bg-[#1a1a1a]">All Engineers</option>
+                                {engineers.map(e => <option key={e.id} value={e.id} className="bg-[#1a1a1a]">{e.name}</option>)}
+                            </select>
+                            <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            <span className="text-slate-600 text-xs font-bold">→</span>
+                            <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            {(filterEngineer || filterFrom || filterTo) && (
+                                <button onClick={() => { setFilterEngineer(''); setFilterFrom(''); setFilterTo(''); setPage(1); }}
+                                    className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                    </div>
                     <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 bg-[#0a0a0a] z-10">
@@ -765,54 +561,48 @@ export const Reports: React.FC = () => {
                         </table>
                     </div>
                 </div>
-            ) : (view as string) === 'audit' ? (
+            ) : view === 'capacity' ? (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
                     <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-6">
-                        <Shield className="w-5 h-5 text-orange-500" />
-                        AUDIT TRAIL — SYSTEM CHANGE LOG
+                        <Calendar className="w-5 h-5 text-orange-500" />
+                        RESOURCE CAPACITY HEATMAP (NEXT 4 WEEKS)
                     </h3>
                     <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 bg-[#0a0a0a] z-10">
                                 <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                    <th className="py-4 font-bold text-left px-4">Timestamp</th>
-                                    <th className="py-4 font-bold text-left px-4">User</th>
-                                    <th className="py-4 font-bold text-left px-4">Action</th>
-                                    <th className="py-4 font-bold text-left px-4">Table</th>
-                                    <th className="py-4 font-bold text-left px-4">Record ID</th>
-                                    <th className="py-4 font-bold text-left px-4">Changes</th>
+                                    <th className="py-4 font-bold text-left px-4">Engineer</th>
+                                    {capacityStats[0]?.allocations.map((_, i) => {
+                                        const date = new Date();
+                                        date.setDate(date.getDate() + (i * 7) - date.getDay());
+                                        return <th key={i} className="py-4 font-bold text-center px-4">Week of {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</th>
+                                    })}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
-                                {auditLogs.map((log, idx) => {
-                                    const user = engineers.find(e => e.id === log.userId);
-                                    return (
-                                        <tr key={`${log.id}_${idx}`} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="py-4 px-4 font-bold text-white">{new Date(log.createdAt || '').toLocaleString()}</td>
-                                            <td className="py-4 px-4 text-orange-400">{user?.name || log.userId?.slice(0, 8) || 'System'}</td>
-                                            <td className="py-4 px-4">
-                                                <span className={clsx(
-                                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
-                                                    log.action === 'created' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-                                                    log.action === 'updated' && "bg-amber-500/10 text-amber-400 border-amber-500/20",
-                                                    log.action === 'deleted' && "bg-red-500/10 text-red-400 border-red-500/20"
-                                                )}>
-                                                    {log.action}
-                                                </span>
-                                            </td>
-                                            <td className="py-4 px-4 text-indigo-400">{log.tableName}</td>
-                                            <td className="py-4 px-4 text-slate-500 font-mono text-xs">{log.recordId?.slice(0, 8)}…</td>
-                                            <td className="py-4 px-4 text-slate-500 max-w-[300px] truncate" title={JSON.stringify(log.changes)}>
-                                                {Object.keys(log.changes || {}).length > 0 ? JSON.stringify(log.changes).slice(0, 60) + '…' : '—'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {auditLogs.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="py-8 text-center text-slate-500 font-medium italic">No audit records yet. Changes to projects, engineers, and entries will appear here.</td>
+                            <tbody className="divide-y divide-white/5 text-sm font-medium whitespace-nowrap">
+                                {capacityStats.map(stat => (
+                                    <tr key={stat.id} className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="py-4 px-4">
+                                            <p className="font-bold text-white">{stat.name}</p>
+                                            <p className="text-[10px] text-slate-500 uppercase">{stat.role}</p>
+                                        </td>
+                                        {stat.allocations.map((hours, i) => {
+                                            const percent = (hours / stat.weeklyGoal) * 100;
+                                            let bgColor = 'bg-white/5 text-slate-400';
+                                            if (percent > 100) bgColor = 'bg-red-500/20 text-red-500 border border-red-500/30';
+                                            else if (percent > 75) bgColor = 'bg-amber-500/20 text-amber-500 border border-amber-500/30';
+                                            else if (hours > 0) bgColor = 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30';
+
+                                            return (
+                                                <td key={i} className="py-4 px-4 text-center">
+                                                    <div className={`px-3 py-2 rounded-xl text-xs font-black mx-auto w-24 flex items-center justify-center gap-1 ${bgColor}`}>
+                                                        {hours} <span className="text-[9px] opacity-70">/ {Math.round(stat.weeklyGoal)}H</span>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
                                     </tr>
-                                )}
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -886,27 +676,30 @@ export const Reports: React.FC = () => {
                         </motion.div>
                     ))}
                 </div>
-            )}
+            )
+            }
 
             {/* Hidden Invoice Wrapper */}
-            {generatingInvoiceFor && (
-                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    {(() => {
-                        const targetProject = projectStats.find(p => p.id === generatingInvoiceFor);
-                        if (!targetProject) return null;
-                        const targetEntries = entries.filter(e => e.projectId === generatingInvoiceFor);
-                        return (
-                            <InvoiceTemplate
-                                ref={invoiceRef}
-                                project={targetProject}
-                                entries={targetEntries}
-                                totalHours={targetProject.totalHours}
-                                totalCost={targetProject.cost}
-                            />
-                        );
-                    })()}
-                </div>
-            )}
-        </motion.div>
+            {
+                generatingInvoiceFor && (
+                    <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                        {(() => {
+                            const targetProject = projectStats.find(p => p.id === generatingInvoiceFor);
+                            if (!targetProject) return null;
+                            const targetEntries = entries.filter(e => e.projectId === generatingInvoiceFor);
+                            return (
+                                <InvoiceTemplate
+                                    ref={invoiceRef}
+                                    project={targetProject}
+                                    entries={targetEntries}
+                                    totalHours={targetProject.totalHours}
+                                    totalCost={targetProject.cost}
+                                />
+                            );
+                        })()}
+                    </div>
+                )
+            }
+        </motion.div >
     );
 };

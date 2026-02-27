@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, File, Upload, Trash2, Download, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, File, Upload, Trash2, Download, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
 import { supabase } from '../lib/supabase';
 import { differenceInDays, format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { ClientReportTemplate } from '../components/ClientReportTemplate';
 
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -34,6 +37,49 @@ export const ProjectDetails: React.FC = () => {
     const [taskEngineer, setTaskEngineer] = useState('');
     const [taskStartDate, setTaskStartDate] = useState('');
     const [taskDueDate, setTaskDueDate] = useState('');
+
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+    const reportRef = useRef<HTMLDivElement>(null);
+
+    const totalCost = projectEntries.reduce((sum, entry) => {
+        const engineer = engineers.find(e => e.id === entry.engineerId);
+        const rate = (engineer?.hourlyRate || project?.hourlyRate || 0);
+        return sum + (entry.timeSpent * rate);
+    }, 0);
+
+    const rfiEntries = projectEntries.filter(e => e.entryType === 'rfi');
+    const revisionEntries = projectEntries.filter(e => e.entryType === 'revision');
+
+    const totalRfiHours = rfiEntries.reduce((sum, e) => sum + e.timeSpent, 0);
+    const totalRevisionHours = revisionEntries.reduce((sum, e) => sum + e.timeSpent, 0);
+
+    const rfiCost = rfiEntries.reduce((sum, entry) => {
+        const engineer = engineers.find(e => e.id === entry.engineerId);
+        const rate = (engineer?.hourlyRate || project?.hourlyRate || 0);
+        return sum + (entry.timeSpent * rate);
+    }, 0);
+
+    const revisionCost = revisionEntries.reduce((sum, entry) => {
+        const engineer = engineers.find(e => e.id === entry.engineerId);
+        const rate = (engineer?.hourlyRate || project?.hourlyRate || 0);
+        return sum + (entry.timeSpent * rate);
+    }, 0);
+
+    const extraHours = totalRfiHours + totalRevisionHours;
+    const extraCost = rfiCost + revisionCost;
+
+    const budget = project?.budget || 0;
+    const burnRate = budget > 0 ? (totalCost / budget) * 100 : 0;
+
+    let burnStatusColor = 'text-emerald-500';
+    let burnStatusBg = 'bg-emerald-500/10 border-emerald-500/20';
+    if (burnRate > 100) {
+        burnStatusColor = 'text-red-500';
+        burnStatusBg = 'bg-red-500/10 border-red-500/20';
+    } else if (burnRate > 80) {
+        burnStatusColor = 'text-amber-500';
+        burnStatusBg = 'bg-amber-500/10 border-amber-500/20';
+    }
 
     if (!project) {
         if (isLoading) {
@@ -118,6 +164,26 @@ export const ProjectDetails: React.FC = () => {
         }
     };
 
+    const handleGenerateReport = async () => {
+        if (!reportRef.current) return;
+        setIsGeneratingReport(true);
+        try {
+            // Give a micro tick for React to render just in case
+            await new Promise(r => setTimeout(r, 100));
+            const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`Status_Report_${project?.name?.replace(/\s+/g, '_')}.pdf`);
+        } catch (error) {
+            console.error("Error generating report:", error);
+        } finally {
+            setIsGeneratingReport(false);
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !project) return;
@@ -185,6 +251,16 @@ export const ProjectDetails: React.FC = () => {
                     <p className="text-slate-500 font-medium tracking-wide">Strategic Milestone & Task Command Center</p>
                 </div>
                 <div className="flex gap-4">
+                    {activeTab === 'milestones' && (
+                        <button
+                            onClick={handleGenerateReport}
+                            disabled={isGeneratingReport}
+                            className={`flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white px-6 py-4 rounded-2xl transition-all duration-300 border border-white/5 shadow-xl font-bold uppercase tracking-widest text-[11px] ${isGeneratingReport ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span>{isGeneratingReport ? 'Compiling...' : 'Client Report'}</span>
+                        </button>
+                    )}
                     {activeTab === 'milestones' && role === 'admin' && (
                         <button
                             onClick={() => setIsAddingMilestone(true)}
@@ -215,6 +291,64 @@ export const ProjectDetails: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Financial Health Dashboard */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-[#1a1a1a]/40 p-6 rounded-[32px] border border-white/5 backdrop-blur-3xl flex items-center gap-6 group hover:border-orange-500/30 transition-all">
+                    <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 group-hover:bg-orange-500/20 transition-all">
+                        <DollarSign className="w-6 h-6 text-orange-400" />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Project Budget</p>
+                        <p className="text-3xl font-black text-white">${budget.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div className="bg-[#1a1a1a]/40 p-6 rounded-[32px] border border-white/5 backdrop-blur-3xl flex items-center gap-6 group hover:border-orange-500/30 transition-all">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${burnStatusBg} group-hover:bg-white/10`}>
+                        <TrendingUp className={`w-6 h-6 ${burnStatusColor}`} />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Current Cost</p>
+                        <p className={`text-3xl font-black ${burnStatusColor}`}>${totalCost.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div className="bg-[#1a1a1a]/40 p-6 rounded-[32px] border border-white/5 backdrop-blur-3xl flex items-center gap-6 group hover:border-orange-500/30 transition-all">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${burnStatusBg} group-hover:bg-white/10`}>
+                        {burnRate > 100 ? <AlertTriangle className="w-6 h-6 text-red-500" /> : <Clock className={`w-6 h-6 ${burnStatusColor}`} />}
+                    </div>
+                    <div>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Burn Rate</p>
+                        <div className="flex items-end gap-2">
+                            <p className={`text-3xl font-black ${burnStatusColor}`}>{burnRate.toFixed(1)}%</p>
+                            {burnRate > 100 && <span className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-1">Over Budget</span>}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Change Order Impact Alert */}
+            {extraHours > 0 && (
+                <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-[32px] mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative z-10 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-rose-500/20 rounded-2xl flex items-center justify-center border border-rose-500/30">
+                            <AlertCircle className="w-6 h-6 text-rose-500" />
+                        </div>
+                        <div>
+                            <h3 className="text-white font-black text-lg">Out of Scope Impact (Change Order Data)</h3>
+                            <p className="text-rose-400 text-sm font-bold mt-1">
+                                {totalRfiHours}h RFI Processing • {totalRevisionHours}h Client Revisions
+                            </p>
+                        </div>
+                    </div>
+                    <div className="relative z-10 text-right">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Calculated Impact Cost</p>
+                        <p className="text-3xl font-black text-rose-500">${extraCost.toLocaleString()}</p>
+                    </div>
+                </div>
+            )}
 
             <div className="flex space-x-4 border-b border-white/10 mb-8">
                 <button
@@ -734,6 +868,16 @@ export const ProjectDetails: React.FC = () => {
                     )}
                 </motion.div>
             )}
+
+            {/* Hidden Report Wrapper */}
+            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                <ClientReportTemplate
+                    ref={reportRef}
+                    project={project}
+                    milestones={projectMilestones}
+                    tasks={projectTasks}
+                />
+            </div>
         </motion.div>
     );
 };
