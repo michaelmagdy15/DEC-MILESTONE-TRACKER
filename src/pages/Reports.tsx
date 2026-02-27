@@ -759,6 +759,58 @@ export const Reports: React.FC = () => {
                         </table>
                     </div>
                 </div>
+            ) : (view as string) === 'audit' ? (
+                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3 mb-6">
+                        <Shield className="w-5 h-5 text-orange-500" />
+                        AUDIT TRAIL — SYSTEM CHANGE LOG
+                    </h3>
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 bg-[#0a0a0a] z-10">
+                                <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <th className="py-4 font-bold text-left px-4">Timestamp</th>
+                                    <th className="py-4 font-bold text-left px-4">User</th>
+                                    <th className="py-4 font-bold text-left px-4">Action</th>
+                                    <th className="py-4 font-bold text-left px-4">Table</th>
+                                    <th className="py-4 font-bold text-left px-4">Record ID</th>
+                                    <th className="py-4 font-bold text-left px-4">Changes</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm text-slate-300 font-medium whitespace-nowrap">
+                                {auditLogs.map((log, idx) => {
+                                    const user = engineers.find(e => e.id === log.userId);
+                                    return (
+                                        <tr key={`${log.id}_${idx}`} className="hover:bg-white/[0.02] transition-colors">
+                                            <td className="py-4 px-4 font-bold text-white">{new Date(log.createdAt || '').toLocaleString()}</td>
+                                            <td className="py-4 px-4 text-orange-400">{user?.name || log.userId?.slice(0, 8) || 'System'}</td>
+                                            <td className="py-4 px-4">
+                                                <span className={clsx(
+                                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                                                    log.action === 'created' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                                                    log.action === 'updated' && "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                                                    log.action === 'deleted' && "bg-red-500/10 text-red-400 border-red-500/20"
+                                                )}>
+                                                    {log.action}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 px-4 text-indigo-400">{log.tableName}</td>
+                                            <td className="py-4 px-4 text-slate-500 font-mono text-xs">{log.recordId?.slice(0, 8)}…</td>
+                                            <td className="py-4 px-4 text-slate-500 max-w-[300px] truncate" title={JSON.stringify(log.changes)}>
+                                                {Object.keys(log.changes || {}).length > 0 ? JSON.stringify(log.changes).slice(0, 60) + '…' : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {auditLogs.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="py-8 text-center text-slate-500 font-medium italic">No audit records yet. Changes to projects, engineers, and entries will appear here.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     {(view === 'projects' ? projectStats : engineerStats).map((stat, idx) => (
