@@ -142,3 +142,14 @@ export interface AuditLog {
     changes: Record<string, any>;
     createdAt?: string;
 }
+
+export interface OfficeExpense {
+    id: string;
+    location: 'Abu Dhabi' | 'Cairo';
+    category: string; // 'Salary' | 'Rent' | 'Utilities' | 'Equipment' | 'Software' | 'Repair' | 'Other'
+    amount: number;
+    currency: 'AED' | 'EGP';
+    description?: string;
+    date: string; // ISO string YYYY-MM-DD
+    createdAt?: string;
+}

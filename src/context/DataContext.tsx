@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog, AuditLog } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog, AuditLog, OfficeExpense } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
@@ -61,14 +61,18 @@ interface DataContextType {
 
     appUsageLogs: AppUsageLog[];
     auditLogs: AuditLog[];
+    officeExpenses: OfficeExpense[];
     isLoading: boolean;
+
+    addOfficeExpense: (expense: OfficeExpense) => Promise<void>;
+    deleteOfficeExpense: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // ─── Table fetch configuration ───────────────────────────────────
 // Centralizes mappers so both initial fetch and realtime refresh use the same logic.
-type TableName = 'projects' | 'engineers' | 'entries' | 'attendance' | 'milestones' | 'tasks' | 'leave_requests' | 'notifications' | 'meetings' | 'project_files' | 'time_entries' | 'app_usage_log' | 'audit_log';
+type TableName = 'projects' | 'engineers' | 'entries' | 'attendance' | 'milestones' | 'tasks' | 'leave_requests' | 'notifications' | 'meetings' | 'project_files' | 'time_entries' | 'app_usage_log' | 'audit_log' | 'office_expenses';
 
 interface TableConfig {
     mapper: (row: any) => any;
@@ -129,6 +133,10 @@ const TABLE_CONFIGS: Record<TableName, TableConfig> = {
         mapper: (a: any) => ({ id: a.id, userId: a.user_id, action: a.action, tableName: a.table_name, recordId: a.record_id, changes: a.changes || {}, createdAt: a.created_at }),
         orderBy: 'created_at', ascending: false,
     },
+    office_expenses: {
+        mapper: (o: any) => ({ id: o.id, location: o.location, category: o.category, amount: o.amount, currency: o.currency, description: o.description, date: o.date, createdAt: o.created_at }),
+        orderBy: 'date', ascending: false,
+    },
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -145,6 +153,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [appUsageLogs, setAppUsageLogs] = useState<AppUsageLog[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+    const [officeExpenses, setOfficeExpenses] = useState<OfficeExpense[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
@@ -165,6 +174,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         time_entries: setTimeEntries,
         app_usage_log: setAppUsageLogs,
         audit_log: setAuditLogs,
+        office_expenses: setOfficeExpenses,
     };
 
     // ─── Audit helper: silently log CRUD actions ─────────────────
@@ -239,7 +249,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchAllTables(true);
 
         // Subscribe to realtime changes — only refetch the affected table
-        const WATCHED_TABLES: TableName[] = ['projects', 'engineers', 'entries', 'attendance', 'milestones', 'tasks', 'leave_requests', 'notifications', 'meetings', 'project_files', 'time_entries'];
+        const WATCHED_TABLES: TableName[] = ['projects', 'engineers', 'entries', 'attendance', 'milestones', 'tasks', 'leave_requests', 'notifications', 'meetings', 'project_files', 'time_entries', 'office_expenses'];
 
         const channels = supabase.channel('custom-all-channel');
         for (const table of WATCHED_TABLES) {
@@ -553,6 +563,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         else await fetchSingleTable('app_usage_log');
     };
 
+    // Office Expenses
+    const addOfficeExpense = async (expense: OfficeExpense) => {
+        const { error } = await supabase.from('office_expenses').insert({
+            id: expense.id, location: expense.location, category: expense.category,
+            amount: expense.amount, currency: expense.currency, description: expense.description,
+            date: expense.date
+        });
+        if (error) { toast.error(`Failed to add expense: ${error.message}`); return; }
+        toast.success(`Expense logged in ${expense.currency}`);
+        void logAudit('created', 'office_expenses', expense.id, { category: expense.category, amount: expense.amount });
+        await fetchSingleTable('office_expenses');
+    };
+
+    const deleteOfficeExpense = async (id: string) => {
+        const { error } = await supabase.from('office_expenses').delete().eq('id', id);
+        if (error) { toast.error(`Failed to delete expense: ${error.message}`); return; }
+        toast.success('Expense deleted');
+        void logAudit('deleted', 'office_expenses', id);
+        await fetchSingleTable('office_expenses');
+    };
+
     // Clear transient monthly data — keeps projects, engineers, and project files
     const clearMonthlyData = async () => {
         try {
@@ -596,8 +627,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addProjectFile, deleteProjectFile,
             addTimeEntry, updateTimeEntry,
             addAppUsageLog,
+            addOfficeExpense, deleteOfficeExpense,
             clearMonthlyData,
-            appUsageLogs, auditLogs, isLoading
+            appUsageLogs, auditLogs, officeExpenses, isLoading
         }}>
             {children}
         </DataContext.Provider>
