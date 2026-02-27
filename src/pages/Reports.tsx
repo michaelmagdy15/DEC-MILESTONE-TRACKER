@@ -93,17 +93,34 @@ export const Reports: React.FC = () => {
         return { ...project, totalHours, cost, uniqueEngineers, lastActivity };
     });
 
+    // Merge overlapping time intervals to prevent double-counting
+    const mergeIntervals = (intervals: [number, number][]): [number, number][] => {
+        if (intervals.length === 0) return [];
+        intervals.sort((a, b) => a[0] - b[0]);
+        const merged: [number, number][] = [intervals[0]];
+        for (let i = 1; i < intervals.length; i++) {
+            const last = merged[merged.length - 1];
+            if (intervals[i][0] <= last[1]) {
+                last[1] = Math.max(last[1], intervals[i][1]);
+            } else {
+                merged.push(intervals[i]);
+            }
+        }
+        return merged;
+    };
+
     const getTimeclockMs = (f_entries: any[], filterFn?: (te: any) => boolean) => {
-        let workMs = 0;
-        let breakMs = 0;
         const filtered = filterFn ? f_entries.filter(filterFn) : f_entries;
+        const workIntervals: [number, number][] = [];
         filtered.forEach(te => {
+            if (te.entryType !== 'work') return;
             const start = new Date(te.startTime).getTime();
-            const end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-            if (te.entryType === 'work') workMs += (end - start);
-            else if (te.entryType === 'break') breakMs += (end - start);
+            let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+            if ((end - start) > 24 * 3600000) end = start + (12 * 3600000);
+            if (end > start) workIntervals.push([start, end]);
         });
-        return Math.max(0, workMs - breakMs);
+        const merged = mergeIntervals(workIntervals);
+        return merged.reduce((sum, [s, e]) => sum + (e - s), 0);
     };
 
     // Calculate Engineer Stats
@@ -148,33 +165,26 @@ export const Reports: React.FC = () => {
         return { ...engineer, totalHours, projectCount, weeklyHours, weeklyOvertime, weeklyAbsences, weeklyPayment };
     });
 
-    // Calculate Timeclock Stats (All-Time Aggregate for Chart)
+    // Calculate Timeclock Stats (All-Time Aggregate for Chart) — with overlap merging
     const timeclockStats = engineers.map(engineer => {
         const engEntries = timeEntries.filter(e => e.engineerId === engineer.id);
-        let totalWorkMs = 0;
-        let totalBreakMs = 0;
+        const workIntervals: [number, number][] = [];
+        const breakIntervals: [number, number][] = [];
 
         engEntries.forEach(te => {
             const start = new Date(te.startTime).getTime();
-            // If currently clocked in, calculate until NOW, but only up to 24 hours to avoid huge outliers
             let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-
-            // Safety clamp: if duration is somehow more than 24 hours (e.g. forgot to clock out), clamp to 12 hours
-            if ((end - start) > 24 * 3600000) {
-                end = start + (12 * 3600000);
-            }
-
-            const duration = Math.max(0, end - start);
-
-            if (te.entryType === 'work') {
-                totalWorkMs += duration;
-            } else if (te.entryType === 'break') {
-                totalBreakMs += duration;
-            }
+            if ((end - start) > 24 * 3600000) end = start + (12 * 3600000);
+            if (end <= start) return;
+            if (te.entryType === 'work') workIntervals.push([start, end]);
+            else if (te.entryType === 'break') breakIntervals.push([start, end]);
         });
 
-        // 'work' entries from the tracker are already paused during breaks, 
-        // DO NOT subtract break time from work time.
+        const mergedWork = mergeIntervals(workIntervals);
+        const mergedBreak = mergeIntervals(breakIntervals);
+        const totalWorkMs = mergedWork.reduce((s, [a, b]) => s + (b - a), 0);
+        const totalBreakMs = mergedBreak.reduce((s, [a, b]) => s + (b - a), 0);
+
         return {
             id: engineer.id,
             name: engineer.name,
@@ -198,7 +208,9 @@ export const Reports: React.FC = () => {
                 const expectedToday = getExpectedDailyHours(new Date(date), eng.location);
                 stats[key] = {
                     id: eng.id, name: eng.name, location: eng.location || 'HQ', date,
-                    workMs: 0, breakMs: 0, expectedHours: expectedToday,
+                    workIntervals: [] as [number, number][],
+                    breakIntervals: [] as [number, number][],
+                    expectedHours: expectedToday,
                     firstClockIn: null as string | null,
                     lastClockOut: null as string | null,
                 };
@@ -229,19 +241,18 @@ export const Reports: React.FC = () => {
 
             const start = Math.max(rawStart, dayStart.getTime());
             const end = Math.min(rawEnd, dayEnd.getTime());
-            const duration = Math.max(0, end - start);
-
-            if (duration > 0) {
-                if (te.entryType === 'work') stats[key].workMs += duration;
-                else if (te.entryType === 'break') stats[key].breakMs += duration;
+            if (end > start) {
+                if (te.entryType === 'work') stats[key].workIntervals.push([start, end] as [number, number]);
+                else if (te.entryType === 'break') stats[key].breakIntervals.push([start, end] as [number, number]);
             }
         });
 
         return Object.values(stats).map(s => {
-            // 'work' entries from the tracker are already paused during breaks, 
-            // DO NOT subtract break time from work time.
-            const totalWorkHours = parseFloat((s.workMs / 3600000).toFixed(2));
-            const totalBreakHours = parseFloat((s.breakMs / 3600000).toFixed(2));
+            // Merge overlapping intervals before computing totals
+            const mergedWork = mergeIntervals(s.workIntervals);
+            const mergedBreak = mergeIntervals(s.breakIntervals);
+            const totalWorkHours = parseFloat((mergedWork.reduce((sum: number, [a, b]: [number, number]) => sum + (b - a), 0) / 3600000).toFixed(2));
+            const totalBreakHours = parseFloat((mergedBreak.reduce((sum: number, [a, b]: [number, number]) => sum + (b - a), 0) / 3600000).toFixed(2));
             const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
 
             // Total time = first clock-in to last clock-out

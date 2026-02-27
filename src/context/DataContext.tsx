@@ -123,7 +123,7 @@ const TABLE_CONFIGS: Record<TableName, TableConfig> = {
     },
     app_usage_log: {
         mapper: (l: any) => ({ id: l.id, engineerId: l.engineer_id, timestamp: l.timestamp, activeWindow: l.active_window, durationSeconds: l.duration_seconds }),
-        orderBy: 'created_at', ascending: false,
+        orderBy: 'timestamp', ascending: false,
     },
     audit_log: {
         mapper: (a: any) => ({ id: a.id, userId: a.user_id, action: a.action, tableName: a.table_name, recordId: a.record_id, changes: a.changes || {}, createdAt: a.created_at }),

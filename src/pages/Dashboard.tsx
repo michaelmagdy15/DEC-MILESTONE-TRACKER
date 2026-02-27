@@ -86,17 +86,36 @@ export const Dashboard = () => {
     // Filter entries: Everyone sees all for stats and overview
     const filteredEntries = entries;
 
+    // Merge overlapping time intervals to prevent double-counting
+    const mergeIntervals = (intervals: [number, number][]): [number, number][] => {
+        if (intervals.length === 0) return [];
+        intervals.sort((a, b) => a[0] - b[0]);
+        const merged: [number, number][] = [intervals[0]];
+        for (let i = 1; i < intervals.length; i++) {
+            const last = merged[merged.length - 1];
+            if (intervals[i][0] <= last[1]) {
+                last[1] = Math.max(last[1], intervals[i][1]);
+            } else {
+                merged.push(intervals[i]);
+            }
+        }
+        return merged;
+    };
+
     const getTimeclockMs = (filterFn?: (te: any) => boolean) => {
-        let workMs = 0;
-        let breakMs = 0;
         const filtered = filterFn ? timeEntries.filter(filterFn) : timeEntries;
+        const workIntervals: [number, number][] = [];
+
         filtered.forEach(te => {
+            if (te.entryType !== 'work') return;
             const start = new Date(te.startTime).getTime();
-            const end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
-            if (te.entryType === 'work') workMs += (end - start);
-            else if (te.entryType === 'break') breakMs += (end - start);
+            let end = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+            if ((end - start) > 24 * 3600000) end = start + (12 * 3600000);
+            if (end > start) workIntervals.push([start, end]);
         });
-        return Math.max(0, workMs - breakMs);
+
+        const merged = mergeIntervals(workIntervals);
+        return merged.reduce((sum, [s, e]) => sum + (e - s), 0);
     };
 
     const totalTimeclockHours = getTimeclockMs() / 3600000;
