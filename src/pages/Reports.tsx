@@ -16,45 +16,42 @@ const isRamadan = (date: Date) => {
     const year = date.getFullYear();
     if (year === 2026) {
         const start = new Date(2026, 1, 17); // Month is 0-indexed, 1 = Feb
-        const end = new Date(2026, 2, 19);   // 2 = March
+        const end = new Date(2026, 2, 20);   // 2 = March, Ramadan ends March 20
         return date >= start && date <= end;
     }
     return false; // Add logic for other years if needed
 };
 
 // Helper to calculate expected daily hours based on location, day of week, and Ramadan
-const getExpectedDailyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | undefined) => {
-    const dayOfWeek = date.getDay(); // 0 is Sunday, 5 is Friday
+const getExpectedDailyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | string | undefined) => {
+    const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
     const isFriday = dayOfWeek === 5;
-    const isWeekend_AD = dayOfWeek === 6 || dayOfWeek === 0; // Saturday, Sunday
-    const isWeekend_Cairo = dayOfWeek === 5 || dayOfWeek === 6; // Friday, Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Saturday & Sunday
+
+    if (isWeekend) return 0;
 
     const inRamadan = isRamadan(date);
 
-    if (location === 'Abu Dhabi') {
-        if (isWeekend_AD) return 0;
-        if (inRamadan) {
-            // Ramadan: 9:30 AM to 3:30 PM (6 hours)
-            // Exception: Friday break 12:30 PM to 2:00 PM (1.5 hours break) => 4.5 hours
-            return isFriday ? 4.5 : 6;
+    if (inRamadan) {
+        // Ramadan: 8:30 AM to 3:00 PM = 6.5 hours (same for both locations)
+        return 6.5;
+    }
+
+    if (isFriday) {
+        if (location === 'Abu Dhabi') {
+            // Abu Dhabi Friday: 8:30 AM to 5:00 PM with 12:30-2:00 PM break (1.5h) = 7h effective
+            return 7;
         } else {
-            // Normal: 8:00 AM to 4:00 PM
-            return 8;
-        }
-    } else {
-        // Cairo (or default)
-        if (isWeekend_Cairo) return 0;
-        if (inRamadan) {
-            // Ramadan: 9:00 AM to 3:00 PM (6 hours)
-            return 6;
-        } else {
-            // Normal: 8:00 AM to 4:00 PM
-            return 8;
+            // Cairo Friday: 8:30 AM to 3:30 PM = 7 hours
+            return 7;
         }
     }
+
+    // Normal weekday: 8:30 AM to 5:00 PM = 8.5 hours
+    return 8.5;
 };
 
-const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | undefined) => {
+const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | string | undefined) => {
     let total = 0;
     const startOfWeek = new Date(date);
     startOfWeek.setDate(date.getDate() - date.getDay() + 1); // Start on Monday
@@ -181,9 +178,17 @@ export const Reports: React.FC = () => {
         });
 
         const mergedWork = mergeIntervals(workIntervals);
-        const mergedBreak = mergeIntervals(breakIntervals);
         const totalWorkMs = mergedWork.reduce((s, [a, b]) => s + (b - a), 0);
-        const totalBreakMs = mergedBreak.reduce((s, [a, b]) => s + (b - a), 0);
+
+        // Calculate total span (earliest start to latest end) for break derivation
+        const allIntervals = [...workIntervals, ...breakIntervals];
+        let totalSpanMs = 0;
+        if (allIntervals.length > 0) {
+            const earliest = Math.min(...allIntervals.map(([a]) => a));
+            const latest = Math.max(...allIntervals.map(([, b]) => b));
+            totalSpanMs = latest - earliest;
+        }
+        const totalBreakMs = Math.max(0, totalSpanMs - totalWorkMs);
 
         return {
             id: engineer.id,
@@ -248,12 +253,9 @@ export const Reports: React.FC = () => {
         });
 
         return Object.values(stats).map(s => {
-            // Merge overlapping intervals before computing totals
+            // Merge overlapping work intervals to get actual effective work time
             const mergedWork = mergeIntervals(s.workIntervals);
-            const mergedBreak = mergeIntervals(s.breakIntervals);
             const totalWorkHours = parseFloat((mergedWork.reduce((sum: number, [a, b]: [number, number]) => sum + (b - a), 0) / 3600000).toFixed(2));
-            const totalBreakHours = parseFloat((mergedBreak.reduce((sum: number, [a, b]: [number, number]) => sum + (b - a), 0) / 3600000).toFixed(2));
-            const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
 
             // Total time = first clock-in to last clock-out
             let totalTimeMs = 0;
@@ -261,6 +263,10 @@ export const Reports: React.FC = () => {
                 totalTimeMs = new Date(s.lastClockOut).getTime() - new Date(s.firstClockIn).getTime();
             }
             const totalTimeHours = parseFloat((totalTimeMs / 3600000).toFixed(2));
+
+            // Break = total time on clock minus effective work (the gap/idle time)
+            const totalBreakHours = parseFloat(Math.max(0, totalTimeHours - totalWorkHours).toFixed(2));
+            const dailyOvertime = Math.max(0, totalWorkHours - s.expectedHours);
 
             const formatTime = (iso: string | null) => {
                 if (!iso) return '-';
