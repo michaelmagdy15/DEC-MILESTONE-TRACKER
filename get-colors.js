@@ -1,7 +1,7 @@
 import fs from 'fs';
 import getColors from 'get-image-colors';
 
-const imagePath = 'C:/Users/pc/DEC MILESTONE TRACKER/src/assets/logo.png';
+const imagePath = './src/assets/logo.png';
 
 getColors(imagePath).then(colors => {
     console.log("Colors extracted:");
