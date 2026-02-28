@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -188,9 +189,25 @@ export const ProjectDetails: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file || !project) return;
 
+        // ── File validation ──
+        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+        const ALLOWED_EXTENSIONS = ['pdf', 'dwf', 'dwg', 'dxf'];
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+
+        if (file.size > MAX_FILE_SIZE) {
+            toast.error(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 50 MB.`);
+            if (e.target) e.target.value = '';
+            return;
+        }
+
+        if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
+            toast.error(`Unsupported file type (.${fileExt}). Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
+            if (e.target) e.target.value = '';
+            return;
+        }
+
         setIsUploading(true);
         try {
-            const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
             const fileName = `${project.id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
 
             const { error: uploadError } = await supabase.storage
@@ -214,7 +231,7 @@ export const ProjectDetails: React.FC = () => {
 
         } catch (error) {
             console.error('Error uploading file:', error);
-            alert('Failed to upload file.');
+            toast.error('Failed to upload file.');
         } finally {
             setIsUploading(false);
             if (e.target) e.target.value = ''; // clear input

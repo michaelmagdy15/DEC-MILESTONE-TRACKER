@@ -206,8 +206,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchSingleTable = useCallback(async (tableName: TableName) => {
         const config = TABLE_CONFIGS[tableName];
         const setter = setterMap[tableName];
+        // Use higher limits for log/audit tables, bounded limits for everything else
+        const limit = (tableName === 'app_usage_log' || tableName === 'audit_log') ? 5000 : 1000;
         try {
-            const { data, error } = await supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending });
+            const { data, error } = await supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending }).limit(limit);
             if (error) { console.error(`Error fetching ${tableName}:`, error); return; }
             if (data) setter(data.map(config.mapper));
         } catch (err) {
@@ -375,24 +377,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Attendance
     const addAttendance = async (record: AttendanceRecord) => {
+        // Optimistic
+        setAttendance(prev => [...prev, record]);
         const { error } = await supabase.from('attendance').insert({
             id: record.id, engineer_id: record.engineerId, date: record.date, status: record.status
         });
-        if (error) { toast.error(`Failed to record attendance: ${error.message}`); return; }
+        if (error) {
+            setAttendance(prev => prev.filter(r => r.id !== record.id));
+            toast.error(`Failed to record attendance: ${error.message}`);
+            return;
+        }
         toast.success('Attendance recorded');
         await fetchSingleTable('attendance');
     };
 
     const updateAttendance = async (record: AttendanceRecord) => {
+        // Optimistic
+        const originalStatus = attendance.find(r => r.id === record.id)?.status;
+        setAttendance(prev => prev.map(r => r.id === record.id ? { ...r, status: record.status } : r));
         const { error } = await supabase.from('attendance').update({ status: record.status }).eq('id', record.id);
-        if (error) { toast.error(`Failed to update attendance: ${error.message}`); return; }
+        if (error) {
+            if (originalStatus) setAttendance(prev => prev.map(r => r.id === record.id ? { ...r, status: originalStatus } : r));
+            toast.error(`Failed to update attendance: ${error.message}`);
+            return;
+        }
         toast.success('Attendance updated');
         await fetchSingleTable('attendance');
     };
 
     const deleteAttendance = async (id: string) => {
+        // Optimistic
+        const deletedRecord = attendance.find(r => r.id === id);
+        setAttendance(prev => prev.filter(r => r.id !== id));
         const { error } = await supabase.from('attendance').delete().eq('id', id);
-        if (error) { toast.error(`Failed to delete attendance: ${error.message}`); return; }
+        if (error) {
+            if (deletedRecord) setAttendance(prev => [...prev, deletedRecord]);
+            toast.error(`Failed to delete attendance: ${error.message}`);
+            return;
+        }
         await fetchSingleTable('attendance');
     };
 
@@ -426,30 +448,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Tasks
     const addTask = async (task: Task) => {
+        // Optimistic
+        setTasks(prev => [...prev, task]);
         const { error } = await supabase.from('tasks').insert({
             id: task.id, project_id: task.projectId, milestone_id: task.milestoneId,
             engineer_id: task.engineerId, title: task.title, description: task.description,
             status: task.status, start_date: task.startDate, due_date: task.dueDate
         });
-        if (error) { toast.error(`Failed to add task: ${error.message}`); return; }
+        if (error) {
+            setTasks(prev => prev.filter(t => t.id !== task.id));
+            toast.error(`Failed to add task: ${error.message}`);
+            return;
+        }
         toast.success('Task created');
         await fetchSingleTable('tasks');
     };
 
     const updateTask = async (task: Task) => {
+        // Optimistic
+        const originalTask = tasks.find(t => t.id === task.id);
+        setTasks(prev => prev.map(t => t.id === task.id ? task : t));
         const { error } = await supabase.from('tasks').update({
             milestone_id: task.milestoneId, engineer_id: task.engineerId, title: task.title,
             description: task.description, status: task.status,
             start_date: task.startDate, due_date: task.dueDate
         }).eq('id', task.id);
-        if (error) { toast.error(`Failed to update task: ${error.message}`); return; }
+        if (error) {
+            if (originalTask) setTasks(prev => prev.map(t => t.id === task.id ? originalTask : t));
+            toast.error(`Failed to update task: ${error.message}`);
+            return;
+        }
         toast.success('Task updated');
         await fetchSingleTable('tasks');
     };
 
     const deleteTask = async (id: string) => {
+        // Optimistic
+        const deletedTask = tasks.find(t => t.id === id);
+        setTasks(prev => prev.filter(t => t.id !== id));
         const { error } = await supabase.from('tasks').delete().eq('id', id);
-        if (error) { toast.error(`Failed to delete task: ${error.message}`); return; }
+        if (error) {
+            if (deletedTask) setTasks(prev => [...prev, deletedTask]);
+            toast.error(`Failed to delete task: ${error.message}`);
+            return;
+        }
         toast.success('Task deleted');
         await fetchSingleTable('tasks');
     };

@@ -92,89 +92,20 @@ const OfficeOperations: React.FC = () => {
 
     const generateFinancialReport = async () => {
         const monthStr = format(selectedMonth, 'MMMM yyyy');
+        const { createStyledWorkbook, embedLogo, writeTableHeader, exportWorkbook } = await import('../utils/excelUtils');
 
-        // Dynamically import exceljs to reduce initial load time
-        const ExcelJS = (await import('exceljs')).default;
-        const { saveAs } = (await import('file-saver')).default;
-
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'DEC Milestone Tracker';
-        workbook.lastModifiedBy = 'System';
-        workbook.created = new Date();
-        workbook.modified = new Date();
-
-        const worksheet = workbook.addWorksheet(`Financials - ${monthStr}`, {
-            views: [{ showGridLines: false }]
+        const { workbook, worksheet, saveAs } = await createStyledWorkbook({
+            sheetName: `Financials - ${monthStr}`,
+            columns: [{ width: 5 }, { width: 20 }, { width: 30 }, { width: 20 }, { width: 25 }, { width: 5 }],
         });
 
-        // Set default column widths early
-        worksheet.columns = [
-            { width: 5 },  // A - Padding
-            { width: 20 }, // B - Primary Info / Name / Date
-            { width: 30 }, // C - Category / Hours / Description
-            { width: 20 }, // D - Rate / Description
-            { width: 25 }, // E - Totals
-            { width: 5 }   // F - Padding
-        ];
+        // Logo + Header
+        await embedLogo(workbook, worksheet);
 
-        // Ensure background is clean (white) for the main content area
-        for (let i = 1; i <= 100; i++) {
-            worksheet.getRow(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
-        }
-
-        // Add DEC Logo if we can find it in the DOM or fetch it
-        try {
-            // Attempt to grab the logo from the actual SVG on screen, or fallback to fetching
-            // We'll create a canvas and draw the SVG to it, then get base64 PNG
-            const fetchSvgAndConvertToPng = async () => {
-                return new Promise<string>((resolve, reject) => {
-                    const img = new Image();
-                    img.crossOrigin = 'Anonymous';
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 300; // Scaled width
-                        canvas.height = Math.floor(300 * (img.height / img.width));
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            ctx.fillStyle = '#1e1e1e'; // very dark background typical of the app
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 10, 10, canvas.width - 20, canvas.height - 20);
-                            resolve(canvas.toDataURL('image/png'));
-                        } else {
-                            reject(new Error("No context"));
-                        }
-                    };
-                    img.onerror = () => reject(img);
-                    // Use a recognizable logo URL
-                    img.src = '/dec-logo.svg';
-                });
-            };
-
-            const base64Png = await fetchSvgAndConvertToPng();
-            const imageId = workbook.addImage({
-                base64: base64Png,
-                extension: 'png',
-            });
-            // Place logo at top left
-            worksheet.addImage(imageId, {
-                tl: { col: 1, row: 1 },
-                ext: { width: 150, height: 40 }
-            });
-
-        } catch (e) {
-            console.warn("Could not embed logo in Excel block:", e);
-            // Fallback text if logo fails
-            worksheet.mergeCells('B2:C3');
-            const logoCell = worksheet.getCell('B2');
-            logoCell.value = 'DEC Engineering Consultants';
-            logoCell.font = { name: 'Arial', family: 2, size: 16, bold: true, color: { argb: 'FFD35400' } }; // Orange
-        }
-
-        // Title and Date info
         worksheet.mergeCells('D2:E2');
         const titleCell = worksheet.getCell('D2');
         titleCell.value = 'EXECUTIVE FINANCIAL REPORT';
-        titleCell.font = { name: 'Arial', family: 2, size: 18, bold: true, color: { argb: 'FF10B981' } }; // Emerald
+        titleCell.font = { name: 'Arial', family: 2, size: 18, bold: true, color: { argb: 'FF10B981' } };
         titleCell.alignment = { horizontal: 'right' };
 
         worksheet.mergeCells('D3:E3');
@@ -191,14 +122,14 @@ const OfficeOperations: React.FC = () => {
 
         let currentRow = 7;
 
-        // Iterate over locations: Abu Dhabi and Cairo
+        // Iterate over locations
         (['Abu Dhabi', 'Cairo'] as const).forEach(loc => {
             const d = opsData[loc];
             const isAbuDhabi = loc === 'Abu Dhabi';
-            const themeColor = isAbuDhabi ? 'FF10B981' : 'FFF97316'; // Emerald : Orange
-            const bgHeaderColor = isAbuDhabi ? 'FFE8F5E9' : 'FFFFF3E0'; // Light Emerald : Light Orange
+            const themeColor = isAbuDhabi ? 'FF10B981' : 'FFF97316';
+            const bgHeaderColor = isAbuDhabi ? 'FFE8F5E9' : 'FFFFF3E0';
 
-            // --- Section Header ---
+            // Section Header
             worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
             const locHeader = worksheet.getCell(`B${currentRow}`);
             locHeader.value = `${loc} Operations (${d.currency})`;
@@ -206,34 +137,30 @@ const OfficeOperations: React.FC = () => {
             locHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: themeColor } };
             locHeader.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
             worksheet.getRow(currentRow).height = 25;
-
             currentRow += 2;
 
-            // --- Summary Block ---
+            // Summary Block
             worksheet.getCell(`B${currentRow}`).value = 'Total Salaries';
             worksheet.getCell(`B${currentRow}`).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF555555' } };
             worksheet.getCell(`C${currentRow}`).value = d.salaries;
             worksheet.getCell(`C${currentRow}`).numFmt = '#,##0.00';
             worksheet.getCell(`C${currentRow}`).font = { name: 'Arial', size: 11, bold: true };
-
             worksheet.getCell(`D${currentRow}`).value = 'Total Expenses';
             worksheet.getCell(`D${currentRow}`).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF555555' } };
             worksheet.getCell(`E${currentRow}`).value = d.expenses;
             worksheet.getCell(`E${currentRow}`).numFmt = '#,##0.00';
             worksheet.getCell(`E${currentRow}`).font = { name: 'Arial', size: 11, bold: true };
-
             currentRow += 1;
+
             worksheet.getCell(`D${currentRow}`).value = 'Total Outgoings';
             worksheet.getCell(`D${currentRow}`).font = { name: 'Arial', size: 12, bold: true, color: { argb: themeColor } };
             worksheet.getCell(`E${currentRow}`).value = d.salaries + d.expenses;
             worksheet.getCell(`E${currentRow}`).numFmt = `"${d.currency}" #,##0.00`;
             worksheet.getCell(`E${currentRow}`).font = { name: 'Arial', size: 12, bold: true, color: { argb: themeColor } };
-
             currentRow += 3;
 
-            // --- Salaries Table ---
+            // Salaries Table
             if (d.salaryDetails.length > 0) {
-                // Table Title
                 worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
                 const salTitle = worksheet.getCell(`B${currentRow}`);
                 salTitle.value = 'SALARY BREAKDOWN';
@@ -241,20 +168,13 @@ const OfficeOperations: React.FC = () => {
                 salTitle.border = { bottom: { style: 'thick', color: { argb: themeColor } } };
                 currentRow += 1;
 
-                // Table Header
-                const headers = ['Engineer Name', 'Total Hours', 'Hourly Rate', 'Total Salary'];
-                const cols = ['B', 'C', 'D', 'E'];
-                headers.forEach((h, i) => {
-                    const cell = worksheet.getCell(`${cols[i]}${currentRow}`);
-                    cell.value = h;
-                    cell.font = { bold: true, color: { argb: 'FF333333' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgHeaderColor } };
-                    cell.border = { bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
-                });
+                writeTableHeader(worksheet, currentRow, ['B', 'C', 'D', 'E'],
+                    ['Engineer Name', 'Total Hours', 'Hourly Rate', 'Total Salary'],
+                    { bgColor: bgHeaderColor, fontColor: 'FF333333' }
+                );
                 currentRow += 1;
 
-                // Table Body
-                d.salaryDetails.forEach(s => {
+                d.salaryDetails.forEach((s: any) => {
                     worksheet.getCell(`B${currentRow}`).value = s.name;
                     worksheet.getCell(`C${currentRow}`).value = s.hours;
                     worksheet.getCell(`D${currentRow}`).value = s.rate;
@@ -266,9 +186,8 @@ const OfficeOperations: React.FC = () => {
                 currentRow += 2;
             }
 
-            // --- Expenses Table ---
+            // Expenses Table
             if (d.expenseList.length > 0) {
-                // Table Title
                 worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
                 const expTitle = worksheet.getCell(`B${currentRow}`);
                 expTitle.value = 'OPERATING EXPENSES';
@@ -276,20 +195,13 @@ const OfficeOperations: React.FC = () => {
                 expTitle.border = { bottom: { style: 'thick', color: { argb: themeColor } } };
                 currentRow += 1;
 
-                // Table Header
-                const headers = ['Date', 'Category', 'Description', 'Amount'];
-                const cols = ['B', 'C', 'D', 'E'];
-                headers.forEach((h, i) => {
-                    const cell = worksheet.getCell(`${cols[i]}${currentRow}`);
-                    cell.value = h;
-                    cell.font = { bold: true, color: { argb: 'FF333333' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgHeaderColor } };
-                    cell.border = { bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
-                });
+                writeTableHeader(worksheet, currentRow, ['B', 'C', 'D', 'E'],
+                    ['Date', 'Category', 'Description', 'Amount'],
+                    { bgColor: bgHeaderColor, fontColor: 'FF333333' }
+                );
                 currentRow += 1;
 
-                // Table Body
-                d.expenseList.forEach(e => {
+                d.expenseList.forEach((e: any) => {
                     worksheet.getCell(`B${currentRow}`).value = format(new Date(e.date), 'MMM dd, yyyy');
                     worksheet.getCell(`C${currentRow}`).value = e.category;
                     worksheet.getCell(`D${currentRow}`).value = e.description || '-';
@@ -299,21 +211,18 @@ const OfficeOperations: React.FC = () => {
                 });
                 currentRow += 3;
             } else {
-                currentRow += 2; // Extra padding if no expenses
+                currentRow += 2;
             }
         });
 
-        // Add Confidential Footer
+        // Confidential Footer
         worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
         const footerInfo = worksheet.getCell(`B${currentRow}`);
         footerInfo.value = 'CONFIDENTIAL - INTERNAL USE ONLY';
         footerInfo.font = { name: 'Arial', size: 8, italic: true, bold: true, color: { argb: 'FF999999' } };
         footerInfo.alignment = { horizontal: 'center' };
 
-        // Generate and Export
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        saveAs(blob, `DEC_Financials_${format(selectedMonth, 'yyyy_MM')}.xlsx`);
+        await exportWorkbook(workbook, saveAs, `DEC_Financials_${format(selectedMonth, 'yyyy_MM')}.xlsx`);
     };
 
     const renderOfficeCard = (loc: 'Abu Dhabi' | 'Cairo') => {
@@ -598,66 +507,24 @@ export const Financials: React.FC = () => {
     }, [financialsData]);
 
     const generateInvoice = async (projectData: typeof financialsData[0]) => {
-        // Dynamically import exceljs to reduce initial load time
-        const ExcelJS = (await import('exceljs')).default;
-        const { saveAs } = (await import('file-saver')).default;
+        const { createStyledWorkbook, embedLogo, writeTableHeader, exportWorkbook } = await import('../utils/excelUtils');
 
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'DEC Milestone Tracker';
-        workbook.lastModifiedBy = 'System';
-
-        const worksheet = workbook.addWorksheet(`Invoice - ${projectData.name.substring(0, 20)}`, {
-            views: [{ showGridLines: false }]
+        const { workbook, worksheet, saveAs } = await createStyledWorkbook({
+            sheetName: `Invoice - ${projectData.name.substring(0, 20)}`,
+            columns: [
+                { width: 5 },  // A - Padding
+                { width: 30 }, // B - Personnel
+                { width: 25 }, // C - Designation
+                { width: 15 }, // D - Hours
+                { width: 20 }, // E - Rate (AED/hr)
+                { width: 25 }, // F - Subtotal (AED)
+                { width: 5 }   // G - Padding
+            ],
+            maxRows: 60
         });
 
-        worksheet.columns = [
-            { width: 5 },  // A - Padding
-            { width: 30 }, // B - Personnel
-            { width: 25 }, // C - Designation
-            { width: 15 }, // D - Hours
-            { width: 20 }, // E - Rate (AED/hr)
-            { width: 25 }, // F - Subtotal (AED)
-            { width: 5 }   // G - Padding
-        ];
-
-        // Clean background
-        for (let i = 1; i <= 60; i++) {
-            worksheet.getRow(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
-        }
-
         // Add DEC Logo
-        try {
-            const fetchSvgAndConvertToPng = async () => {
-                return new Promise<string>((resolve, reject) => {
-                    const img = new Image();
-                    img.crossOrigin = 'Anonymous';
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 300;
-                        canvas.height = Math.floor(300 * (img.height / img.width));
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            ctx.fillStyle = '#1e1e1e';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 10, 10, canvas.width - 20, canvas.height - 20);
-                            resolve(canvas.toDataURL('image/png'));
-                        } else {
-                            reject(new Error("No context"));
-                        }
-                    };
-                    img.onerror = () => reject(img);
-                    img.src = '/dec-logo.svg';
-                });
-            };
-
-            const base64Png = await fetchSvgAndConvertToPng();
-            const imageId = workbook.addImage({ base64: base64Png, extension: 'png' });
-            worksheet.addImage(imageId, { tl: { col: 1, row: 1 }, ext: { width: 150, height: 40 } });
-        } catch (e) {
-            worksheet.mergeCells('B2:E3');
-            worksheet.getCell('B2').value = 'DEC Engineering Consultants';
-            worksheet.getCell('B2').font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFD35400' } };
-        }
+        await embedLogo(workbook, worksheet);
 
         // Title
         worksheet.mergeCells('E2:F2');
@@ -694,15 +561,10 @@ export const Financials: React.FC = () => {
         currentRow += 2;
 
         // Headers
-        const headers = ['Personnel', 'Designation', 'Hours', 'Rate (AED/hr)', 'Subtotal (AED)'];
-        const cols = ['B', 'C', 'D', 'E', 'F'];
-        headers.forEach((h, i) => {
-            const cell = worksheet.getCell(`${cols[i]}${currentRow}`);
-            cell.value = h;
-            cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } }; // Orange Header
-            cell.alignment = { vertical: 'middle', horizontal: i >= 2 ? 'right' : 'left' };
-        });
+        writeTableHeader(worksheet, currentRow, ['B', 'C', 'D', 'E', 'F'],
+            ['Personnel', 'Designation', 'Hours', 'Rate (AED/hr)', 'Subtotal (AED)'],
+            { rightAlignFrom: 2 }
+        );
         currentRow += 1;
 
         // Rows
@@ -727,7 +589,6 @@ export const Financials: React.FC = () => {
             currentRow += 1;
         });
 
-        // Add padding
         currentRow += 1;
 
         // Total
@@ -752,9 +613,7 @@ export const Financials: React.FC = () => {
         footerInfo.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF999999' } };
         footerInfo.alignment = { horizontal: 'center' };
 
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        saveAs(blob, `Invoice_${projectData.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+        await exportWorkbook(workbook, saveAs, `Invoice_${projectData.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
     };
 
     return (
