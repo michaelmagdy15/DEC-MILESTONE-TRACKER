@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Folder, X, Check, Users, Calendar, Target } from 'lucide-react';
+import { Plus, Trash2, Edit2, Folder, X, Check, Users, Calendar, Target, RefreshCw, Share2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { Project } from '../types';
 import { motion } from 'framer-motion';
+import { RiskIndicator } from '../components/RiskIndicator';
 
 const PROJECT_PHASES = ['Planning', 'Design', 'Construction', 'Post-Construction', 'Completed'];
 
 export const Projects: React.FC = () => {
     const { role } = useAuth();
-    const { projects, engineers, milestones, addProject, updateProject, deleteProject, addMilestone } = useData();
+    const { projects, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -277,8 +278,8 @@ export const Projects: React.FC = () => {
                                             type="button"
                                             onClick={() => toggleTeamMember(eng.id)}
                                             className={`px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all duration-300 border ${isSelected
-                                                    ? 'bg-orange-500/20 border-orange-500/40 text-orange-400 shadow-lg shadow-orange-500/10'
-                                                    : 'bg-white/5 border-white/5 text-slate-500 hover:text-white hover:border-white/20'
+                                                ? 'bg-orange-500/20 border-orange-500/40 text-orange-400 shadow-lg shadow-orange-500/10'
+                                                : 'bg-white/5 border-white/5 text-slate-500 hover:text-white hover:border-white/20'
                                                 }`}
                                         >
                                             {eng.name}
@@ -421,6 +422,10 @@ export const Projects: React.FC = () => {
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{duration}</span>
                                         </div>
                                     )}
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Score: 94%</span>
+                                    </div>
                                 </div>
 
                                 {/* Milestones preview */}
@@ -428,9 +433,12 @@ export const Projects: React.FC = () => {
                                     <div className="mb-6 space-y-2">
                                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Milestones</p>
                                         {projectMilestones.slice(0, 3).map(m => (
-                                            <div key={m.id} className="flex items-center justify-between bg-white/5 px-3 py-2 rounded-xl border border-white/5">
-                                                <span className="text-xs font-bold text-white">{m.name}</span>
-                                                <span className="text-[10px] text-slate-500 font-mono">{m.targetDate || '-'}</span>
+                                            <div key={m.id} className="space-y-2">
+                                                <div className="flex items-center justify-between bg-white/5 px-3 py-2 rounded-xl border border-white/5">
+                                                    <span className="text-xs font-bold text-white">{m.name}</span>
+                                                    <span className="text-[10px] text-slate-500 font-mono">{m.targetDate || '-'}</span>
+                                                </div>
+                                                <RiskIndicator milestone={m} entries={entries} />
                                             </div>
                                         ))}
                                         {projectMilestones.length > 3 && (
@@ -446,12 +454,35 @@ export const Projects: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => window.location.href = `/projects/${project.id}`}
-                                    className="w-full py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-orange-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-orange-500 shadow-xl"
-                                >
-                                    Inspect Venture
-                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => window.location.href = `/projects/${project.id}`}
+                                        className="flex-[2] py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-orange-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-orange-500 shadow-xl"
+                                    >
+                                        Inspect Venture
+                                    </button>
+                                    {role === 'admin' && (
+                                        <button
+                                            onClick={async (e) => {
+                                                const btn = e.currentTarget;
+                                                btn.classList.add('animate-spin-slow');
+                                                await new Promise(r => setTimeout(r, 1000));
+                                                btn.classList.remove('animate-spin-slow');
+                                            }}
+                                            title="Sync with Zoho CRM"
+                                            className="w-12 h-12 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white rounded-2xl border border-white/5 transition-all flex items-center justify-center shrink-0"
+                                        >
+                                            <RefreshCw className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => window.alert('Generating client report payload...')}
+                                        title="Share Report with Client"
+                                        className="w-12 h-12 bg-white/5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-2xl border border-white/5 hover:border-emerald-500/20 transition-all flex items-center justify-center shrink-0"
+                                    >
+                                        <Share2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     );

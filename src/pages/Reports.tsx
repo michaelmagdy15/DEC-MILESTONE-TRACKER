@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Activity, Shield, ChevronLeft } from 'lucide-react';
+import { LayoutGrid, Users, Download, BarChart2, Calendar, FileText, ChevronRight, Activity, Shield, ChevronLeft, AlertCircle, Plus } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -605,6 +605,64 @@ export const Reports: React.FC = () => {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                            <h4 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-rose-500" />
+                                Overloaded Resources
+                            </h4>
+                            <div className="space-y-4">
+                                {capacityStats.filter(s => s.allocations.some(h => h > s.weeklyGoal)).map(s => (
+                                    <div key={s.id} className="flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-500 font-bold text-[10px]">
+                                                !
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-white">{s.name}</p>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                                    Peak: {Math.max(...s.allocations)}H / {Math.round(s.weeklyGoal)}H
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Immediate Risk</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {capacityStats.filter(s => s.allocations.some(h => h > s.weeklyGoal)).length === 0 && (
+                                    <p className="text-sm text-slate-600 font-medium italic">No critical overloading detected.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-orange-500/10 rounded-3xl p-6 border border-orange-500/10">
+                            <h4 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Plus className="w-4 h-4 text-orange-400" />
+                                Capacity Rebalance Suggestions
+                            </h4>
+                            <div className="space-y-4">
+                                {(() => {
+                                    const overloaded = capacityStats.filter(s => s.allocations.some(h => h > s.weeklyGoal));
+                                    const available = capacityStats.filter(s => s.allocations.every(h => h < s.weeklyGoal * 0.7));
+
+                                    if (overloaded.length > 0 && available.length > 0) {
+                                        return overloaded.map(o => (
+                                            <div key={o.id} className="p-4 bg-orange-500/5 rounded-2xl border border-orange-500/10 border-dashed">
+                                                <p className="text-[11px] font-bold text-white leading-relaxed">
+                                                    Suggest delegating tasks from <span className="text-orange-400">{o.name}</span> to{' '}
+                                                    <span className="text-emerald-400">{available[0].name}</span>
+                                                </p>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter mt-1">Available bandwidth: {Math.round(available[0].weeklyGoal - Math.max(...available[0].allocations))}H</p>
+                                            </div>
+                                        ));
+                                    }
+                                    return <p className="text-sm text-slate-600 font-medium italic">Resource distribution is currently optimal.</p>
+                                })()}
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : (

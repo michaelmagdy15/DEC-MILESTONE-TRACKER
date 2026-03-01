@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { supabase } from '../lib/supabase';
-import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2 } from 'lucide-react';
+import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { format, startOfWeek as getStartOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -349,6 +349,49 @@ export const Dashboard = () => {
                                             <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
                                                 <div className={`${item.color} h-full rounded-full`} style={{ width: `${(item.hours / total) * 100}%` }}></div>
                                             </div>
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#1a1a1a]/40 rounded-2xl md:rounded-[32px] border border-white/5 p-4 md:p-8 backdrop-blur-3xl relative overflow-hidden group">
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05), transparent)' }} />
+                        <div className="relative z-10">
+                            <h3 className="font-black text-rose-400 text-lg mb-6 flex items-center gap-3">
+                                <AlertCircle className="w-5 h-5" />
+                                Wellness & Fatigue
+                            </h3>
+                            <div className="space-y-4">
+                                {(() => {
+                                    const alerts = [];
+                                    const uniqueTitles = new Set((appUsageLogs || []).filter(l => new Date(l.timestamp) >= startOfWeek).map(l => l.activeWindow)).size;
+                                    const totalHoursWeek = weeklyAppStats.activeHours + weeklyAppStats.nonWorkHours;
+                                    const contextSwitchingRate = uniqueTitles / Math.max(1, totalHoursWeek);
+
+                                    if (contextSwitchingRate > 30) {
+                                        alerts.push({ label: 'High Fragility', desc: 'Frequent context-switching detected.', color: 'text-amber-400' });
+                                    }
+
+                                    const lateLogs = (appUsageLogs || []).filter(l => {
+                                        const hour = new Date(l.timestamp).getHours();
+                                        return hour >= 21 || hour <= 4;
+                                    }).length;
+
+                                    if (lateLogs > 50) {
+                                        alerts.push({ label: 'Circadian Risk', desc: 'Sustained late-night operations.', color: 'text-rose-400' });
+                                    }
+
+                                    if (alerts.length === 0) return <p className="text-sm font-bold text-emerald-500/80 italic">Cognitive health is optimal.</p>
+
+                                    return alerts.map(alert => (
+                                        <div key={alert.label} className="p-4 bg-white/5 rounded-2xl border border-white/5 group/alert">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${alert.color}`}>{alert.label}</span>
+                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
+                                            </div>
+                                            <p className="text-xs text-slate-400 font-medium">{alert.desc}</p>
                                         </div>
                                     ));
                                 })()}

@@ -122,7 +122,7 @@ export const Engineers = () => {
                     <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
                     <p className="text-slate-500 font-medium tracking-wide">Command and control for your specialist project teams.</p>
                 </div>
-                {(currentUserRole === 'admin' || currentUserRole === 'project_manager' || true) && (
+                {(currentUserRole === 'admin' || currentUserRole === 'project_manager') && (
                     <button
                         onClick={() => setIsAdding(true)}
                         disabled={isAdding}
@@ -256,7 +256,7 @@ export const Engineers = () => {
                                 <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 group-hover:border-orange-500/20 group-hover:bg-orange-500/10 transition-all duration-500">
                                     <Users className="w-8 h-8 text-slate-500 group-hover:text-orange-400" />
                                 </div>
-                                {(currentUserRole === 'admin' || currentUserRole === 'project_manager' || true) && (
+                                {(currentUserRole === 'admin' || currentUserRole === 'project_manager') && (
                                     <div className="flex gap-2">
                                         {deletingId === engineer.id ? (
                                             <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-300">
@@ -315,7 +315,7 @@ export const Engineers = () => {
                                     <span className="text-[10px] font-mono tracking-wider">ID: {engineer.id.substring(0, 8)}...</span>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 py-4 border-t border-white/5">
+                                <div className="grid grid-cols-2 gap-4 py-4 border-t border-white/5 mt-4">
                                     <div>
                                         <div className="text-2xl font-black text-emerald-400">
                                             {tasks.filter(t => t.engineerId === engineer.id && t.status !== 'done').length}
@@ -330,7 +330,7 @@ export const Engineers = () => {
                                     </div>
                                 </div>
 
-                                {(currentUserRole === 'admin' || currentUserRole === 'project_manager' || true) && (
+                                {(currentUserRole === 'admin' || currentUserRole === 'project_manager') && (
                                     <div className="grid grid-cols-2 gap-4 py-6 border-t border-white/5">
                                         <div>
                                             <div className="text-2xl font-black text-white">{engineer.hourlyRate}<span className="text-[10px] ml-1 text-slate-600">AED/H</span></div>
@@ -342,6 +342,22 @@ export const Engineers = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                <div className="mt-4 pt-4 border-t border-white/5">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Skills Arsenal</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {(engineer.skills && engineer.skills.length > 0 ? engineer.skills : ['AutoCAD', 'Revit', 'Design']).map(skill => (
+                                            <span key={skill} className="px-2 py-1 bg-orange-500/5 text-orange-400/70 border border-orange-500/10 rounded-lg text-[8px] font-bold uppercase tracking-tighter">
+                                                {skill}
+                                            </span>
+                                        ))}
+                                        {(!engineer.skills || engineer.skills.length < 5) && (
+                                            <button className="px-2 py-1 bg-white/5 text-slate-600 border border-white/5 rounded-lg text-[8px] font-bold uppercase tracking-tighter hover:text-white transition-all">
+                                                + Grow
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">

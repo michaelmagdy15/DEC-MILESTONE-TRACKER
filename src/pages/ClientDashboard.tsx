@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
 export const ClientDashboard = () => {
-    const { projects, entries } = useData();
+    const { projects, entries, milestones, updateMilestone } = useData();
 
     // Active Projects (projects with entries in last 30 days)
     const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
@@ -137,6 +137,39 @@ export const ClientDashboard = () => {
                                 );
                             })
                         )}
+                    </div>
+
+                    <div className="mt-12 relative z-10">
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4 mb-8">
+                            <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                                <Award className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            Milestone Clearance
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {milestones.filter(m => m.clientStatus !== 'approved').slice(0, 4).map(m => (
+                                <div key={m.id} className="p-6 bg-white/5 rounded-[32px] border border-white/5 flex flex-col justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{projects.find(p => p.id === m.projectId)?.name}</p>
+                                        <h4 className="text-white font-bold mb-4">{m.name}</h4>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => updateMilestone({ ...m, clientStatus: 'revision' })}
+                                            className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl border border-rose-500/20 text-[10px] font-black uppercase tracking-widest transition-all"
+                                        >
+                                            Flag for Revision
+                                        </button>
+                                        <button
+                                            onClick={() => updateMilestone({ ...m, clientStatus: 'approved' })}
+                                            className="flex-1 py-3 bg-emerald-500/10 hover:bg-emerald-600 hover:text-white text-emerald-400 rounded-2xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest transition-all"
+                                        >
+                                            Approve
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
 

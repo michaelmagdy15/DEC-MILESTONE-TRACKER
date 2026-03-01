@@ -3,6 +3,7 @@ import { useData } from '../context/DataContext';
 import { DollarSign, FileText, AlertCircle, Building2, TrendingUp, BarChart3, Download, Briefcase, Calculator, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Wallet, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import clsx from 'clsx';
 
 const OfficeOperations: React.FC = () => {
     const { engineers, entries, officeExpenses, addOfficeExpense, deleteOfficeExpense } = useData();
@@ -486,6 +487,7 @@ export const Financials: React.FC = () => {
             const budget = project.budget || 0;
             const variance = budget - totalSpent;
             const percentUsed = budget > 0 ? (totalSpent / budget) * 100 : 0;
+            const profitability = budget > 0 ? (variance / budget) * 100 : 100;
 
             return {
                 ...project,
@@ -493,6 +495,7 @@ export const Financials: React.FC = () => {
                 budget,
                 variance,
                 percentUsed,
+                profitability,
                 expenseBreakdown,
                 projectEntries
             };
@@ -747,24 +750,34 @@ export const Financials: React.FC = () => {
                                     </div>
 
                                     {project.budget > 0 && (
-                                        <div className="mb-8">
-                                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-2">
+                                        <div className="mb-8 p-6 bg-gradient-to-br from-white/[0.03] to-transparent rounded-3xl border border-white/5">
+                                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-4">
                                                 <span className="text-slate-500">Capital Utilization</span>
                                                 <span className={project.percentUsed > 90 ? 'text-red-400' : 'text-emerald-400'}>
                                                     {project.percentUsed.toFixed(1)}%
                                                 </span>
                                             </div>
-                                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden mb-6">
                                                 <div
-                                                    className={`h-full rounded-full ${project.percentUsed > 90 ? 'bg-red-500' : project.percentUsed > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                    className={`h-full rounded-full transition-all duration-1000 ${project.percentUsed > 90 ? 'bg-red-500' : project.percentUsed > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                                                     style={{ width: `${Math.min(project.percentUsed, 100)}%` }}
                                                 ></div>
                                             </div>
-                                            {project.variance < 0 && (
-                                                <p className="text-red-400 text-[10px] font-bold uppercase tracking-widest mt-2">
-                                                    Over budget by AED {Math.abs(project.variance).toLocaleString()}
-                                                </p>
-                                            )}
+
+                                            <div className="flex justify-between items-end">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Profitability Mirror</p>
+                                                    <p className={clsx("text-xl font-black", project.profitability > 20 ? "text-emerald-400" : project.profitability > 0 ? "text-amber-400" : "text-rose-400")}>
+                                                        {project.profitability.toFixed(1)}%
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Projected Net</p>
+                                                    <p className="text-sm font-black text-white">
+                                                        AED {project.variance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
 

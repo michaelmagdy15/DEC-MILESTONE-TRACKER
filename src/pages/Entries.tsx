@@ -11,7 +11,7 @@ import { motion } from 'framer-motion';
 const COMMON_SOFTWARE = ['AutoCAD', 'Revit', 'Excel', 'Word', 'Civil 3D', 'SAP2000', 'ETABS', 'SAFE', 'Primavera'];
 
 export const Entries: React.FC = () => {
-    const { projects, engineers, entries, addEntry, deleteEntry } = useData();
+    const { projects, engineers, entries, addEntry, deleteEntry, appUsageLogs } = useData();
     const { role, engineerId: currentEngineerId } = useAuth();
     const [isAdding, setIsAdding] = useState(false);
 
@@ -113,6 +113,44 @@ export const Entries: React.FC = () => {
         })
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    // Smart Suggestions Logic
+    const suggestions = React.useMemo(() => {
+        if (!isAdding || !currentEngineerId) return [];
+
+        const targetDate = date;
+        const dayLogs = appUsageLogs.filter(l =>
+            l.engineerId === currentEngineerId &&
+            l.timestamp.startsWith(targetDate)
+        );
+
+        if (dayLogs.length === 0) return [];
+
+        // Aggregate by app name (first part of activeWindow)
+        const appAggregation: Record<string, { seconds: number, rawTitle: string }> = {};
+        dayLogs.forEach(log => {
+            const appName = log.activeWindow.split(' - ')[log.activeWindow.split(' - ').length - 1] || log.activeWindow;
+            if (!appAggregation[appName]) appAggregation[appName] = { seconds: 0, rawTitle: log.activeWindow };
+            appAggregation[appName].seconds += log.durationSeconds;
+        });
+
+        return Object.entries(appAggregation)
+            .map(([appName, data]) => ({
+                appName,
+                hours: parseFloat((data.seconds / 3600).toFixed(1)),
+                rawTitle: data.rawTitle
+            }))
+            .filter(s => s.hours >= 0.2) // Only suggest if more than 12 mins
+            .sort((a, b) => b.hours - a.hours);
+    }, [isAdding, date, currentEngineerId, appUsageLogs]);
+
+    const applySuggestion = (suggestion: any) => {
+        setTimeSpent(suggestion.hours.toString());
+        setTaskDescription(`Working on ${suggestion.appName}: ${suggestion.rawTitle}`);
+        // Try to auto-select software
+        const sw = COMMON_SOFTWARE.find(s => suggestion.appName.toLowerCase().includes(s.toLowerCase()));
+        if (sw && !softwareUsed.includes(sw)) setSoftwareUsed([sw]);
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -146,6 +184,34 @@ export const Entries: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {isAdding && suggestions.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-6 mb-4"
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <Wrench className="w-5 h-5 text-orange-400" />
+                        <h4 className="text-sm font-black text-white uppercase tracking-widest">Efficiency Engine Suggestions</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        {suggestions.map((s, i) => (
+                            <button
+                                key={i}
+                                onClick={() => applySuggestion(s)}
+                                className="flex items-center gap-3 px-4 py-2 bg-white/5 hover:bg-orange-500/20 border border-white/10 hover:border-orange-500/30 rounded-xl transition-all group"
+                            >
+                                <div className="text-left">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">{s.appName}</p>
+                                    <p className="text-xs font-black text-white">{s.hours}H Identified</p>
+                                </div>
+                                <Plus className="w-4 h-4 text-orange-500 group-hover:scale-125 transition-transform" />
+                            </button>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
 
             {isAdding && (
                 <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
