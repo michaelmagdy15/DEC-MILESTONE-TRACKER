@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
 export const Attendance = () => {
-    const { engineers, attendance, addAttendance, updateAttendance, leaveRequests, addLeaveRequest, updateLeaveRequest } = useData();
+    const { engineers, attendance, addAttendance, updateAttendance, leaveRequests, addLeaveRequest, updateLeaveRequest, timeEntries } = useData();
     const { role, engineerId: currentEngineerId } = useAuth();
     const [activeTab, setActiveTab] = useState<'attendance' | 'leave'>('attendance');
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -176,6 +176,41 @@ export const Attendance = () => {
                         <div className="divide-y divide-white/5">
                             {engineers.map((engineer, idx) => {
                                 const record = getAttendanceStatus(engineer.id, selectedDate);
+
+                                // Auto-Attendance Logic: Find time_entries for this engineer on the selected date
+                                const dateString = format(selectedDate, 'yyyy-MM-dd');
+                                const dayEntries = timeEntries.filter(te =>
+                                    te.engineerId === engineer.id &&
+                                    te.startTime.startsWith(dateString)
+                                );
+
+                                let entryTime: Date | null = null;
+                                let exitTime: Date | null = null;
+                                let totalSeconds = 0;
+
+                                if (dayEntries.length > 0) {
+                                    // Calculate Entry/Exit
+                                    const startTimes = dayEntries.map(te => new Date(te.startTime).getTime());
+                                    const endTimes = dayEntries.map(te => te.endTime ? new Date(te.endTime).getTime() : new Date().getTime()); // use now if still running
+
+                                    entryTime = new Date(Math.min(...startTimes));
+                                    exitTime = new Date(Math.max(...endTimes, ...startTimes)); // ensure exit >= entry
+
+                                    // Calculate Total Work Time (Sum of 'work' entries duration)
+                                    const workEntries = dayEntries.filter(te => te.entryType === 'work');
+                                    workEntries.forEach(te => {
+                                        const s = new Date(te.startTime).getTime();
+                                        const e = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+                                        totalSeconds += (e - s) / 1000;
+                                    });
+                                }
+
+                                const hasAutoAttendance = dayEntries.length > 0;
+                                const isAutomaticallyPresent = hasAutoAttendance && !record;
+
+                                // Override status display if we have auto attendance but no manual record
+                                const displayStatus = record ? record.status : (hasAutoAttendance ? 'Present' : null);
+
                                 return (
                                     <motion.div
                                         key={engineer.id}
@@ -193,21 +228,41 @@ export const Attendance = () => {
                                                 <div>
                                                     <h4 className="font-black text-white text-lg tracking-tight group-hover:text-orange-400 transition-colors uppercase">{engineer.name}</h4>
                                                     <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">{engineer.role || 'Specialist'}</p>
+
+                                                    {/* Display Auto Attendance Metrics */}
+                                                    {hasAutoAttendance && entryTime && exitTime && (
+                                                        <div className="flex items-center gap-4 mt-2">
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 bg-white/5 px-2 py-1 rounded-md border border-white/5">
+                                                                <Clock className="w-3 h-3 text-emerald-400" />
+                                                                <span>In: {format(entryTime, 'hh:mm a')}</span>
+                                                            </div>
+                                                            {totalSeconds > 60 && (
+                                                                <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 bg-white/5 px-2 py-1 rounded-md border border-white/5">
+                                                                    <Clock className="w-3 h-3 text-orange-400" />
+                                                                    <span>Out: {format(exitTime, 'hh:mm a')}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex items-center justify-center min-w-[3rem] text-[10px] font-bold text-white bg-white/10 px-2 py-1 rounded-md">
+                                                                {(totalSeconds / 3600).toFixed(1)}h
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
                                             <div className="flex flex-wrap items-center gap-6">
-                                                {record ? (
+                                                {displayStatus ? (
                                                     <span className={clsx(
                                                         "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border flex items-center gap-2",
-                                                        record.status === 'Present' && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-                                                        record.status === 'Absent' && "bg-red-500/10 text-red-500 border-red-500/20",
-                                                        record.status === 'Half-Day' && "bg-amber-500/10 text-amber-500 border-amber-500/20",
+                                                        displayStatus === 'Present' && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+                                                        displayStatus === 'Absent' && "bg-red-500/10 text-red-500 border-red-500/20",
+                                                        displayStatus === 'Half-Day' && "bg-amber-500/10 text-amber-500 border-amber-500/20",
                                                     )}>
-                                                        {record.status === 'Present' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                                                        {record.status === 'Absent' && <XCircle className="w-3.5 h-3.5" />}
-                                                        {record.status === 'Half-Day' && <Clock className="w-3.5 h-3.5" />}
-                                                        {record.status}
+                                                        {displayStatus === 'Present' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                        {displayStatus === 'Absent' && <XCircle className="w-3.5 h-3.5" />}
+                                                        {displayStatus === 'Half-Day' && <Clock className="w-3.5 h-3.5" />}
+                                                        {displayStatus}
+                                                        {isAutomaticallyPresent && <span className="opacity-50 ml-1">(Auto)</span>}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Pending Assignment</span>
