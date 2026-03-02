@@ -178,11 +178,17 @@ export const Attendance = () => {
                                 const record = getAttendanceStatus(engineer.id, selectedDate);
 
                                 // Auto-Attendance Logic: Find time_entries for this engineer on the selected date
-                                const dateString = format(selectedDate, 'yyyy-MM-dd');
-                                const dayEntries = timeEntries.filter(te =>
-                                    te.engineerId === engineer.id &&
-                                    te.startTime.startsWith(dateString)
-                                );
+                                const selectedYear = selectedDate.getFullYear();
+                                const selectedMonth = selectedDate.getMonth();
+                                const selectedDay = selectedDate.getDate();
+
+                                const dayEntries = timeEntries.filter(te => {
+                                    if (te.engineerId !== engineer.id) return false;
+                                    const entryDate = new Date(te.startTime);
+                                    return entryDate.getFullYear() === selectedYear &&
+                                        entryDate.getMonth() === selectedMonth &&
+                                        entryDate.getDate() === selectedDay;
+                                });
 
                                 let entryTime: Date | null = null;
                                 let exitTime: Date | null = null;
@@ -191,7 +197,15 @@ export const Attendance = () => {
                                 if (dayEntries.length > 0) {
                                     // Calculate Entry/Exit
                                     const startTimes = dayEntries.map(te => new Date(te.startTime).getTime());
-                                    const endTimes = dayEntries.map(te => te.endTime ? new Date(te.endTime).getTime() : new Date().getTime()); // use now if still running
+                                    const endTimes = dayEntries.map(te => {
+                                        if (te.endTime) return new Date(te.endTime).getTime();
+                                        const start = new Date(te.startTime).getTime();
+                                        const now = new Date().getTime();
+                                        // If started today and within last 5 minutes, use now
+                                        if (now - start < 5 * 60 * 1000) return now;
+                                        // Otherwise it's an orphaned log, cap to 1 minute to prevent 24h bugs
+                                        return start + 60 * 1000;
+                                    });
 
                                     entryTime = new Date(Math.min(...startTimes));
                                     exitTime = new Date(Math.max(...endTimes, ...startTimes)); // ensure exit >= entry
@@ -200,13 +214,35 @@ export const Attendance = () => {
                                     const workEntries = dayEntries.filter(te => te.entryType === 'work');
                                     workEntries.forEach(te => {
                                         const s = new Date(te.startTime).getTime();
-                                        const e = te.endTime ? new Date(te.endTime).getTime() : new Date().getTime();
+                                        let e = new Date().getTime();
+
+                                        if (te.endTime) {
+                                            e = new Date(te.endTime).getTime();
+                                        } else {
+                                            const now = new Date().getTime();
+                                            if (now - s < 5 * 60 * 1000) {
+                                                e = now;
+                                            } else {
+                                                e = s + 60 * 1000; // Orphaned log cap
+                                            }
+                                        }
+
                                         totalSeconds += (e - s) / 1000;
                                     });
                                 }
 
                                 const hasAutoAttendance = dayEntries.length > 0;
                                 const isAutomaticallyPresent = hasAutoAttendance && !record;
+
+                                const formatDuration = (totalSecs: number) => {
+                                    const h = Math.floor(totalSecs / 3600);
+                                    const m = Math.floor((totalSecs % 3600) / 60);
+                                    const s = Math.floor(totalSecs % 60);
+
+                                    if (h > 0) return `${h}h ${m}m ${s}s`;
+                                    if (m > 0) return `${m}m ${s}s`;
+                                    return `${s}s`;
+                                };
 
                                 // Override status display if we have auto attendance but no manual record
                                 const displayStatus = record ? record.status : (hasAutoAttendance ? 'Present' : null);
@@ -243,7 +279,7 @@ export const Attendance = () => {
                                                                 </div>
                                                             )}
                                                             <div className="flex items-center justify-center min-w-[3rem] text-[10px] font-bold text-white bg-white/10 px-2 py-1 rounded-md">
-                                                                {(totalSeconds / 3600).toFixed(1)}h
+                                                                {formatDuration(totalSeconds)}
                                                             </div>
                                                         </div>
                                                     )}

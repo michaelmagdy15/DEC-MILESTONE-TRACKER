@@ -64,6 +64,16 @@ const getExpectedWeeklyHours = (date: Date, location: 'Abu Dhabi' | 'Cairo' | st
     return total;
 };
 
+// Helper to format float hours into readable Hh Mm
+const formatHours = (hours: number) => {
+    if (!hours) return '0h 0m';
+    const totalSecs = hours * 3600;
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+};
+
 export const Reports: React.FC = () => {
     const { projects, engineers, entries, attendance, appUsageLogs, auditLogs, tasks } = useData();
     const [view, setView] = useState<'projects' | 'engineers' | 'activity' | 'audit' | 'capacity'>('projects');
@@ -382,6 +392,11 @@ export const Reports: React.FC = () => {
                                 />
                                 <RechartsTooltip
                                     cursor={{ fill: '#ffffff05' }}
+                                    formatter={(value: any, name: any) => {
+                                        if (name === "Fiscal Value (AED)") return [`${Number(value).toLocaleString()} AED`, name];
+                                        if (typeof value === 'number') return [formatHours(value), name];
+                                        return [value, name];
+                                    }}
                                     contentStyle={{
                                         backgroundColor: '#0f0f0f',
                                         border: '1px solid #ffffff10',
@@ -706,8 +721,7 @@ export const Reports: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4 py-6 border-y border-white/5">
                                         <div>
                                             <div className="text-2xl font-black text-white">
-                                                {view === 'projects' ? (stat as any).totalHours.toFixed(1) : (stat as any).weeklyHours.toFixed(1)}
-                                                <span className="text-[10px] ml-1 text-slate-600">H</span>
+                                                {view === 'projects' ? formatHours((stat as any).totalHours) : formatHours((stat as any).weeklyHours)}
                                             </div>
                                             <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Total Hours' : 'Weekly Activity'}</div>
                                         </div>
