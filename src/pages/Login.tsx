@@ -10,9 +10,10 @@ export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
+    const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const [fullName, setFullName] = useState('');
 
     if (isLoadingAuth) {
         return <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -37,6 +38,18 @@ export const Login: React.FC = () => {
                     password,
                 });
                 if (signInError) throw signInError;
+            } else if (mode === 'signup') {
+                const { error: signUpError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: fullName,
+                        },
+                    },
+                });
+                if (signUpError) throw signUpError;
+                setMessage('Check your email for the confirmation link.');
             } else if (mode === 'forgot-password') {
                 const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: `${window.location.origin}/reset-password`,
@@ -67,16 +80,32 @@ export const Login: React.FC = () => {
                         <img src={logo} alt="DEC Logo" className="w-full h-full object-contain relative z-10 animate-pulse-slow" />
                     </div>
                     <h2 className="text-center text-3xl font-extrabold text-white tracking-tight">
-                        {mode === 'login' ? 'Welcome Back' : 'Reset Access'}
+                        {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Access'}
                     </h2>
                     <p className="mt-2 text-center text-sm text-slate-400 font-medium">
                         {mode === 'login' ? 'DEC Engineering Consultant Tracker' :
-                            'Enter your email to receive a reset link'}
+                            mode === 'signup' ? 'Sign up to start tracking' :
+                                'Enter your email to receive a reset link'}
                     </p>
                 </div>
 
                 <form className="mt-8 space-y-6" onSubmit={handleAuth}>
                     <div className="space-y-4">
+                        {mode === 'signup' && (
+                            <div>
+                                <label htmlFor="full-name" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
+                                <input
+                                    id="full-name"
+                                    name="fullName"
+                                    type="text"
+                                    required
+                                    className="appearance-none relative block w-full px-4 py-3 bg-white/5 border border-white/5 placeholder-slate-600 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all duration-300 sm:text-sm font-medium"
+                                    placeholder="John Doe"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                />
+                            </div>
+                        )}
                         <div>
                             <label htmlFor="email-address" className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Email address</label>
                             <input
@@ -154,9 +183,25 @@ export const Login: React.FC = () => {
                                     Processing...
                                 </span>
                             ) :
-                                mode === 'login' ? 'Sign In' : 'Reset Password'}
+                                mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Reset Password'}
                         </button>
                     </div>
+
+                    {mode === 'login' && (
+                        <div className="text-center pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode('signup');
+                                    setMessage(null);
+                                    setError(null);
+                                }}
+                                className="text-[11px] font-bold text-slate-500 hover:text-white uppercase tracking-[0.2em] transition-colors"
+                            >
+                                Need an account? Sign Up
+                            </button>
+                        </div>
+                    )}
 
                     {mode === 'forgot-password' && (
                         <div className="text-center pt-2">

@@ -76,7 +76,7 @@ const formatHours = (hours: number) => {
 
 export const Reports: React.FC = () => {
     const { projects, engineers, entries, attendance, appUsageLogs, auditLogs, tasks } = useData();
-    const [view, setView] = useState<'projects' | 'engineers' | 'activity' | 'audit' | 'capacity'>('projects');
+    const [view, setView] = useState<'projects' | 'engineers' | 'activity' | 'audit' | 'capacity' | 'productivity'>('projects');
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
 
@@ -175,6 +175,47 @@ export const Reports: React.FC = () => {
         return stats.sort((a, b) => new Date(b.rawTimestamp).getTime() - new Date(a.rawTimestamp).getTime()); // sort newest first
     }, [appUsageLogs, engineers, filterEngineer, filterFrom, filterTo]);
 
+    // Productivity Stats
+    const nonWorkKeywords = React.useMemo(() => ['youtube', 'netflix', 'facebook', 'instagram', 'twitter', 'tiktok', 'social', 'game', 'spotify', 'prime video', 'hulu', 'disney'], []);
+    const isWork = React.useCallback((title: string) => {
+        const t = title.toLowerCase();
+        return !nonWorkKeywords.some(kw => t.includes(kw));
+    }, [nonWorkKeywords]);
+
+    const productivityStats = React.useMemo(() => {
+        return engineers.map(engineer => {
+            const logs = appUsageLogs
+                .filter(l => l.engineerId === engineer.id)
+                .filter(l => !filterFrom || (l.timestamp >= filterFrom))
+                .filter(l => !filterTo || (l.timestamp <= filterTo + 'T23:59:59'));
+
+            let workSeconds = 0;
+            let notWorkSeconds = 0;
+            const IDLE_THRESHOLD = 300; // 5 minutes max per log entry
+
+            logs.forEach(log => {
+                const isLock = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
+                if (isLock) return;
+
+                const duration = Math.min(log.durationSeconds, IDLE_THRESHOLD);
+                if (isWork(log.activeWindow)) {
+                    workSeconds += duration;
+                } else {
+                    notWorkSeconds += duration;
+                }
+            });
+
+            return {
+                id: engineer.id,
+                name: engineer.name,
+                role: engineer.role || 'Specialist',
+                workHours: workSeconds / 3600,
+                notWorkHours: notWorkSeconds / 3600,
+                totalTrackedHours: (workSeconds + notWorkSeconds) / 3600,
+            };
+        }).sort((a, b) => b.workHours - a.workHours);
+    }, [engineers, appUsageLogs, filterFrom, filterTo, isWork]);
+
     // Capacity Map Stats (Restored)
     const capacityStats = React.useMemo(() => {
         return engineers.map(engineer => {
@@ -228,6 +269,9 @@ export const Reports: React.FC = () => {
         } else if (view === 'capacity') {
             headers = ['Engineer Name', 'Role', 'Week 1', 'Week 2', 'Week 3', 'Week 4'];
             exportData = capacityStats;
+        } else if (view === 'productivity') {
+            headers = ['Engineer Name', 'Role', 'Work Time', 'Not Work Time', 'Total Tracked'];
+            exportData = productivityStats;
         }
 
         const csvContent = [
@@ -243,6 +287,8 @@ export const Reports: React.FC = () => {
                     return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, item.durationSeconds];
                 } else if (view === 'capacity') {
                     return [`"${item.name}"`, `"${item.role}"`, ...item.allocations];
+                } else if (view === 'productivity') {
+                    return [`"${item.name}"`, `"${item.role}"`, formatHours(item.workHours), formatHours(item.notWorkHours), formatHours(item.totalTrackedHours)];
                 }
             }).filter((row): row is any[] => row !== undefined).map(row => row.join(','))
         ].join('\n');
@@ -344,10 +390,20 @@ export const Reports: React.FC = () => {
                             <Calendar className="w-4 h-4" />
                             Capacity Map
                         </button>
+                        <button
+                            onClick={() => { setView('productivity'); setPage(1); }}
+                            className={clsx(
+                                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-3",
+                                view === 'productivity' ? "bg-white text-black shadow-xl" : "text-slate-500 hover:text-white"
+                            )}
+                        >
+                            <BarChart2 className="w-4 h-4" />
+                            Productivity
+                        </button>
                     </div>
 
                     <button
-                        onClick={() => exportCSV(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : dailyActivityStats, view)}
+                        onClick={() => exportCSV(view === 'projects' ? projectStats : view === 'engineers' ? engineerStats : view === 'capacity' ? capacityStats : view === 'productivity' ? productivityStats : dailyActivityStats, view)}
                         className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-3.5 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 font-bold uppercase tracking-widest text-[10px]"
                     >
                         <Download className="w-4 h-4" />
@@ -357,7 +413,7 @@ export const Reports: React.FC = () => {
             </div>
 
             {/* CHARTS SECTION */}
-            {view !== 'activity' && view !== 'audit' && view !== 'capacity' && (
+            {view !== 'activity' && view !== 'audit' && view !== 'capacity' && view !== 'productivity' && (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
                     <div className="flex items-center justify-between mb-10 relative z-10">
@@ -678,6 +734,92 @@ export const Reports: React.FC = () => {
                                 })()}
                             </div>
                         </div>
+                    </div>
+                </div>
+            ) : view === 'productivity' ? (
+                <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl p-8 mt-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                            <BarChart2 className="w-5 h-5 text-indigo-500" />
+                            ACTUAL WORK VS NOT WORK TIME
+                        </h3>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <input type="date" value={filterFrom} onChange={(e) => { setFilterFrom(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            <span className="text-slate-600 text-xs font-bold">→</span>
+                            <input type="date" value={filterTo} onChange={(e) => { setFilterTo(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            {(filterFrom || filterTo) && (
+                                <button onClick={() => { setFilterFrom(''); setFilterTo(''); setPage(1); }}
+                                    className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="h-[400px] w-full relative z-10 mb-8 mt-8">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={productivityStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} dy={20} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                                <RechartsTooltip
+                                    cursor={{ fill: '#ffffff05' }}
+                                    formatter={(value: any, name: any) => {
+                                        return [formatHours(typeof value === 'number' ? value : 0), name];
+                                    }}
+                                    contentStyle={{ backgroundColor: '#0f0f0f', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
+                                    itemStyle={{ color: '#f3f3f3', fontSize: '12px', fontWeight: 'bold' }}
+                                    labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '40px' }} iconType="circle" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>} />
+                                <Bar dataKey="workHours" name="Work Time" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={40} />
+                                <Bar dataKey="notWorkHours" name="Not Work Time" stackId="a" fill="#ef4444" radius={[10, 10, 0, 0]} maxBarSize={40} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 bg-[#0a0a0a] z-10">
+                                <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    <th className="py-4 font-bold text-left px-4">Engineer</th>
+                                    <th className="py-4 font-bold text-left px-4">Work Time</th>
+                                    <th className="py-4 font-bold text-left px-4">Not Work Time</th>
+                                    <th className="py-4 font-bold text-left px-4">Total Tracked</th>
+                                    <th className="py-4 font-bold text-left px-4">Productivity %</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm font-medium whitespace-nowrap">
+                                {productivityStats.map(stat => {
+                                    const percent = stat.totalTrackedHours > 0 ? (stat.workHours / stat.totalTrackedHours) * 100 : 0;
+                                    let pbColor = 'bg-emerald-500';
+                                    if (percent < 50) pbColor = 'bg-red-500';
+                                    else if (percent < 80) pbColor = 'bg-amber-500';
+
+                                    return (
+                                        <tr key={stat.id} className="hover:bg-white/[0.02] transition-colors">
+                                            <td className="py-4 px-4">
+                                                <p className="font-bold text-white">{stat.name}</p>
+                                                <p className="text-[10px] text-slate-500 uppercase">{stat.role}</p>
+                                            </td>
+                                            <td className="py-4 px-4 text-emerald-400 font-bold">{formatHours(stat.workHours)}</td>
+                                            <td className="py-4 px-4 text-rose-400 font-bold">{formatHours(stat.notWorkHours)}</td>
+                                            <td className="py-4 px-4 text-slate-300 font-bold">{formatHours(stat.totalTrackedHours)}</td>
+                                            <td className="py-4 px-4">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-white font-bold w-12">{percent.toFixed(0)}%</span>
+                                                    <div className="w-32 h-2 bg-white/5 rounded-full overflow-hidden">
+                                                        <div className={`h-full ${pbColor}`} style={{ width: `${percent}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             ) : (
