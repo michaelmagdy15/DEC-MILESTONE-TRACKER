@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { supabase } from '../lib/supabase';
-import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2, AlertCircle, Camera } from 'lucide-react';
 import { format, startOfWeek as getStartOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -400,6 +400,68 @@ export const Dashboard = () => {
                     </div>
                 </motion.div>
             </div>
+
+            {/* Live Camera Feeds (Wisenet Local Web Viewer) */}
+            {role === 'admin' && (
+                <motion.div variants={itemVariants} className="glass-card rounded-2xl md:rounded-[32px] p-4 md:p-8 relative overflow-hidden group mb-4 md:mb-8">
+                    <div className="absolute inset-x-0 -top-20 h-40 bg-orange-500/10 blur-[100px] pointer-events-none"></div>
+                    <div className="flex items-center justify-between mb-6 relative z-10 flex-wrap gap-4">
+                        <h3 className="font-black text-white text-lg flex items-center gap-3">
+                            <Camera className="w-5 h-5 text-orange-400" />
+                            Office Cameras (Wisenet XRN)
+                        </h3>
+                        <div className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/10">
+                            <input
+                                type="text"
+                                placeholder="NVR IP (e.g., 192.168.1.100)"
+                                className="bg-black/50 border border-white/10 text-xs px-3 py-2 rounded-lg text-white focus:outline-none focus:border-orange-500 w-48 font-mono"
+                                id="nvr-ip-input"
+                                defaultValue="192.168."
+                            />
+                        </div>
+                    </div>
+
+                    <div className="w-full bg-[#0a0a0a] rounded-2xl border border-white/10 relative overflow-hidden shadow-inner flex flex-col items-center justify-center min-h-[400px] xl:min-h-[600px]">
+
+                        {/* Notice for the user on how this works */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-black/40 backdrop-blur-sm z-10" id="camera-setup-overlay">
+                            <Camera className="w-12 h-12 text-orange-500 mb-4 opacity-80" />
+                            <h4 className="text-xl font-black text-white mb-2 tracking-tight">Connect via Local IP</h4>
+                            <p className="text-sm text-slate-400 max-w-[600px] mb-6 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/10">
+                                <strong>Note:</strong> Wisenet cloud UIDs (like <code className="text-orange-400 px-1 bg-black/50 rounded">FAM5C...</code>) are proprietary and only work in the official Wisenet mobile app.
+                                <br /><br />
+                                To view your cameras directly in this web dashboard, you must enter the <strong>Local IP Address</strong> of the XRN-1610SA NVR box (e.g., <code>192.168.1.100</code>). You must be on the same office Wi-Fi as the NVR.
+                            </p>
+
+                            <button
+                                onClick={() => {
+                                    const ip = (document.getElementById('nvr-ip-input') as HTMLInputElement).value;
+                                    if (ip && ip !== '192.168.') {
+                                        const iframe = document.getElementById('wisenet-iframe') as HTMLIFrameElement;
+                                        // Note: Wisenet web viewer handles its own login prompt (HTTP Basic Auth).
+                                        // We simply load the IP.
+                                        iframe.src = `http://${ip}/`;
+                                        document.getElementById('camera-setup-overlay')!.style.display = 'none';
+                                    } else {
+                                        alert('Please enter a valid local IP address.');
+                                    }
+                                }}
+                                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-lg shadow-orange-500/20"
+                            >
+                                Load NVR Gateway
+                            </button>
+                        </div>
+
+                        {/* The actual iframe where the Wisenet Web Viewer will load */}
+                        <iframe
+                            id="wisenet-iframe"
+                            className="w-full h-full absolute inset-0 border-0 z-0 bg-white"
+                            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                            title="Wisenet Camera Viewer"
+                        />
+                    </div>
+                </motion.div>
+            )}
 
             {/* Admin Panel */}
             {
