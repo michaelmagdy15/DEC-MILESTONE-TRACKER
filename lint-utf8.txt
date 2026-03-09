@@ -1,0 +1,193 @@
+﻿
+> dec-milestone-tracker@0.0.0 lint
+> eslint .
+
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\components\MailNotifier.tsx
+  45:25  error    Error: Cannot access variable before it is declared
+
+`triggerNotification` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\components\MailNotifier.tsx:45:25
+  43 |                     if (latestEmail.messageId !== latestMessageIdRef.current) {
+  44 |                         latestMessageIdRef.current = latestEmail.messageId;
+> 45 |                         triggerNotification(latestEmail.sender, latestEmail.subject);
+     |                         ^^^^^^^^^^^^^^^^^^^ `triggerNotification` accessed before it is declared
+  46 |                     }
+  47 |                 }
+  48 |             } catch (err) {
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\components\MailNotifier.tsx:86:5
+   84 |     };
+   85 |
+>  86 |     const triggerNotification = (sender: string, subject: string) => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  87 |         playSound();
+      | ^^^^^^^^^^^^^^^^^^^^
+>  88 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^
+> 153 |         }
+      | ^^^^^^^^^^^^^^^^^^^^
+> 154 |     };
+      | ^^^^^^^ `triggerNotification` is declared here
+  155 |
+  156 |     const requestPermission = async () => {
+  157 |         try {  react-hooks/immutability
+  60:8   warning  React Hook useEffect has a missing dependency: 'triggerNotification'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  65:68  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\context\AuthContext.tsx
+   91:26  error  'timeoutErr' is defined but never used                                                                                          @typescript-eslint/no-unused-vars
+  218:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\context\DataContext.tsx
+   86:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+   86:27   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+   93:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+   97:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  101:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  105:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  109:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  113:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  117:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  121:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  125:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  129:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  133:22   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  137:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  141:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  145:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  149:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  177:47   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  196:133  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  233:8    warning  React Hook useCallback has a missing dependency: 'setterMap'. Either include it or remove the dependency array                                                                                                                                                               react-hooks/exhaustive-deps
+  283:25   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  319:42   warning  The ref value 'debounceTimers.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'debounceTimers.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+  321:8    warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                      react-hooks/exhaustive-deps
+  813:14   error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                               react-refresh/only-export-components
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\lib\supabase.ts
+  33:80  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Dashboard.tsx
+  23:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  72:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Emails.tsx
+   32:42  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+   40:56  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+   56:8   warning  React Hook useEffect has missing dependencies: 'checkAuthStatus' and 'handleOAuthCallback'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   67:8   warning  React Hook useEffect has a missing dependency: 'loadEmails'. Either include it or remove the dependency array                                   react-hooks/exhaustive-deps
+  101:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  137:18  error    'err' is defined but never used                                                                                                                 @typescript-eslint/no-unused-vars
+  164:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  213:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  221:37  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  244:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  500:53  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Entries.tsx
+  146:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  291:85  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Financials.tsx
+   31:90   error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+   31:118  error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+   32:86   error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+   32:114  error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+   74:8    warning  React Hook useMemo has missing dependencies: 'monthEnd' and 'monthStart'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  179:45   error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+  206:43   error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+  402:86   error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Login.tsx
+  61:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Profile.tsx
+   85:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  111:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\ProjectDetails.tsx
+  654:33  error  'maxDate' is never reassigned. Use 'const' instead        prefer-const
+  656:33  error  'gridStartDate' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Projects.tsx
+  146:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Projects.tsx:146:13
+  144 |                 return false;
+  145 |             });
+> 146 |             setOrderedProjects(filtered);
+      |             ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  147 |         }
+  148 |     }, [projects, role, engineerId]);
+  149 |                                        react-hooks/set-state-in-effect
+  166:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Projects.tsx:166:13
+  164 |     useEffect(() => {
+  165 |         if (projectPhases.length > 0 && !phase && !editingId) {
+> 166 |             setPhase(projectPhases[0].name);
+      |             ^^^^^^^^ Avoid calling setState() directly within an effect
+  167 |         }
+  168 |     }, [projectPhases, phase, editingId]);
+  169 |  react-hooks/set-state-in-effect
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\Reports.tsx
+  108:45   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:22   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  258:30   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  260:25   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  293:37   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  303:48   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  451:56   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  451:67   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  769:56   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  769:67   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  829:43   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  829:63   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  843:85   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  856:159  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  859:90   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  866:93   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  866:133  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  872:81   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  872:119  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  884:66   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  884:95   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  885:67   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\pages\ResetPassword.tsx
+  38:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\types.ts
+  158:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\types\jspdf-autotable.d.ts
+   5:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   6:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   9:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  10:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\pc\DEC MILESTONE TRACKER\src\utils\excelUtils.ts
+   59:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   60:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  111:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 92 problems (85 errors, 7 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+
