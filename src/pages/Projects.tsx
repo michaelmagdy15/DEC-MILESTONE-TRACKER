@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Folder, X, Check, Users, Calendar, Target, RefreshCw, Settings, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -131,21 +131,16 @@ export const Projects: React.FC = () => {
     const [isManagingPhases, setIsManagingPhases] = useState(false);
 
     // Filter projects based on visibility
-    const [orderedProjects, setOrderedProjects] = useState<Project[]>([]);
-    const isDraggingRef = useRef(false);
-    const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
+    const filteredProjects = projects.filter(p => {
+        if (role === 'admin') return true;
+        if (p.leadDesignerId === engineerId) return true;
+        if (p.teamMembers?.includes(engineerId || '')) return true;
+        return false;
+    });
 
-    useEffect(() => {
-        if (!isDraggingRef.current) {
-            const filtered = projects.filter(p => {
-                if (role === 'admin') return true;
-                if (p.leadDesignerId === engineerId) return true;
-                if (p.teamMembers?.includes(engineerId || '')) return true;
-                return false;
-            });
-            setOrderedProjects(filtered);
-        }
-    }, [projects, role, engineerId]);
+    const [draggedProjects, setDraggedProjects] = useState<Project[] | null>(null);
+    const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
+    const orderedProjects = draggedProjects || filteredProjects;
 
     // Form State
     const [name, setName] = useState('');
@@ -161,11 +156,7 @@ export const Projects: React.FC = () => {
     // Phase milestones (inline creation)
     const [phaseMilestones, setPhaseMilestones] = useState<Record<string, string>>({});
 
-    useEffect(() => {
-        if (projectPhases.length > 0 && !phase && !editingId) {
-            setPhase(projectPhases[0].name);
-        }
-    }, [projectPhases, phase, editingId]);
+    const currentPhase = phase || projectPhases[0]?.name || 'Planning';
 
     const toggleTeamMember = (id: string) => {
         setTeamMembers(prev =>
@@ -184,7 +175,7 @@ export const Projects: React.FC = () => {
             name,
             hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
             budget: budget ? parseFloat(budget) : 0,
-            phase: phase || projectPhases[0]?.name || 'Planning',
+            phase: currentPhase,
             leadDesignerId: leadDesignerId || undefined,
             teamMembers,
             startDate: startDate || undefined,
@@ -254,7 +245,7 @@ export const Projects: React.FC = () => {
     // --- Drag and Drop Logic ---
     const handleDragStart = (index: number) => {
         if (role !== 'admin') return;
-        isDraggingRef.current = true;
+        setDraggedProjects([...filteredProjects]);
         setDraggedProjectIndex(index);
     };
 
@@ -264,7 +255,8 @@ export const Projects: React.FC = () => {
         // Ensure index is within the orderedProjects valid bounds
         if (index < 0 || index >= orderedProjects.length) return;
 
-        setOrderedProjects(prev => {
+        setDraggedProjects(prev => {
+            if (!prev) return prev;
             const newProjects = [...prev];
             const draggedItem = newProjects[draggedProjectIndex];
             newProjects.splice(draggedProjectIndex, 1);
@@ -275,10 +267,13 @@ export const Projects: React.FC = () => {
     };
 
     const handleDragEnd = async () => {
-        if (role !== 'admin') return;
-        isDraggingRef.current = false;
+        if (role !== 'admin' || !draggedProjects) return;
         setDraggedProjectIndex(null);
-        await updateProjectOrder(orderedProjects);
+
+        const finalOrder = [...draggedProjects];
+        setDraggedProjects(null); // Revert to using derived filteredProjects
+
+        await updateProjectOrder(finalOrder);
     };
 
     // --- Phase Management Logic handled in Component ---
