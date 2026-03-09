@@ -1,31 +1,57 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Folder, X, Check, Users, Calendar, Target, RefreshCw, Share2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Edit2, Folder, X, Check, Users, Calendar, Target, RefreshCw, Settings, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { Project } from '../types';
 import { motion } from 'framer-motion';
 import { RiskIndicator } from '../components/RiskIndicator';
 
-const PROJECT_PHASES = ['Planning', 'Design', 'Construction', 'Post-Construction', 'Completed'];
-
 export const Projects: React.FC = () => {
-    const { role } = useAuth();
-    const { projects, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone } = useData();
+    const { role, engineerId } = useAuth();
+    const { projects, projectPhases, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone, updateProjectOrder, addProjectPhase, updateProjectPhase, deleteProjectPhase } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [isManagingPhases, setIsManagingPhases] = useState(false);
+
+    // Filter projects based on visibility
+    const [orderedProjects, setOrderedProjects] = useState<Project[]>([]);
+    const isDraggingRef = useRef(false);
+    const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!isDraggingRef.current) {
+            const filtered = projects.filter(p => {
+                if (role === 'admin') return true;
+                if (p.leadDesignerId === engineerId) return true;
+                if (p.teamMembers?.includes(engineerId || '')) return true;
+                return false;
+            });
+            setOrderedProjects(filtered);
+        }
+    }, [projects, role, engineerId]);
 
     // Form State
     const [name, setName] = useState('');
     const [hourlyRate, setHourlyRate] = useState('');
     const [budget, setBudget] = useState('');
-    const [phase, setPhase] = useState('Planning');
+    const [phase, setPhase] = useState('');
     const [leadDesignerId, setLeadDesignerId] = useState('');
     const [teamMembers, setTeamMembers] = useState<string[]>([]);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [googleDriveLink, setGoogleDriveLink] = useState('');
 
     // Phase milestones (inline creation)
     const [phaseMilestones, setPhaseMilestones] = useState<Record<string, string>>({});
+
+    // Manage Phases State
+    const [newPhaseName, setNewPhaseName] = useState('');
+
+    useEffect(() => {
+        if (projectPhases.length > 0 && !phase && !editingId) {
+            setPhase(projectPhases[0].name);
+        }
+    }, [projectPhases, phase, editingId]);
 
     const toggleTeamMember = (id: string) => {
         setTeamMembers(prev =>
@@ -44,11 +70,13 @@ export const Projects: React.FC = () => {
             name,
             hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
             budget: budget ? parseFloat(budget) : 0,
-            phase: phase || 'Planning',
+            phase: phase || projectPhases[0]?.name || 'Planning',
             leadDesignerId: leadDesignerId || undefined,
             teamMembers,
             startDate: startDate || undefined,
             endDate: endDate || undefined,
+            googleDriveLink: googleDriveLink || undefined,
+            orderIndex: projects.length, // Set order to bottom by default
         };
 
         if (editingId) {
@@ -78,11 +106,12 @@ export const Projects: React.FC = () => {
         setName(project.name);
         setHourlyRate(project.hourlyRate?.toString() || '');
         setBudget(project.budget?.toString() || '');
-        setPhase(project.phase || 'Planning');
+        setPhase(project.phase || projectPhases[0]?.name || 'Planning');
         setLeadDesignerId(project.leadDesignerId || '');
         setTeamMembers(project.teamMembers || []);
         setStartDate(project.startDate || '');
         setEndDate(project.endDate || '');
+        setGoogleDriveLink(project.googleDriveLink || '');
         setPhaseMilestones({});
         setIsAdding(true);
     };
@@ -93,17 +122,70 @@ export const Projects: React.FC = () => {
         setName('');
         setHourlyRate('');
         setBudget('');
-        setPhase('Planning');
+        setPhase(projectPhases[0]?.name || 'Planning');
         setLeadDesignerId('');
         setTeamMembers([]);
         setStartDate('');
         setEndDate('');
+        setGoogleDriveLink('');
         setPhaseMilestones({});
     };
 
     const handleDelete = (id: string) => {
         if (window.confirm('Are you sure you want to delete this project?')) {
             deleteProject(id);
+        }
+    };
+
+    // --- Drag and Drop Logic ---
+    const handleDragStart = (index: number) => {
+        if (role !== 'admin') return;
+        isDraggingRef.current = true;
+        setDraggedProjectIndex(index);
+    };
+
+    const handleDragEnter = (index: number) => {
+        if (role !== 'admin' || draggedProjectIndex === null || draggedProjectIndex === index) return;
+
+        // Ensure index is within the orderedProjects valid bounds
+        if (index < 0 || index >= orderedProjects.length) return;
+
+        setOrderedProjects(prev => {
+            const newProjects = [...prev];
+            const draggedItem = newProjects[draggedProjectIndex];
+            newProjects.splice(draggedProjectIndex, 1);
+            newProjects.splice(index, 0, draggedItem);
+            setDraggedProjectIndex(index);
+            return newProjects;
+        });
+    };
+
+    const handleDragEnd = async () => {
+        if (role !== 'admin') return;
+        isDraggingRef.current = false;
+        setDraggedProjectIndex(null);
+        await updateProjectOrder(orderedProjects);
+    };
+
+    // --- Phase Management Logic ---
+    const handleAddPhase = async () => {
+        if (!newPhaseName.trim()) return;
+        await addProjectPhase({ name: newPhaseName, orderIndex: projectPhases.length });
+        setNewPhaseName('');
+    };
+
+    const handlePhaseReorder = async (index: number, direction: 'up' | 'down') => {
+        const newPhases = [...projectPhases];
+        const swapIndex = direction === 'up' ? index - 1 : index + 1;
+        if (swapIndex < 0 || swapIndex >= newPhases.length) return;
+
+        const temp = newPhases[index];
+        newPhases[index] = newPhases[swapIndex];
+        newPhases[swapIndex] = temp;
+
+        // Execute updates
+        for (let i = 0; i < newPhases.length; i++) {
+            await updateProjectPhase({ ...newPhases[i], orderIndex: i });
         }
     };
 
@@ -130,19 +212,83 @@ export const Projects: React.FC = () => {
                         Project <span className="text-orange-400">Library</span>
                     </h2>
                     <div className="h-1 w-20 bg-orange-500 rounded-full mb-4"></div>
-                    <p className="text-slate-500 font-medium tracking-wide">Manage and monitor all active DEC engineering ventures.</p>
+                    <p className="text-slate-500 font-medium tracking-wide">Manage and monitor active DEC engineering ventures.</p>
                 </div>
                 {role === 'admin' && (
-                    <button
-                        onClick={() => setIsAdding(true)}
-                        disabled={isAdding}
-                        className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Initiate Project</span>
-                    </button>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => setIsManagingPhases(true)}
+                            className="flex items-center justify-center space-x-2 bg-white/5 hover:bg-white/10 text-white px-6 py-4 rounded-2xl border border-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                        >
+                            <Settings className="w-4 h-4" />
+                            <span>Manage Phases</span>
+                        </button>
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            disabled={isAdding}
+                            className="flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 disabled:opacity-50 font-bold uppercase tracking-widest text-[11px]"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Initiate Project</span>
+                        </button>
+                    </div>
                 )}
             </div>
+
+            {/* PHASE MANAGEMENT MODAL */}
+            {isManagingPhases && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-[#1a1a1a] w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl p-8 relative">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-2xl font-black text-white tracking-tight">Project Phases Config</h3>
+                            <button onClick={() => setIsManagingPhases(false)} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {projectPhases.map((phase, index) => (
+                                <div key={phase.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5 group">
+                                    <div className="flex flex-col">
+                                        <button onClick={() => handlePhaseReorder(index, 'up')} disabled={index === 0} className="text-slate-600 hover:text-white disabled:opacity-30">
+                                            <ChevronUp className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handlePhaseReorder(index, 'down')} disabled={index === projectPhases.length - 1} className="text-slate-600 hover:text-white disabled:opacity-30">
+                                            <ChevronDown className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="flex-1">
+                                        <input
+                                            type="text"
+                                            value={phase.name}
+                                            onChange={(e) => updateProjectPhase({ ...phase, name: e.target.value })}
+                                            className="w-full bg-transparent border-none text-sm text-white focus:ring-1 focus:ring-orange-500/50 rounded-lg px-2 py-1"
+                                        />
+                                    </div>
+                                    <button onClick={() => deleteProjectPhase(phase.id)} className="p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            {projectPhases.length === 0 && <p className="text-sm text-slate-500 py-4 text-center">No phases defined. Please add some.</p>}
+                        </div>
+
+                        <div className="flex gap-3 pt-4 border-t border-white/10">
+                            <input
+                                type="text"
+                                placeholder="New phase name..."
+                                value={newPhaseName}
+                                onChange={(e) => setNewPhaseName(e.target.value)}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddPhase()}
+                            />
+                            <button onClick={handleAddPhase} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all">
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isAdding && (
                 <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
@@ -207,8 +353,8 @@ export const Projects: React.FC = () => {
                                     onChange={(e) => setPhase(e.target.value)}
                                     className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium appearance-none"
                                 >
-                                    {PROJECT_PHASES.map(p => (
-                                        <option key={p} value={p} className="bg-[#1a1a1a]">{p}</option>
+                                    {projectPhases.map(p => (
+                                        <option key={p.id} value={p.name} className="bg-[#1a1a1a]">{p.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -227,39 +373,35 @@ export const Projects: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Row 3: Start Date + End Date (Duration) */}
-                        <div className="space-y-3">
-                            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">
-                                <Calendar className="w-3.5 h-3.5 text-orange-400" />
-                                Project Duration
-                            </label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest ml-1">Start Date</span>
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest ml-1">End Date</span>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
-                                    />
-                                </div>
-                                <div className="flex items-end pb-2">
-                                    {startDate && endDate && (
-                                        <div className="px-4 py-3 bg-orange-500/10 border border-orange-500/20 rounded-2xl">
-                                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Duration</div>
-                                            <div className="text-lg font-black text-orange-400">{getDuration(startDate, endDate)}</div>
-                                        </div>
-                                    )}
-                                </div>
+                        {/* Row 3: Google Drive + Start Date + End Date */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="space-y-2">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Google Drive Folder URL</label>
+                                <input
+                                    type="url"
+                                    value={googleDriveLink}
+                                    onChange={(e) => setGoogleDriveLink(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
+                                    placeholder="https://drive.google.com/..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest ml-1">Start Date</span>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest ml-1">End Date</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white/5 border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:bg-white/10 transition-all font-medium"
+                                />
                             </div>
                         </div>
 
@@ -296,22 +438,22 @@ export const Projects: React.FC = () => {
                         </div>
 
                         {/* Row 5: Phase Milestones (only for new projects) */}
-                        {!editingId && (
-                            <div className="space-y-3">
+                        {!editingId && projectPhases.length > 0 && (
+                            <div className="space-y-3 border-t border-white/5 pt-6">
                                 <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">
                                     <Target className="w-3.5 h-3.5 text-orange-400" />
                                     Phase Milestones — Set Deadlines
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {PROJECT_PHASES.filter(p => p !== 'Completed').map(p => (
-                                        <div key={p} className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
+                                    {projectPhases.map(p => (
+                                        <div key={p.id} className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
                                             <div className="flex-1">
-                                                <div className="text-xs font-bold text-white tracking-tight mb-2">{p}</div>
+                                                <div className="text-xs font-bold text-white tracking-tight mb-2 truncate" title={p.name}>{p.name}</div>
                                                 <input
                                                     type="date"
-                                                    value={phaseMilestones[p] || ''}
-                                                    onChange={(e) => setPhaseMilestones(prev => ({ ...prev, [p]: e.target.value }))}
-                                                    className="w-full px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all"
+                                                    value={phaseMilestones[p.name] || ''}
+                                                    onChange={(e) => setPhaseMilestones(prev => ({ ...prev, [p.name]: e.target.value }))}
+                                                    className="w-full px-3 py-2 bg-white/10 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all"
                                                 />
                                             </div>
                                         </div>
@@ -341,7 +483,7 @@ export const Projects: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {projects.length === 0 && !isAdding && (
+                {orderedProjects.length === 0 && !isAdding && (
                     <div className="col-span-full text-center py-32 bg-[#1a1a1a]/20 rounded-[40px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center">
                         <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
                             <Folder className="w-10 h-10 text-slate-700" />
@@ -351,13 +493,21 @@ export const Projects: React.FC = () => {
                     </div>
                 )}
 
-                {projects.map((project) => {
+                {orderedProjects.map((project, index) => {
                     const projectMilestones = milestones.filter(m => m.projectId === project.id);
                     const teamCount = project.teamMembers?.length || 0;
                     const duration = getDuration(project.startDate, project.endDate);
 
                     return (
-                        <div key={project.id} className="group bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 hover:border-orange-500/30 backdrop-blur-3xl shadow-2xl transition-all duration-500 hover:-translate-y-2 relative overflow-hidden">
+                        <div
+                            key={project.id}
+                            draggable={role === 'admin'}
+                            onDragStart={() => handleDragStart(index)}
+                            onDragEnter={() => handleDragEnter(index)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => e.preventDefault()}
+                            className={`group bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 hover:border-orange-500/30 backdrop-blur-3xl shadow-2xl transition-all duration-300 ${draggedProjectIndex === index ? 'opacity-40 scale-95' : 'opacity-100'} hover:-translate-y-2 relative overflow-hidden ${role === 'admin' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        >
                             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover:bg-orange-500/10 transition-all duration-500"></div>
                             <div className="flex justify-between items-start mb-6 relative z-10">
                                 <div className="w-14 h-14 bg-white/5 text-white rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-all duration-500 shadow-lg">
@@ -365,6 +515,9 @@ export const Projects: React.FC = () => {
                                 </div>
                                 {role === 'admin' && (
                                     <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+                                        <div className="p-2.5 text-slate-700 cursor-grab" title="Drag to reorder">
+                                            <GripVertical className="w-4 h-4" />
+                                        </div>
                                         <button
                                             onClick={() => startEdit(project)}
                                             className="p-2.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"
@@ -380,7 +533,7 @@ export const Projects: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <div className="relative z-10">
+                            <div className="relative z-10 pointer-events-none">
                                 <h3 className="font-black text-xl text-white mb-2 tracking-tight group-hover:text-orange-400 transition-colors">{project.name}</h3>
                                 <div className="flex items-center gap-4 mb-6">
                                     <div className="h-0.5 w-8 bg-orange-500/30 group-hover:w-12 transition-all duration-500"></div>
@@ -422,10 +575,6 @@ export const Projects: React.FC = () => {
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{duration}</span>
                                         </div>
                                     )}
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Score: 94%</span>
-                                    </div>
                                 </div>
 
                                 {/* Milestones preview */}
@@ -435,15 +584,12 @@ export const Projects: React.FC = () => {
                                         {projectMilestones.slice(0, 3).map(m => (
                                             <div key={m.id} className="space-y-2">
                                                 <div className="flex items-center justify-between bg-white/5 px-3 py-2 rounded-xl border border-white/5">
-                                                    <span className="text-xs font-bold text-white">{m.name}</span>
-                                                    <span className="text-[10px] text-slate-500 font-mono">{m.targetDate || '-'}</span>
+                                                    <span className="text-xs font-bold text-white truncate" title={m.name}>{m.name}</span>
+                                                    <span className="text-[10px] text-slate-500 font-mono shrink-0">{m.targetDate || '-'}</span>
                                                 </div>
                                                 <RiskIndicator milestone={m} entries={entries} />
                                             </div>
                                         ))}
-                                        {projectMilestones.length > 3 && (
-                                            <p className="text-[10px] text-slate-600 font-bold">+{projectMilestones.length - 3} more</p>
-                                        )}
                                     </div>
                                 )}
 
@@ -453,36 +599,29 @@ export const Projects: React.FC = () => {
                                         {engineers.find(e => e.id === project.leadDesignerId)?.name || 'Unassigned'}
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="flex gap-3">
+                            <div className="flex gap-3 relative z-20 pointer-events-auto mt-4">
+                                <button
+                                    onClick={() => window.location.href = `/projects/${project.id}`}
+                                    className="flex-[2] py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-orange-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-orange-500 shadow-xl"
+                                >
+                                    Inspect Venture
+                                </button>
+                                {role === 'admin' && (
                                     <button
-                                        onClick={() => window.location.href = `/projects/${project.id}`}
-                                        className="flex-[2] py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-white/5 hover:bg-orange-600 rounded-2xl transition-all duration-500 border border-white/5 hover:border-orange-500 shadow-xl"
+                                        onClick={async (e) => {
+                                            const btn = e.currentTarget;
+                                            btn.classList.add('animate-spin-slow');
+                                            await new Promise(r => setTimeout(r, 1000));
+                                            btn.classList.remove('animate-spin-slow');
+                                        }}
+                                        title="Sync with Zoho CRM"
+                                        className="w-12 h-12 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white rounded-2xl border border-white/5 transition-all flex items-center justify-center shrink-0"
                                     >
-                                        Inspect Venture
+                                        <RefreshCw className="w-4 h-4" />
                                     </button>
-                                    {role === 'admin' && (
-                                        <button
-                                            onClick={async (e) => {
-                                                const btn = e.currentTarget;
-                                                btn.classList.add('animate-spin-slow');
-                                                await new Promise(r => setTimeout(r, 1000));
-                                                btn.classList.remove('animate-spin-slow');
-                                            }}
-                                            title="Sync with Zoho CRM"
-                                            className="w-12 h-12 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white rounded-2xl border border-white/5 transition-all flex items-center justify-center shrink-0"
-                                        >
-                                            <RefreshCw className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => window.alert('Generating client report payload...')}
-                                        title="Share Report with Client"
-                                        className="w-12 h-12 bg-white/5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-2xl border border-white/5 hover:border-emerald-500/20 transition-all flex items-center justify-center shrink-0"
-                                    >
-                                        <Share2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                )}
                             </div>
                         </div>
                     );

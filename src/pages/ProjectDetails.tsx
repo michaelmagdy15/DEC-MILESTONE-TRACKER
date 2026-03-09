@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
-import toast from 'react-hot-toast';
+
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, File, Upload, Trash2, Download, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, Folder, Info, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
-import { supabase } from '../lib/supabase';
+
+
 import { differenceInDays, format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -15,17 +17,15 @@ import { ClientReportTemplate } from '../components/ClientReportTemplate';
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { projects, milestones, tasks, engineers, entries, addMilestone, addTask, updateTask, addNotification, projectFiles, addProjectFile, deleteProjectFile, isLoading } = useData();
-    const { role, engineerId: currentEngineerId, user } = useAuth();
+    const { projects, milestones, tasks, engineers, entries, addMilestone, addTask, updateTask, addNotification, isLoading } = useData();
+    const { role, engineerId: currentEngineerId } = useAuth();
 
     const project = projects.find(p => p.id === id);
     const projectMilestones = milestones.filter(m => m.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const projectTasks = tasks.filter(t => t.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-    const pFiles = projectFiles.filter(f => f.projectId === id).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     const projectEntries = entries.filter(e => e.projectId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const [activeTab, setActiveTab] = useState<'milestones' | 'gantt' | 'files' | 'entries'>('milestones');
-    const [isUploading, setIsUploading] = useState(false);
 
     // UI state
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
@@ -185,58 +185,7 @@ export const ProjectDetails: React.FC = () => {
         }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !project) return;
 
-        // ── File validation ──
-        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-        const ALLOWED_EXTENSIONS = ['pdf', 'dwf', 'dwg', 'dxf'];
-        const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-
-        if (file.size > MAX_FILE_SIZE) {
-            toast.error(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 50 MB.`);
-            if (e.target) e.target.value = '';
-            return;
-        }
-
-        if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
-            toast.error(`Unsupported file type (.${fileExt}). Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
-            if (e.target) e.target.value = '';
-            return;
-        }
-
-        setIsUploading(true);
-        try {
-            const fileName = `${project.id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('project-files')
-                .upload(fileName, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data: publicUrlData } = supabase.storage
-                .from('project-files')
-                .getPublicUrl(fileName);
-
-            await addProjectFile({
-                id: crypto.randomUUID(),
-                projectId: project.id,
-                name: file.name,
-                fileFormat: fileExt as 'pdf' | 'dwf',
-                fileUrl: publicUrlData.publicUrl,
-                uploadedBy: currentEngineerId || 'system'
-            });
-
-        } catch (error) {
-            console.error('Error uploading file:', error);
-            toast.error('Failed to upload file.');
-        } finally {
-            setIsUploading(false);
-            if (e.target) e.target.value = ''; // clear input
-        }
-    };
 
     return (
         <motion.div
@@ -288,22 +237,18 @@ export const ProjectDetails: React.FC = () => {
                         </button>
                     )}
                     {activeTab === 'files' && (
-                        <div>
-                            <input
-                                type="file"
-                                id="file-upload"
-                                className="hidden"
-                                onChange={handleFileUpload}
-                                accept=".pdf,.dwf"
-                                disabled={isUploading}
-                            />
-                            <label
-                                htmlFor="file-upload"
-                                className={`flex items-center justify-center space-x-3 bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-1 ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} font-bold uppercase tracking-widest text-[11px]`}
-                            >
-                                <Upload className="w-4 h-4" />
-                                <span>{isUploading ? 'Uploading...' : 'Upload File'}</span>
-                            </label>
+                        <div className="flex gap-4">
+                            {project?.googleDriveLink && (
+                                <a
+                                    href={project.googleDriveLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white px-6 py-4 rounded-2xl transition-all duration-300 shadow-xl font-bold uppercase tracking-widest text-[11px] border border-white/5"
+                                >
+                                    <Folder className="w-4 h-4 text-orange-400" />
+                                    <span>Google Drive</span>
+                                </a>
+                            )}
                         </div>
                     )}
                 </div>
@@ -442,6 +387,20 @@ export const ProjectDetails: React.FC = () => {
             )}
 
             <div className="space-y-8">
+                {activeTab === 'milestones' && (
+                    <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-[32px] flex flex-col md:flex-row items-start md:items-center gap-6 relative overflow-hidden group">
+                        <div className="w-12 h-12 bg-orange-500/20 rounded-2xl flex items-center justify-center border border-orange-500/30 shrink-0">
+                            <Info className="w-6 h-6 text-orange-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-white font-black text-lg mb-1">How System Works: Milestones & Active Tasks</h3>
+                            <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                                <strong className="text-slate-300">Milestones</strong> act as major deliverables or phases for the project. Create them first. Once created, you can add <strong className="text-slate-300">Active Tasks</strong> directly under each milestone, assign them to engineers, and track their lifecycle (Queued, Executing, Verified) using the + and ✓ buttons.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {projectMilestones.length === 0 && !isAddingMilestone && (
                     <div className="text-center py-20 bg-[#1a1a1a]/40 rounded-[40px] border border-dashed border-white/5 backdrop-blur-3xl">
                         <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/5">
@@ -668,145 +627,163 @@ export const ProjectDetails: React.FC = () => {
             </div>
 
             {activeTab === 'gantt' && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto"
-                >
-                    {projectTasks.filter(t => t.startDate && t.dueDate).length === 0 ? (
-                        <div className="text-center py-20">
-                            <h3 className="text-xl font-black text-white tracking-tight">No Timeline Data</h3>
-                            <p className="text-slate-500 font-medium mt-2">Ensure tasks have both a start date and due date to appear in the Gantt chart.</p>
-                        </div>
-                    ) : (
-                        <div className="min-w-[800px]">
-                            {/* Simple Gantt Visualization */}
-                            <div className="mb-6 flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest px-4">
-                                <div className="w-1/4">Task</div>
-                                <div className="w-1/4">Assignee</div>
-                                <div className="w-1/2">Timeline</div>
+                <div className="space-y-8">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto"
+                    >
+                        {projectTasks.filter(t => t.startDate && t.dueDate).length === 0 ? (
+                            <div className="text-center py-20">
+                                <h3 className="text-xl font-black text-white tracking-tight">No Timeline Data</h3>
+                                <p className="text-slate-500 font-medium mt-2">Ensure tasks have both a start date and due date to appear in the Gantt chart.</p>
                             </div>
-                            <div className="space-y-2">
-                                {projectTasks
-                                    .filter(t => t.startDate && t.dueDate)
-                                    .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())
-                                    .map(task => {
-                                        const start = new Date(task.startDate!);
-                                        const due = new Date(task.dueDate!);
-                                        const now = new Date();
+                        ) : (
+                            <div className="min-w-[800px]">
+                                {/* Simple Gantt Visualization */}
+                                <div className="mb-6 flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest px-4">
+                                    <div className="w-1/4">Task</div>
+                                    <div className="w-1/4">Assignee</div>
+                                    <div className="w-1/2">Timeline</div>
+                                </div>
+                                <div className="space-y-2">
+                                    {projectTasks
+                                        .filter(t => t.startDate && t.dueDate)
+                                        .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())
+                                        .map(task => {
+                                            const start = new Date(task.startDate!);
+                                            const due = new Date(task.dueDate!);
+                                            const now = new Date();
 
-                                        // Calculate relative positions (simplified for visual representation)
-                                        // Find earliest start date across all project tasks to set as baseline
-                                        const allStarts = projectTasks.filter(t => t.startDate).map(t => new Date(t.startDate!).getTime());
-                                        const allDues = projectTasks.filter(t => t.dueDate).map(t => new Date(t.dueDate!).getTime());
-                                        const projectStart = new Date(Math.min(...allStarts));
-                                        const projectEnd = new Date(Math.max(...allDues));
+                                            const allStarts = projectTasks.filter(t => t.startDate).map(t => new Date(t.startDate!).getTime());
+                                            const allDues = projectTasks.filter(t => t.dueDate).map(t => new Date(t.dueDate!).getTime());
+                                            const projectStart = new Date(Math.min(...allStarts));
+                                            const projectEnd = new Date(Math.max(...allDues));
 
-                                        const totalProjectDays = differenceInDays(projectEnd, projectStart) || 1;
-                                        const taskStartOffset = differenceInDays(start, projectStart);
-                                        const taskDuration = differenceInDays(due, start) || 1;
+                                            const totalProjectDays = differenceInDays(projectEnd, projectStart) || 1;
+                                            const taskStartOffset = differenceInDays(start, projectStart);
+                                            const taskDuration = differenceInDays(due, start) || 1;
 
-                                        const leftPercent = Math.max(0, (taskStartOffset / totalProjectDays) * 100);
-                                        const widthPercent = Math.min(100 - leftPercent, Math.max(2, (taskDuration / totalProjectDays) * 100));
+                                            const leftPercent = Math.max(0, (taskStartOffset / totalProjectDays) * 100);
+                                            const widthPercent = Math.min(100 - leftPercent, Math.max(2, (taskDuration / totalProjectDays) * 100));
 
-                                        const isOverdue = task.status !== 'done' && due < now;
+                                            const isOverdue = task.status !== 'done' && due < now;
 
-                                        return (
-                                            <div key={task.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
-                                                <div className="w-1/4 truncate">
-                                                    <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-white'} truncate text-sm`}>{task.title}</p>
-                                                    <p className="text-[10px] text-slate-500 truncate">{milestones.find(m => m.id === task.milestoneId)?.name}</p>
-                                                </div>
-                                                <div className="w-1/4">
-                                                    <span className="px-2 py-1 bg-white/10 rounded-lg text-xs font-bold text-slate-300">
-                                                        {engineers.find(e => e.id === task.engineerId)?.name || 'Unassigned'}
-                                                    </span>
-                                                </div>
-                                                <div className="w-1/2 relative h-8 bg-[#1a1a1a]/80 rounded-full overflow-hidden border border-white/5">
-                                                    <div
-                                                        className={`absolute top-0 bottom-0 rounded-full flex items-center px-2 shadow-lg ${task.status === 'done' ? 'bg-emerald-500/80 border border-emerald-400/50' :
-                                                            isOverdue ? 'bg-red-500/80 border border-red-400/50 animate-pulse' :
-                                                                task.status === 'in_progress' ? 'bg-orange-500/80 border border-orange-400/50' :
-                                                                    'bg-slate-500/80 border border-slate-400/50'
-                                                            }`}
-                                                        style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
-                                                        title={`${format(start, 'MMM d')} - ${format(due, 'MMM d')}`}
-                                                    >
-                                                        <span className="text-[9px] font-black text-white/90 truncate pl-1 mix-blend-overlay">
-                                                            {format(start, 'MMM d')} - {format(due, 'MMM d')}
+                                            return (
+                                                <div key={task.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
+                                                    <div className="w-1/4 truncate">
+                                                        <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-white'} truncate text-sm`}>{task.title}</p>
+                                                        <p className="text-[10px] text-slate-500 truncate">{milestones.find(m => m.id === task.milestoneId)?.name}</p>
+                                                    </div>
+                                                    <div className="w-1/4">
+                                                        <span className="px-2 py-1 bg-white/10 rounded-lg text-xs font-bold text-slate-300">
+                                                            {engineers.find(e => e.id === task.engineerId)?.name || 'Unassigned'}
                                                         </span>
                                                     </div>
+                                                    <div className="w-1/2 relative h-8 bg-[#1a1a1a]/80 rounded-full overflow-hidden border border-white/5">
+                                                        <div
+                                                            className={`absolute top-0 bottom-0 rounded-full flex items-center px-2 shadow-lg ${task.status === 'done' ? 'bg-emerald-500/80 border border-emerald-400/50' :
+                                                                isOverdue ? 'bg-red-500/80 border border-red-400/50 animate-pulse' :
+                                                                    task.status === 'in_progress' ? 'bg-orange-500/80 border border-orange-400/50' :
+                                                                        'bg-slate-500/80 border border-slate-400/50'
+                                                                }`}
+                                                            style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                                                            title={`${format(start, 'MMM d')} - ${format(due, 'MMM d')}`}
+                                                        >
+                                                            <span className="text-[9px] font-black text-white/90 truncate pl-1 mix-blend-overlay">
+                                                                {format(start, 'MMM d')} - {format(due, 'MMM d')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })}
+                                </div>
                             </div>
-                        </div>
+                        )}
+                    </motion.div>
+
+                    {/* Unscheduled Tasks Section */}
+                    {projectTasks.filter(t => !t.startDate || !t.dueDate).length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl"
+                        >
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                                <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Unscheduled Tasks</h4>
+                                <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-slate-500 border border-white/5">
+                                    {projectTasks.filter(t => !t.startDate || !t.dueDate).length}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {projectTasks.filter(t => !t.startDate || !t.dueDate).map(task => (
+                                    <div key={task.id} className="bg-white/5 p-5 rounded-[24px] border border-white/5 hover:border-orange-500/30 transition-all">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <p className="text-white font-bold leading-relaxed">{task.title}</p>
+                                        </div>
+                                        <div className="space-y-3 mt-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest w-12">Start:</span>
+                                                <input
+                                                    type="date"
+                                                    value={task.startDate || ''}
+                                                    onChange={(e) => updateTask({ ...task, startDate: e.target.value })}
+                                                    className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:ring-1 focus:ring-orange-500/50"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest w-12">Due:</span>
+                                                <input
+                                                    type="date"
+                                                    value={task.dueDate || ''}
+                                                    onChange={(e) => updateTask({ ...task, dueDate: e.target.value })}
+                                                    className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:ring-1 focus:ring-orange-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
                     )}
-                </motion.div>
+                </div>
             )}
 
             {activeTab === 'files' && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                    className="w-full h-[600px] md:h-[700px] bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl overflow-hidden relative"
                 >
-                    {pFiles.length === 0 ? (
-                        <div className="col-span-full text-center py-32 bg-[#1a1a1a]/20 rounded-[40px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center">
-                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                                <File className="w-10 h-10 text-slate-700" />
-                            </div>
-                            <p className="text-slate-400 font-black text-xl tracking-tight mb-2">No files uploaded yet</p>
-                            <p className="text-slate-600 text-sm font-bold uppercase tracking-widest">Share PDFs or DWF files for this project</p>
-                        </div>
-                    ) : (
-                        pFiles.map(f => {
-                            const uploader = engineers.find(e => e.id === f.uploadedBy);
-                            return (
-                                <div key={f.id} className="group bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 hover:border-orange-500/30 backdrop-blur-3xl shadow-2xl transition-all duration-500 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover:bg-orange-500/10 transition-all duration-500"></div>
-                                    <div className="flex justify-between items-start mb-6 relative z-10">
-                                        <div className="w-14 h-14 bg-white/5 text-white rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-all duration-500 shadow-lg">
-                                            <File className="w-6 h-6" />
-                                        </div>
-                                        <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
-                                            <a
-                                                href={f.fileUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="p-2.5 text-slate-500 hover:text-orange-400 hover:bg-orange-400/10 rounded-xl transition-all"
-                                                title="Open / Download"
-                                            >
-                                                <Download className="w-4 h-4" />
-                                            </a>
-                                            {(role === 'admin' || f.uploadedBy === user?.id) && (
-                                                <button
-                                                    onClick={() => deleteProjectFile(f.id)}
-                                                    className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all flex items-center"
-                                                    title="Delete File"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="relative z-10">
-                                        <h3 className="font-black text-lg text-white tracking-tight group-hover:text-orange-400 transition-colors break-words mb-2">{f.name}</h3>
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                                                <span className="bg-white/10 px-2 py-0.5 rounded text-white mr-2">{f.fileFormat.toUpperCase()}</span>
-                                                {new Date(f.createdAt || '').toLocaleDateString()}
-                                            </div>
-                                            {uploader && (
-                                                <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Uploaded by: <span className="text-slate-400">{uploader.name}</span></p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })
-                    )}
+                    {(() => {
+                        let folderId = '1g8vpZW2ZUtmYVHCpoDGHfiv01qqLM-BG';
+
+                        if (project?.googleDriveLink) {
+                            const match = project.googleDriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                            if (match && match[1]) {
+                                folderId = match[1];
+                            } else if (project.googleDriveLink.includes('id=')) {
+                                const idMatch = project.googleDriveLink.match(/id=([a-zA-Z0-9_-]+)/);
+                                if (idMatch && idMatch[1]) folderId = idMatch[1];
+                            }
+                        }
+
+                        const embedUrl = `https://drive.google.com/embeddedfolderview?id=${folderId}#grid`;
+
+                        return (
+                            <iframe
+                                src={embedUrl}
+                                width="100%"
+                                height="100%"
+                                className="border-0 bg-transparent w-full h-full"
+                                title="Google Drive Folder"
+                                allow="fullscreen"
+                                loading="lazy"
+                            ></iframe>
+                        );
+                    })()}
                 </motion.div>
             )}
             {activeTab === 'entries' && (

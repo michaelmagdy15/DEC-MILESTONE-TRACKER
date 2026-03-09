@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog, AuditLog, OfficeExpense } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog, AuditLog, OfficeExpense, ProjectPhase } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 
 interface DataContextType {
     projects: Project[];
+    projectPhases: ProjectPhase[];
     engineers: Engineer[];
     entries: LogEntry[];
     attendance: AttendanceRecord[];
@@ -18,6 +19,7 @@ interface DataContextType {
     timeEntries: TimeEntry[];
     addProject: (project: Project) => Promise<void>;
     updateProject: (project: Project) => Promise<void>;
+    updateProjectOrder: (projects: Project[]) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
     addEngineer: (engineer: Engineer) => Promise<void>;
     updateEngineer: (engineer: Engineer) => Promise<void>;
@@ -66,13 +68,17 @@ interface DataContextType {
 
     addOfficeExpense: (expense: OfficeExpense) => Promise<void>;
     deleteOfficeExpense: (id: string) => Promise<void>;
+
+    addProjectPhase: (phase: Omit<ProjectPhase, 'id'>) => Promise<void>;
+    updateProjectPhase: (phase: ProjectPhase) => Promise<void>;
+    deleteProjectPhase: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // ─── Table fetch configuration ───────────────────────────────────
 // Centralizes mappers so both initial fetch and realtime refresh use the same logic.
-type TableName = 'projects' | 'engineers' | 'entries' | 'attendance' | 'milestones' | 'tasks' | 'leave_requests' | 'notifications' | 'meetings' | 'project_files' | 'time_entries' | 'app_usage_log' | 'audit_log' | 'office_expenses';
+type TableName = 'projects' | 'engineers' | 'entries' | 'attendance' | 'milestones' | 'tasks' | 'leave_requests' | 'notifications' | 'meetings' | 'project_files' | 'time_entries' | 'app_usage_log' | 'audit_log' | 'office_expenses' | 'project_phases';
 
 interface TableConfig {
     mapper: (row: any) => any;
@@ -82,8 +88,8 @@ interface TableConfig {
 
 const TABLE_CONFIGS: Record<TableName, TableConfig> = {
     projects: {
-        mapper: (p: any) => ({ id: p.id, name: p.name, hourlyRate: p.hourly_rate, budget: p.budget || 0, phase: p.phase || 'Planning', leadDesignerId: p.lead_designer_id, teamMembers: p.team_members || [], startDate: p.start_date, endDate: p.end_date, zohoDealId: p.zoho_deal_id }),
-        orderBy: 'created_at', ascending: false,
+        mapper: (p: any) => ({ id: p.id, name: p.name, hourlyRate: p.hourly_rate, budget: p.budget || 0, phase: p.phase || 'Planning', leadDesignerId: p.lead_designer_id, teamMembers: p.team_members || [], startDate: p.start_date, endDate: p.end_date, zohoDealId: p.zoho_deal_id, orderIndex: p.order_index, googleDriveLink: p.google_drive_link }),
+        orderBy: 'order_index', ascending: true,
     },
     engineers: {
         mapper: (e: any) => ({ id: e.id, name: e.name, role: e.role, hourlyRate: e.hourly_rate, weeklyGoalHours: e.weekly_goal_hours, location: e.location, skills: e.skills || [] }),
@@ -137,10 +143,15 @@ const TABLE_CONFIGS: Record<TableName, TableConfig> = {
         mapper: (o: any) => ({ id: o.id, location: o.location, category: o.category, amount: o.amount, currency: o.currency, description: o.description, date: o.date, createdAt: o.created_at }),
         orderBy: 'date', ascending: false,
     },
+    project_phases: {
+        mapper: (p: any) => ({ id: p.id, name: p.name, orderIndex: p.order_index, createdAt: p.created_at }),
+        orderBy: 'order_index', ascending: true,
+    },
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [projects, setProjects] = useState<Project[]>([]);
+    const [projectPhases, setProjectPhases] = useState<ProjectPhase[]>([]);
     const [engineers, setEngineers] = useState<Engineer[]>([]);
     const [entries, setEntries] = useState<LogEntry[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -162,6 +173,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Setter map — allows fetching a single table by name
     const setterMap: Record<TableName, (data: any) => void> = {
         projects: setProjects,
+        project_phases: setProjectPhases,
         engineers: setEngineers,
         entries: setEntries,
         attendance: setAttendance,
@@ -251,7 +263,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchAllTables(true);
 
         // Subscribe to realtime changes — only refetch the affected table
-        const WATCHED_TABLES: TableName[] = ['projects', 'engineers', 'entries', 'attendance', 'milestones', 'tasks', 'leave_requests', 'notifications', 'meetings', 'project_files', 'time_entries', 'office_expenses'];
+        const WATCHED_TABLES: TableName[] = ['projects', 'engineers', 'entries', 'attendance', 'milestones', 'tasks', 'leave_requests', 'notifications', 'meetings', 'project_files', 'time_entries', 'office_expenses', 'project_phases'];
 
         const channels = supabase.channel('custom-all-channel');
         for (const table of WATCHED_TABLES) {
@@ -274,7 +286,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.from('projects').insert({
             id: project.id, name: project.name, hourly_rate: project.hourlyRate,
             budget: project.budget || 0, phase: project.phase || 'Planning', lead_designer_id: project.leadDesignerId,
-            team_members: project.teamMembers || [], start_date: project.startDate, end_date: project.endDate
+            team_members: project.teamMembers || [], start_date: project.startDate, end_date: project.endDate,
+            order_index: project.orderIndex || 0, google_drive_link: project.googleDriveLink
         });
         if (error) { toast.error(`Failed to add project: ${error.message}`); return; }
         toast.success('Project created');
@@ -286,7 +299,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.from('projects').update({
             name: project.name, hourly_rate: project.hourlyRate, budget: project.budget,
             phase: project.phase, lead_designer_id: project.leadDesignerId,
-            team_members: project.teamMembers || [], start_date: project.startDate, end_date: project.endDate
+            team_members: project.teamMembers || [], start_date: project.startDate, end_date: project.endDate,
+            order_index: project.orderIndex, google_drive_link: project.googleDriveLink
         }).eq('id', project.id);
         if (error) { toast.error(`Failed to update project: ${error.message}`); return; }
         toast.success('Project updated');
@@ -300,6 +314,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.success('Project deleted');
         void logAudit('deleted', 'projects', id);
         await fetchSingleTable('projects');
+    };
+
+    const updateProjectOrder = async (orderedProjects: Project[]) => {
+        // Optimistic update
+        setProjects(orderedProjects);
+
+        try {
+            const updates = orderedProjects.map((p, index) => ({
+                id: p.id,
+                order_index: index,
+            }));
+
+            const { error } = await supabase.from('projects').upsert(updates);
+            if (error) { toast.error(`Failed to reorder projects: ${error.message}`); return; }
+            await fetchSingleTable('projects');
+        } catch (err) {
+            console.error('Error reordering projects:', err);
+        }
     };
 
     // Engineers
@@ -654,6 +686,32 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchSingleTable('office_expenses');
     };
 
+    // Project Phases
+    const addProjectPhase = async (phase: Omit<ProjectPhase, 'id'>) => {
+        const { error } = await supabase.from('project_phases').insert({
+            name: phase.name, order_index: phase.orderIndex
+        });
+        if (error) { toast.error(`Failed to add phase: ${error.message}`); return; }
+        toast.success('Phase created');
+        await fetchSingleTable('project_phases');
+    };
+
+    const updateProjectPhase = async (phase: ProjectPhase) => {
+        const { error } = await supabase.from('project_phases').update({
+            name: phase.name, order_index: phase.orderIndex
+        }).eq('id', phase.id);
+        if (error) { toast.error(`Failed to update phase: ${error.message}`); return; }
+        toast.success('Phase updated');
+        await fetchSingleTable('project_phases');
+    };
+
+    const deleteProjectPhase = async (id: string) => {
+        const { error } = await supabase.from('project_phases').delete().eq('id', id);
+        if (error) { toast.error(`Failed to delete phase: ${error.message}`); return; }
+        toast.success('Phase deleted');
+        await fetchSingleTable('project_phases');
+    };
+
     // Clear transient monthly data — keeps projects, engineers, and project files
     const clearMonthlyData = async () => {
         try {
@@ -685,7 +743,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <DataContext.Provider value={{
             projects, engineers, entries, attendance, milestones, tasks,
             leaveRequests, notifications, meetings, projectFiles, timeEntries,
-            addProject, updateProject, deleteProject,
+            addProject, updateProject, updateProjectOrder, deleteProject,
             addEngineer, updateEngineer, deleteEngineer,
             addEntry, updateEntry, deleteEntry,
             addAttendance, updateAttendance, deleteAttendance,
@@ -698,8 +756,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addTimeEntry, updateTimeEntry,
             addAppUsageLog,
             addOfficeExpense, deleteOfficeExpense,
+            addProjectPhase, updateProjectPhase, deleteProjectPhase,
             clearMonthlyData,
-            appUsageLogs, auditLogs, officeExpenses, isLoading
+            appUsageLogs, auditLogs, officeExpenses, isLoading, projectPhases
         }}>
             {children}
         </DataContext.Provider>

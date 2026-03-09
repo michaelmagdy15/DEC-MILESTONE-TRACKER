@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getValidAccessToken, fetchZohoAccounts, fetchZohoEmails, ZOHO_TOKENS_KEYS } from '../lib/zoho';
 import { BellRing, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 // Safely check if browser Notification API is available
 const hasNotificationAPI = typeof window !== 'undefined' && 'Notification' in window;
@@ -50,8 +51,8 @@ export const MailNotifier = () => {
             }
         };
 
-        // Poll every 60 seconds (less aggressive to reduce load)
-        const interval = setInterval(checkEmails, 60000);
+        // Poll every 15 seconds for a more real-time feel
+        const interval = setInterval(checkEmails, 15000);
         // Initial check after 5s delay to let the app settle
         const initialDelay = setTimeout(checkEmails, 5000);
 
@@ -85,6 +86,11 @@ export const MailNotifier = () => {
     const triggerNotification = (sender: string, subject: string) => {
         playSound();
 
+        // Dispatch custom event to notify Emails.tsx to refresh
+        window.dispatchEvent(new CustomEvent('new-email'));
+
+        let shownNative = false;
+
         try {
             if (hasNotificationAPI && Notification.permission === 'granted') {
                 const notif = new Notification('New Email Received', {
@@ -94,13 +100,56 @@ export const MailNotifier = () => {
 
                 notif.onclick = () => {
                     window.focus();
-                    // Use SPA navigation — NOT window.location.assign which causes full reload
                     navigate('/emails');
                     notif.close();
                 };
+                shownNative = true;
             }
         } catch (err) {
-            console.warn('Notification error:', err);
+            console.warn('Native Notification error:', err);
+        }
+
+        // Fallback or guaranteed visual toast if native notification wasn't shown
+        if (!shownNative) {
+            toast.custom(
+                (t) => (
+                    <div
+                        className={`${t.visible ? 'animate-enter' : 'animate-leave'}
+                        max-w-md w-full bg-[#1a1a1a] shadow-[0_10px_40px_rgba(249,115,22,0.2)] rounded-2xl pointer-events-auto flex ring-1 ring-orange-500/20 border border-orange-500/30 overflow-hidden cursor-pointer backdrop-blur-3xl`}
+                        onClick={() => {
+                            toast.dismiss(t.id);
+                            navigate('/emails');
+                        }}
+                    >
+                        <div className="flex-1 w-0 p-4">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0 pt-0.5">
+                                    <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center border border-orange-500/20">
+                                        <BellRing className="w-5 h-5 text-orange-400" />
+                                    </div>
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <p className="text-sm font-black text-white uppercase tracking-wider">New Email Received</p>
+                                    <p className="mt-1 text-sm text-slate-400 truncate w-[200px]">From: {sender}</p>
+                                    <p className="mt-1 text-xs text-slate-500 line-clamp-2">{subject || 'No Subject'}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex border-l border-white/5">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    toast.dismiss(t.id);
+                                }}
+                                className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-slate-500 hover:text-white hover:bg-white/5 transition-colors focus:outline-none"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                ),
+                { duration: 8000, position: 'top-right' }
+            );
         }
     };
 

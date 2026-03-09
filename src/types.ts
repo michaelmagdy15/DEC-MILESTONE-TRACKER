@@ -9,6 +9,15 @@ export interface Project {
     startDate?: string;
     endDate?: string;
     zohoDealId?: string; // For Zoho Sync
+    orderIndex?: number;
+    googleDriveLink?: string;
+}
+
+export interface ProjectPhase {
+    id: string;
+    name: string;
+    orderIndex: number;
+    createdAt?: string;
 }
 
 export interface Engineer {
@@ -137,6 +146,7 @@ export interface AppData {
     projectFiles: ProjectFile[];
     timeEntries: TimeEntry[];
     appUsageLogs: AppUsageLog[];
+    projectPhases: ProjectPhase[];
 }
 
 export interface AuditLog {

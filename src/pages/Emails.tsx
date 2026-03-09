@@ -55,6 +55,17 @@ export const Emails = () => {
         }
     }, [searchParams]);
 
+    useEffect(() => {
+        const handleNewEmail = () => {
+            // Silently refresh emails when a new one is detected by the MailNotifier
+            if (isConnected) {
+                loadEmails(undefined, true);
+            }
+        };
+        window.addEventListener('new-email', handleNewEmail);
+        return () => window.removeEventListener('new-email', handleNewEmail);
+    }, [isConnected, activeFolder]); // Depend on activeFolder so it fetches the correct folder if changed
+
     const handleOAuthCallback = async (code: string) => {
         try {
             setIsLoading(true);
@@ -130,15 +141,15 @@ export const Emails = () => {
         }
     };
 
-    const loadEmails = async (providedToken?: string) => {
+    const loadEmails = async (providedToken?: string, quiet = false) => {
         try {
-            setIsLoading(true);
+            if (!quiet) setIsLoading(true);
             setError(null);
             const token = providedToken || await getValidAccessToken();
             if (!token) throw new Error('Not authenticated');
 
             const userAccounts = await fetchZohoAccounts(token);
-            setAccounts(userAccounts);
+            if (!quiet) setAccounts(userAccounts);
 
             if (userAccounts.length > 0) {
                 const primaryAccountId = userAccounts[0].accountId;
@@ -151,13 +162,13 @@ export const Emails = () => {
                 await loadFolderEmails(token, primaryAccountId, foldersData);
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch emails');
+            if (!quiet) setError(err.message || 'Failed to fetch emails');
             if (err.message?.includes('Not authenticated') || err.message?.includes('token')) {
                 setIsConnected(false);
                 clearZohoTokens();
             }
         } finally {
-            setIsLoading(false);
+            if (!quiet) setIsLoading(false);
         }
     };
 
