@@ -1,13 +1,13 @@
-
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target, Copy } from 'lucide-react';
+import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target, Copy, Calculator } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { Engineer } from '../types';
 import { motion } from 'framer-motion';
+import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 export const Engineers = () => {
-    const { engineers, projects, tasks, addEngineer, updateEngineer, deleteEngineer } = useData();
+    const { engineers, projects, tasks, entries, addEngineer, updateEngineer, deleteEngineer } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -41,6 +41,42 @@ export const Engineers = () => {
                 <div className="text-2xl font-black text-white">{engineer.weeklyGoalHours}<span className="text-[10px] ml-1 text-slate-600">H</span></div>
                 <div className="p-1 bg-white/5 rounded opacity-0 group-hover/edit:opacity-100 transition-opacity">
                     <Edit2 className="w-3 h-3 text-orange-400" />
+                </div>
+            </div>
+        );
+    };
+
+    const RateEditor = ({ engineer }: { engineer: Engineer }) => {
+        const [isEditing, setIsEditing] = useState(false);
+        const [val, setVal] = useState(engineer.hourlyRate?.toString() || '0');
+
+        const handleSave = () => {
+            updateEngineer({ ...engineer, hourlyRate: parseFloat(val) || 0 });
+            setIsEditing(false);
+        };
+
+        if (isEditing) {
+            return (
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={val}
+                            onChange={e => setVal(e.target.value)}
+                            className="w-20 bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-lg font-black focus:outline-none focus:border-emerald-500"
+                        />
+                        <button onClick={handleSave} className="p-1 text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 rounded"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setIsEditing(false)} className="p-1 text-slate-400 hover:text-slate-300 bg-white/5 rounded"><X className="w-4 h-4" /></button>
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <div className="group/edit inline-flex items-center gap-2 cursor-pointer" onClick={() => setIsEditing(true)}>
+                <div className="text-2xl font-black text-white">{engineer.hourlyRate || 0}<span className="text-[10px] ml-1 text-slate-600">AED/H</span></div>
+                <div className="p-1 bg-white/5 rounded opacity-0 group-hover/edit:opacity-100 transition-opacity">
+                    <Edit2 className="w-3 h-3 text-emerald-400" />
                 </div>
             </div>
         );
@@ -333,12 +369,36 @@ export const Engineers = () => {
                                 {(currentUserRole === 'admin' || currentUserRole === 'project_manager') && (
                                     <div className="grid grid-cols-2 gap-4 py-6 border-t border-white/5">
                                         <div>
-                                            <div className="text-2xl font-black text-white">{engineer.hourlyRate}<span className="text-[10px] ml-1 text-slate-600">AED/H</span></div>
-                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Rate</div>
+                                            <RateEditor engineer={engineer} />
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">Rate</div>
                                         </div>
                                         <div>
                                             <GoalEditor engineer={engineer} />
                                             <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">Goal</div>
+                                        </div>
+                                        <div className="col-span-2 mt-2 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex items-center justify-between">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Calculator className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <div className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Payout MTD (Live)</div>
+                                                </div>
+                                                <div className="text-slate-400 text-xs">Based on logged entries this month</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-2xl font-black text-emerald-400">
+                                                    {(() => {
+                                                        const monthStart = startOfMonth(new Date());
+                                                        const monthEnd = endOfMonth(new Date());
+                                                        const engEntries = entries.filter(e =>
+                                                            e.engineerId === engineer.id &&
+                                                            isWithinInterval(new Date(e.date), { start: monthStart, end: monthEnd })
+                                                        );
+                                                        const totalHours = engEntries.reduce((sum, e) => sum + e.timeSpent, 0);
+                                                        return (totalHours * (engineer.hourlyRate || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+                                                    })()}
+                                                    <span className="text-[10px] ml-1 text-emerald-500/50 uppercase tracking-wider">AED</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

@@ -4,6 +4,7 @@ import { DollarSign, FileText, AlertCircle, Building2, TrendingUp, BarChart3, Do
 import { motion } from 'framer-motion';
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import clsx from 'clsx';
+import { EditableText } from '../components/EditableText';
 
 const OfficeOperations: React.FC = () => {
     const { engineers, entries, officeExpenses, addOfficeExpense, deleteOfficeExpense } = useData();
@@ -235,22 +236,37 @@ const OfficeOperations: React.FC = () => {
             <div className={`bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group hover:border-${locColor}-500/20 transition-all`}>
                 <div className={`absolute top-0 right-0 w-32 h-32 bg-${locColor}-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-${locColor}-500/10 transition-colors`}></div>
 
-                <h3 className="text-2xl font-black text-white tracking-tight mb-6 flex items-center justify-between">
-                    {loc} Office
-                    <span className={`text-[10px] font-bold uppercase tracking-widest bg-${locColor}-500/10 text-${locColor}-400 px-3 py-1 rounded-full border border-${locColor}-500/20`}>
+                <h3 className="text-2xl font-black text-white tracking-tight mb-6 flex items-center justify-between gap-4">
+                    <EditableText
+                        settingKey={`financials_${loc.toLowerCase().replace(' ', '_')}_office_title`}
+                        defaultText={`${loc} Office`}
+                        as="span"
+                        className="flex-1"
+                    />
+                    <span className={`text-[10px] font-bold uppercase tracking-widest bg-${locColor}-500/10 text-${locColor}-400 px-3 py-1 rounded-full border border-${locColor}-500/20 shrink-0`}>
                         {d.currency}
                     </span>
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4 mb-8">
                     <div className="p-5 bg-white/5 rounded-2xl border border-white/5">
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total Salaries</p>
+                        <EditableText
+                            settingKey="financials_total_salaries"
+                            defaultText="Total Salaries"
+                            as="p"
+                            className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1"
+                        />
                         <p className="text-xl font-black text-white">
                             {d.salaries.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </p>
                     </div>
                     <div className="p-5 bg-white/5 rounded-2xl border border-white/5">
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total Expenses</p>
+                        <EditableText
+                            settingKey="financials_total_expenses"
+                            defaultText="Total Expenses"
+                            as="p"
+                            className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1"
+                        />
                         <p className="text-xl font-black text-white">
                             {d.expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </p>
@@ -258,7 +274,12 @@ const OfficeOperations: React.FC = () => {
                 </div>
 
                 <div className="mb-8 p-5 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Total Outgoings</p>
+                    <EditableText
+                        settingKey="financials_total_outgoings"
+                        defaultText="Total Outgoings"
+                        as="p"
+                        className="text-slate-400 text-[10px] font-bold uppercase tracking-widest"
+                    />
                     <p className={`text-2xl font-black text-${locColor}-400`}>
                         {d.currency} {totalOutgoings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </p>
@@ -269,7 +290,7 @@ const OfficeOperations: React.FC = () => {
                     <div>
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
                             <Wallet className="w-3.5 h-3.5" />
-                            Salary Breakdown
+                            <EditableText settingKey="financials_salary_breakdown" defaultText="Salary Breakdown" as="span" />
                         </p>
                         {d.salaryDetails.length > 0 ? (
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
@@ -294,7 +315,7 @@ const OfficeOperations: React.FC = () => {
                     <div>
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
                             <CreditCard className="w-3.5 h-3.5" />
-                            Recent Expenses
+                            <EditableText settingKey="financials_recent_expenses" defaultText="Recent Expenses" as="span" />
                         </p>
                         {d.expenseList.length > 0 ? (
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
@@ -448,7 +469,7 @@ const OfficeOperations: React.FC = () => {
 };
 
 export const Financials: React.FC = () => {
-    const { projects, engineers, entries } = useData();
+    const { projects, engineers, entries, updateProject } = useData();
     const [activeTab, setActiveTab] = useState<'projects' | 'office'>('projects');
 
     const financialsData = useMemo(() => {
@@ -628,11 +649,19 @@ export const Financials: React.FC = () => {
         >
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
                 <div>
-                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2">
-                        Financial <span className="text-emerald-400">Oversight</span>
+                    <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter mb-2 flex items-center gap-3">
+                        <EditableText settingKey="financials_page_title_1" defaultText="Financial" as="span" />
+                        <span className="text-emerald-400">
+                            <EditableText settingKey="financials_page_title_2" defaultText="Oversight" as="span" />
+                        </span>
                     </h2>
                     <div className="h-1 w-20 bg-emerald-500 rounded-full mb-4"></div>
-                    <p className="text-slate-500 font-medium tracking-wide">Monitor project budgets, operational costs, and generate invoices.</p>
+                    <EditableText
+                        settingKey="financials_page_subtitle"
+                        defaultText="Monitor project budgets, operational costs, and generate invoices."
+                        as="p"
+                        className="text-slate-500 font-medium tracking-wide"
+                    />
                 </div>
             </div>
 
@@ -643,14 +672,14 @@ export const Financials: React.FC = () => {
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition-all ${activeTab === 'projects' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
                 >
                     <Briefcase className="w-4 h-4" />
-                    Client Projects
+                    <EditableText settingKey="financials_tab_projects" defaultText="Client Projects" as="span" />
                 </button>
                 <button
                     onClick={() => setActiveTab('office')}
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition-all ${activeTab === 'office' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'}`}
                 >
                     <Calculator className="w-4 h-4" />
-                    Office Operations
+                    <EditableText settingKey="financials_tab_office" defaultText="Office Operations" as="span" />
                 </button>
             </div>
 
@@ -665,7 +694,7 @@ export const Financials: React.FC = () => {
                                     <Building2 className="w-8 h-8 text-slate-500 group-hover:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1">Total Vault Portfolio</p>
+                                    <EditableText settingKey="financials_total_vault_title" defaultText="Total Vault Portfolio" as="p" className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1" />
                                     <p className="text-4xl font-black text-white tracking-tighter">
                                         <span className="text-xl text-slate-500 mr-1">AED</span>
                                         {globalStats.totalBudget.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -681,7 +710,7 @@ export const Financials: React.FC = () => {
                                     <TrendingUp className="w-8 h-8 text-slate-500 group-hover:text-orange-400" />
                                 </div>
                                 <div>
-                                    <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1">Total Capital Deployed</p>
+                                    <EditableText settingKey="financials_total_capital_title" defaultText="Total Capital Deployed" as="p" className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1" />
                                     <p className="text-4xl font-black text-white tracking-tighter">
                                         <span className="text-xl text-slate-500 mr-1">AED</span>
                                         {globalStats.totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -695,7 +724,7 @@ export const Financials: React.FC = () => {
                     <div className="space-y-6">
                         <h3 className="text-xl font-black text-white tracking-tight uppercase flex items-center gap-3">
                             <BarChart3 className="w-6 h-6 text-slate-500" />
-                            Project Financials
+                            <EditableText settingKey="financials_project_financials_title" defaultText="Project Financials" as="span" />
                         </h3>
 
                         {financialsData.length === 0 && (
@@ -716,7 +745,14 @@ export const Financials: React.FC = () => {
                                 >
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <h4 className="text-2xl font-black text-white tracking-tight">{project.name}</h4>
+                                            <EditableText
+                                                defaultText={project.name}
+                                                as="h4"
+                                                className="text-2xl font-black text-white tracking-tight"
+                                                onSave={async (newName) => {
+                                                    await updateProject({ ...project, name: newName });
+                                                }}
+                                            />
                                             {project.budget <= 0 && (
                                                 <div className="flex items-center gap-2 mt-2 text-amber-500/80 text-[10px] font-bold uppercase tracking-widest bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 w-max">
                                                     <AlertCircle className="w-3 h-3" />

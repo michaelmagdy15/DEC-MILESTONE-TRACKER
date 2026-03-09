@@ -4,12 +4,12 @@ import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, Folder, Info, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, Folder, Info, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
 
 
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays, format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, startOfDay } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { ClientReportTemplate } from '../components/ClientReportTemplate';
@@ -633,74 +633,129 @@ export const ProjectDetails: React.FC = () => {
                         animate={{ opacity: 1 }}
                         className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl overflow-x-auto"
                     >
-                        {projectTasks.filter(t => t.startDate && t.dueDate).length === 0 ? (
-                            <div className="text-center py-20">
-                                <h3 className="text-xl font-black text-white tracking-tight">No Timeline Data</h3>
-                                <p className="text-slate-500 font-medium mt-2">Ensure tasks have both a start date and due date to appear in the Gantt chart.</p>
-                            </div>
-                        ) : (
-                            <div className="min-w-[800px]">
-                                {/* Simple Gantt Visualization */}
-                                <div className="mb-6 flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest px-4">
-                                    <div className="w-1/4">Task</div>
-                                    <div className="w-1/4">Assignee</div>
-                                    <div className="w-1/2">Timeline</div>
-                                </div>
-                                <div className="space-y-2">
-                                    {projectTasks
-                                        .filter(t => t.startDate && t.dueDate)
-                                        .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())
-                                        .map(task => {
-                                            const start = new Date(task.startDate!);
-                                            const due = new Date(task.dueDate!);
-                                            const now = new Date();
+                        {(() => {
+                            const scheduledTasks = projectTasks.filter(t => t.startDate && t.dueDate).sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
 
-                                            const allStarts = projectTasks.filter(t => t.startDate).map(t => new Date(t.startDate!).getTime());
-                                            const allDues = projectTasks.filter(t => t.dueDate).map(t => new Date(t.dueDate!).getTime());
-                                            const projectStart = new Date(Math.min(...allStarts));
-                                            const projectEnd = new Date(Math.max(...allDues));
+                            if (scheduledTasks.length === 0) {
+                                return (
+                                    <div className="text-center py-20">
+                                        <h3 className="text-xl font-black text-white tracking-tight">No Timeline Data</h3>
+                                        <p className="text-slate-500 font-medium mt-2">Ensure tasks have both a start date and due date to appear in the Gantt chart.</p>
+                                    </div>
+                                );
+                            }
 
-                                            const totalProjectDays = differenceInDays(projectEnd, projectStart) || 1;
-                                            const taskStartOffset = differenceInDays(start, projectStart);
-                                            const taskDuration = differenceInDays(due, start) || 1;
+                            // 1. Find min start and max due date across all tasks
+                            const allStarts = scheduledTasks.map(t => new Date(t.startDate!).getTime());
+                            const allDues = scheduledTasks.map(t => new Date(t.dueDate!).getTime());
 
-                                            const leftPercent = Math.max(0, (taskStartOffset / totalProjectDays) * 100);
-                                            const widthPercent = Math.min(100 - leftPercent, Math.max(2, (taskDuration / totalProjectDays) * 100));
+                            // 2. Expand to full weeks (Sunday to Saturday)
+                            const minDate = new Date(Math.min(...allStarts));
+                            let maxDate = new Date(Math.max(...allDues));
 
-                                            const isOverdue = task.status !== 'done' && due < now;
+                            let gridStartDate = startOfWeek(minDate, { weekStartsOn: 0 }); // Sunday
+                            let gridEndDate = endOfWeek(maxDate, { weekStartsOn: 0 });   // Saturday
+
+                            // 3. Enforce a minimum of 4 weeks (28 days) if the project timeline is very short
+                            if (differenceInDays(gridEndDate, gridStartDate) < 27) {
+                                gridEndDate = endOfWeek(addDays(gridStartDate, 27), { weekStartsOn: 0 });
+                            }
+
+                            const daysInGrid = eachDayOfInterval({ start: gridStartDate, end: gridEndDate });
+
+                            // Group days into weeks for the header
+                            const weeks = [];
+                            for (let i = 0; i < daysInGrid.length; i += 7) {
+                                weeks.push(daysInGrid.slice(i, i + 7));
+                            }
+
+                            return (
+                                <div className="min-w-fit pr-4 pb-4">
+                                    <div className="grid border border-white/10 rounded-2xl overflow-hidden bg-[#1a1a1a]/80" style={{ gridTemplateColumns: `minmax(200px, 250px) repeat(${daysInGrid.length}, minmax(28px, 1fr))` }}>
+
+                                        {/* --- Row 1: Week Headers --- */}
+                                        <div className="border-b border-r border-white/10 bg-white/5 p-4 flex items-center justify-end">
+                                            <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Timeline</span>
+                                        </div>
+                                        {weeks.map((_, wIndex) => (
+                                            <div key={`week-${wIndex}`} className="border-b border-r border-white/10 bg-white/5 p-2 text-center" style={{ gridColumn: `span 7` }}>
+                                                <span className="text-[10px] font-black tracking-widest text-slate-300 uppercase">Week {wIndex + 1}</span>
+                                            </div>
+                                        ))}
+
+                                        {/* --- Row 2: Day Letters (S M T W T F S) --- */}
+                                        <div className="border-b border-r border-white/10 bg-white/5 px-4 py-2 flex items-center justify-between">
+                                            <span className="text-[9px] font-black tracking-widest text-slate-500 uppercase">Task</span>
+                                            <span className="text-[9px] font-black tracking-widest text-slate-500 uppercase">Assignee</span>
+                                        </div>
+                                        {daysInGrid.map((day, dIndex) => (
+                                            <div key={`day-header-${dIndex}`} className="border-b border-r border-white/10 bg-white/[0.02] py-2 flex items-center justify-center">
+                                                <span className={`text-[10px] font-black ${day.getDay() === 0 || day.getDay() === 6 ? 'text-orange-500/50' : 'text-slate-500'}`}>
+                                                    {format(day, 'eeeee')}
+                                                </span>
+                                            </div>
+                                        ))}
+
+                                        {/* --- Rows: Tasks --- */}
+                                        {scheduledTasks.map((task, tIndex) => {
+                                            const taskStart = startOfDay(new Date(task.startDate!));
+                                            const taskDue = startOfDay(new Date(task.dueDate!));
+                                            const now = startOfDay(new Date());
+                                            const isOverdue = task.status !== 'done' && taskDue < now;
+                                            const assignee = engineers.find(e => e.id === task.engineerId)?.name || 'Unassigned';
 
                                             return (
-                                                <div key={task.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
-                                                    <div className="w-1/4 truncate">
-                                                        <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-white'} truncate text-sm`}>{task.title}</p>
-                                                        <p className="text-[10px] text-slate-500 truncate">{milestones.find(m => m.id === task.milestoneId)?.name}</p>
-                                                    </div>
-                                                    <div className="w-1/4">
-                                                        <span className="px-2 py-1 bg-white/10 rounded-lg text-xs font-bold text-slate-300">
-                                                            {engineers.find(e => e.id === task.engineerId)?.name || 'Unassigned'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="w-1/2 relative h-8 bg-[#1a1a1a]/80 rounded-full overflow-hidden border border-white/5">
-                                                        <div
-                                                            className={`absolute top-0 bottom-0 rounded-full flex items-center px-2 shadow-lg ${task.status === 'done' ? 'bg-emerald-500/80 border border-emerald-400/50' :
-                                                                isOverdue ? 'bg-red-500/80 border border-red-400/50 animate-pulse' :
-                                                                    task.status === 'in_progress' ? 'bg-orange-500/80 border border-orange-400/50' :
-                                                                        'bg-slate-500/80 border border-slate-400/50'
-                                                                }`}
-                                                            style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
-                                                            title={`${format(start, 'MMM d')} - ${format(due, 'MMM d')}`}
-                                                        >
-                                                            <span className="text-[9px] font-black text-white/90 truncate pl-1 mix-blend-overlay">
-                                                                {format(start, 'MMM d')} - {format(due, 'MMM d')}
-                                                            </span>
+                                                <React.Fragment key={task.id}>
+                                                    {/* Task Info Cell */}
+                                                    <div className={`border-b border-r border-white/10 p-3 flex items-center justify-between gap-2 bg-white/[0.01] hover:bg-white/[0.05] transition-colors ${tIndex === scheduledTasks.length - 1 ? 'border-b-0' : ''}`}>
+                                                        <div className="truncate flex-1">
+                                                            <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-slate-200'} truncate text-xs`} title={task.title}>{task.title}</p>
+                                                        </div>
+                                                        <div className="shrink-0 w-6 h-6 bg-white/10 rounded-full flex items-center justify-center text-[9px] font-black text-white" title={assignee}>
+                                                            {assignee.charAt(0)}
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )
+
+                                                    {/* Grid Cells for this Task */}
+                                                    {daysInGrid.map((day, dIndex) => {
+                                                        const currentDay = startOfDay(day);
+                                                        const isTaskDay = currentDay >= taskStart && currentDay <= taskDue;
+
+                                                        let cellColor = '';
+                                                        if (isTaskDay) {
+                                                            if (task.status === 'done') cellColor = 'bg-emerald-500';
+                                                            else if (isOverdue) cellColor = 'bg-red-500';
+                                                            else if (task.status === 'in_progress') cellColor = 'bg-orange-500';
+                                                            else cellColor = 'bg-blue-500'; // todo
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                key={`cell-${task.id}-${dIndex}`}
+                                                                className={`border-b border-r border-white/10 ${tIndex === scheduledTasks.length - 1 ? 'border-b-0' : ''} ${dIndex === daysInGrid.length - 1 ? 'border-r-0' : ''} ${day.getDay() === 0 || day.getDay() === 6 ? 'bg-white/[0.02]' : ''}`}
+                                                            >
+                                                                {isTaskDay && (
+                                                                    <div className="w-full h-full p-1 cursor-help" title={`${format(taskStart, 'MMM d')} - ${format(taskDue, 'MMM d')} | ${task.title}`}>
+                                                                        <div className={`w-full h-full rounded-sm ${cellColor} shadow-sm opacity-90 hover:opacity-100 transition-opacity`}></div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </React.Fragment>
+                                            );
                                         })}
+                                    </div>
+
+                                    <div className="mt-6 flex flex-wrap items-center gap-6 px-4">
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-blue-500"></div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">To Do</span></div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-orange-500"></div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active</span></div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-emerald-500"></div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Done</span></div>
+                                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-500 animate-pulse"></div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Overdue</span></div>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </motion.div>
 
                     {/* Unscheduled Tasks Section */}
@@ -759,8 +814,10 @@ export const ProjectDetails: React.FC = () => {
                 >
                     {(() => {
                         let folderId = '1g8vpZW2ZUtmYVHCpoDGHfiv01qqLM-BG';
+                        let linkForButton = 'https://drive.google.com/drive/folders/1g8vpZW2ZUtmYVHCpoDGHfiv01qqLM-BG?usp=sharing';
 
                         if (project?.googleDriveLink) {
+                            linkForButton = project.googleDriveLink;
                             const match = project.googleDriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
                             if (match && match[1]) {
                                 folderId = match[1];
@@ -773,15 +830,37 @@ export const ProjectDetails: React.FC = () => {
                         const embedUrl = `https://drive.google.com/embeddedfolderview?id=${folderId}#grid`;
 
                         return (
-                            <iframe
-                                src={embedUrl}
-                                width="100%"
-                                height="100%"
-                                className="border-0 bg-transparent w-full h-full"
-                                title="Google Drive Folder"
-                                allow="fullscreen"
-                                loading="lazy"
-                            ></iframe>
+                            <div className="relative w-full h-full">
+                                {/* Fallback Background Message */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-[#1a1a1a]/40 backdrop-blur-3xl z-0">
+                                    <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 border border-white/10 animate-pulse">
+                                        <Folder className="w-8 h-8 text-slate-500" />
+                                    </div>
+                                    <h3 className="text-xl font-black text-white tracking-tight mb-2">Google Drive Integration</h3>
+                                    <p className="text-slate-400 font-medium max-w-md mb-6">
+                                        Loading folder contents... If you only see a blank white space, your browser might be blocking cross-site tracking or you may need to sign in.
+                                    </p>
+                                    <a
+                                        href={linkForButton}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold uppercase tracking-widest text-xs transition-colors border border-white/10 flex items-center gap-2"
+                                    >
+                                        <LinkIcon className="w-4 h-4" />
+                                        Open in New Tab Instead
+                                    </a>
+                                </div>
+                                {/* Iframe (sits above background) */}
+                                <iframe
+                                    src={embedUrl}
+                                    width="100%"
+                                    height="100%"
+                                    className="relative border-0 bg-transparent w-full h-full z-10"
+                                    title="Google Drive Folder"
+                                    allow="fullscreen"
+                                    loading="lazy"
+                                ></iframe>
+                            </div>
                         );
                     })()}
                 </motion.div>

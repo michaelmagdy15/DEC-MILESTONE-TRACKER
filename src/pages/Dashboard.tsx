@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { categorizeApp } from '../utils/appCategorization';
 import { GlowButton } from '../components/GlowButton';
+import { EditableText } from '../components/EditableText';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -33,7 +34,7 @@ const itemVariants: any = {
 
 
 export const Dashboard = () => {
-    const { projects, engineers, entries, clearMonthlyData, appUsageLogs } = useData();
+    const { projects, engineers, entries, clearMonthlyData, appUsageLogs, updateProject } = useData();
     const { role } = useAuth();
 
     // Configurable target hours (Supabase app_settings with localStorage fallback)
@@ -170,11 +171,19 @@ export const Dashboard = () => {
             className="space-y-4 md:space-y-8"
         >
             <div className="text-center md:text-left mb-4 md:mb-8 relative">
-                <h2 className="text-2xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter mb-1 md:mb-2">
-                    Insight <span className="text-orange-400">Dashboard</span>
-                </h2>
-                <div className="h-1 w-16 md:w-20 bg-orange-500 rounded-full mb-2 md:mb-4 md:mx-0 mx-auto"></div>
-                <p className="text-slate-500 font-medium tracking-wide text-xs md:text-base">DEC Engineering Consultant Milestone Tracker</p>
+                <EditableText
+                    settingKey="dashboard_main_title"
+                    defaultText="Insight Dashboard"
+                    as="h2"
+                    className="text-2xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter mb-1 md:mb-2 inline-block relative pr-6"
+                />
+                <div className="h-1 w-16 md:w-20 bg-orange-500 rounded-full mb-2 md:mb-4 md:mx-0 mx-auto mt-2"></div>
+                <EditableText
+                    settingKey="dashboard_subtitle"
+                    defaultText="DEC Engineering Consultant Milestone Tracker"
+                    as="p"
+                    className="text-slate-500 font-medium tracking-wide text-xs md:text-base inline-block pr-6"
+                />
             </div>
 
             {/* Metric Cards */}
@@ -185,7 +194,12 @@ export const Dashboard = () => {
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-500/10 text-orange-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-orange-glow group-hover:bg-orange-500/20 transition-all duration-500">
                             <FolderKanban className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Active Projects</p>
+                        <EditableText
+                            settingKey="dashboard_metric_1_label"
+                            defaultText="Active Projects"
+                            as="p"
+                            className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
+                        />
                         <p className="text-2xl md:text-4xl font-black text-white font-mono">{activeProjectsCount} <span className="text-sm font-bold text-slate-600">/ {projects.length}</span></p>
                     </div>
                 </div>
@@ -196,7 +210,12 @@ export const Dashboard = () => {
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-orange-400/10 text-orange-300 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-orange-glow group-hover:bg-orange-400/20 transition-all duration-500">
                             <Users className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Total Engineers</p>
+                        <EditableText
+                            settingKey="dashboard_metric_2_label"
+                            defaultText="Total Engineers"
+                            as="p"
+                            className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
+                        />
                         <p className="text-2xl md:text-4xl font-black text-white font-mono">{engineers.length}</p>
                     </div>
                 </div>
@@ -207,7 +226,12 @@ export const Dashboard = () => {
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(16,185,129,0.1)] group-hover:bg-emerald-500/20 transition-all duration-500">
                             <Clock className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Hours This Week</p>
+                        <EditableText
+                            settingKey="dashboard_metric_3_label"
+                            defaultText="Hours This Week"
+                            as="p"
+                            className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
+                        />
                         <p className="text-2xl md:text-4xl font-black text-white font-mono">{weeklyHours.toFixed(1)}</p>
                     </div>
                 </div>
@@ -218,7 +242,12 @@ export const Dashboard = () => {
                         <div className="w-10 h-10 md:w-14 md:h-14 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center mb-2 md:mb-6 shadow-[0_0_20px_rgba(168, 85, 247, 0.1)] group-hover:bg-purple-500/20 transition-all duration-500">
                             <TrendingUp className="w-5 h-5 md:w-7 md:h-7" />
                         </div>
-                        <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono">Total Logged</p>
+                        <EditableText
+                            settingKey="dashboard_metric_4_label"
+                            defaultText="Total Logged"
+                            as="p"
+                            className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
+                        />
                         <p className="text-2xl md:text-4xl font-black text-white font-mono">{totalHours.toFixed(0)} <span className="text-sm font-bold text-slate-600 tracking-normal capitalize">hrs</span></p>
                     </div>
                 </div>
@@ -233,7 +262,11 @@ export const Dashboard = () => {
                         <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
                             <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
                                 <Activity className="w-6 h-6 text-emerald-400" />
-                                Recent Updates
+                                <EditableText
+                                    settingKey="dashboard_recent_updates_title"
+                                    defaultText="Recent Updates"
+                                    as="span"
+                                />
                             </h3>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5 font-mono">Real-time Stream</span>
                         </div>
@@ -281,7 +314,12 @@ export const Dashboard = () => {
                     <div className="glass-card rounded-2xl md:rounded-[32px] p-4 md:p-8 text-white shadow-2xl relative overflow-hidden group">
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(243, 130, 45, 0.1), transparent)' }} />
                         <div className="relative z-10">
-                            <h3 className="font-black text-lg mb-6 text-white tracking-tight">Capacity Goal</h3>
+                            <EditableText
+                                settingKey="dashboard_capacity_goal_title"
+                                defaultText="Capacity Goal"
+                                as="h3"
+                                className="font-black text-lg mb-6 text-white tracking-tight"
+                            />
                             <div className="flex items-end gap-3 mb-6 font-mono">
                                 <span className="text-3xl md:text-5xl font-black text-white">{weeklyHours.toFixed(0)}</span>
                                 <span className="text-slate-600 font-bold mb-2 uppercase tracking-widest text-[10px] md:text-xs">/ {targetHours} hrs</span>
@@ -307,12 +345,23 @@ export const Dashboard = () => {
                         <div className="relative z-10">
                             <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
                                 <Briefcase className="w-5 h-5 text-orange-400" />
-                                Active Focus
+                                <EditableText
+                                    settingKey="dashboard_active_focus_title"
+                                    defaultText="Active Focus"
+                                    as="span"
+                                />
                             </h3>
                             <div className="space-y-4">
                                 {projects.slice(0, 4).map(p => (
                                     <div key={p.id} className="flex items-center justify-between p-4 bg-white/0 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-2xl transition-all duration-300 cursor-pointer group/status">
-                                        <span className="text-sm font-bold text-slate-400 group-hover/status:text-white transition-colors">{p.name}</span>
+                                        <EditableText
+                                            defaultText={p.name}
+                                            as="span"
+                                            className="text-sm font-bold text-slate-400 group-hover/status:text-white transition-colors"
+                                            onSave={async (newName) => {
+                                                await updateProject({ ...p, name: newName });
+                                            }}
+                                        />
                                         <span className="text-[10px] font-black text-orange-400 uppercase tracking-tighter bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">Active</span>
                                     </div>
                                 ))}
@@ -326,7 +375,11 @@ export const Dashboard = () => {
                         <div className="relative z-10">
                             <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
                                 <Activity className="w-5 h-5 text-purple-400" />
-                                Software Analytics
+                                <EditableText
+                                    settingKey="dashboard_software_analytics_title"
+                                    defaultText="Software Analytics"
+                                    as="span"
+                                />
                             </h3>
                             <div className="space-y-4">
                                 {(() => {
@@ -361,7 +414,11 @@ export const Dashboard = () => {
                         <div className="relative z-10">
                             <h3 className="font-black text-rose-400 text-lg mb-6 flex items-center gap-3">
                                 <AlertCircle className="w-5 h-5" />
-                                Wellness & Fatigue
+                                <EditableText
+                                    settingKey="dashboard_wellness_fatigue_title"
+                                    defaultText="Wellness & Fatigue"
+                                    as="span"
+                                />
                             </h3>
                             <div className="space-y-4">
                                 {(() => {
@@ -408,7 +465,11 @@ export const Dashboard = () => {
                     <div className="flex items-center justify-between mb-6 relative z-10 flex-wrap gap-4">
                         <h3 className="font-black text-white text-lg flex items-center gap-3">
                             <Camera className="w-5 h-5 text-orange-400" />
-                            Office Cameras (Wisenet XRN)
+                            <EditableText
+                                settingKey="dashboard_office_cameras_title"
+                                defaultText="Office Cameras (Wisenet XRN)"
+                                as="span"
+                            />
                         </h3>
                         <div className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/10">
                             <input
@@ -470,7 +531,11 @@ export const Dashboard = () => {
                         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
                         <h3 className="font-black text-white text-lg mb-6 flex items-center gap-3">
                             <Settings className="w-5 h-5 text-orange-400" />
-                            Admin Controls
+                            <EditableText
+                                settingKey="dashboard_admin_controls_title"
+                                defaultText="Admin Controls"
+                                as="span"
+                            />
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Target Hours */}

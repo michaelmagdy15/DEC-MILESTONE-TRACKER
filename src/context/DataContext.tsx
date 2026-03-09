@@ -65,6 +65,8 @@ interface DataContextType {
     auditLogs: AuditLog[];
     officeExpenses: OfficeExpense[];
     isLoading: boolean;
+    globalSettings: Record<string, string>;
+    updateGlobalSetting: (key: string, value: string) => Promise<void>;
 
     addOfficeExpense: (expense: OfficeExpense) => Promise<void>;
     deleteOfficeExpense: (id: string) => Promise<void>;
@@ -165,6 +167,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [appUsageLogs, setAppUsageLogs] = useState<AppUsageLog[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
     const [officeExpenses, setOfficeExpenses] = useState<OfficeExpense[]>([]);
+    const [globalSettings, setGlobalSettings] = useState<Record<string, string>>({});
 
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
@@ -234,9 +237,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             if (isInitialLoad && !hasLoadedOnce.current) setIsLoading(true);
 
-            await Promise.allSettled(
-                (Object.keys(TABLE_CONFIGS) as TableName[]).map(t => fetchSingleTable(t))
-            );
+            await Promise.allSettled([
+                ...(Object.keys(TABLE_CONFIGS) as TableName[]).map(t => fetchSingleTable(t)),
+                fetchGlobalSettings()
+            ]);
 
             hasLoadedOnce.current = true;
         } catch (error) {
@@ -245,6 +249,42 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(false);
         }
     }, [fetchSingleTable]);
+
+    const fetchGlobalSettings = async () => {
+        try {
+            const { data, error } = await supabase.from('app_settings').select('setting_key, setting_value');
+            if (error) {
+                console.error("Error fetching app_settings:", error);
+                return;
+            }
+            if (data) {
+                const settingsMap: Record<string, string> = {};
+                data.forEach(item => {
+                    settingsMap[item.setting_key] = item.setting_value;
+                });
+                setGlobalSettings(settingsMap);
+            }
+        } catch (err) {
+            console.error("Exception fetching app_settings:", err);
+        }
+    };
+
+    const updateGlobalSetting = async (key: string, value: string) => {
+        try {
+            // Upsert the setting
+            const { error } = await supabase
+                .from('app_settings')
+                .upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' });
+
+            if (error) throw error;
+
+            setGlobalSettings(prev => ({ ...prev, [key]: value }));
+            toast.success('Setting updated successfully');
+        } catch (error: any) {
+            console.error('Error updating global setting:', error);
+            toast.error(`Failed to update setting: ${error.message}`);
+        }
+    };
 
     // ─── Debounced per-table refetch for realtime ────────────────
     const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -762,7 +802,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addOfficeExpense, deleteOfficeExpense,
             addProjectPhase, updateProjectPhase, deleteProjectPhase,
             clearMonthlyData,
-            appUsageLogs, auditLogs, officeExpenses, isLoading, projectPhases
+            appUsageLogs, auditLogs, officeExpenses, isLoading, projectPhases,
+            globalSettings, updateGlobalSetting
         }}>
             {children}
         </DataContext.Provider>
