@@ -2,9 +2,126 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Edit2, Folder, X, Check, Users, Calendar, Target, RefreshCw, Settings, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import type { Project } from '../types';
+import type { Project, ProjectPhase } from '../types';
 import { motion } from 'framer-motion';
 import { RiskIndicator } from '../components/RiskIndicator';
+
+// --- Separate Component for Phase Management ---
+const PhaseConfigModal = ({
+    onClose,
+    projectPhases,
+    addProjectPhase,
+    updateProjectPhase,
+    deleteProjectPhase
+}: {
+    onClose: () => void;
+    projectPhases: ProjectPhase[];
+    addProjectPhase: (phase: Omit<ProjectPhase, 'id'>) => Promise<void>;
+    updateProjectPhase: (phase: ProjectPhase) => Promise<void>;
+    deleteProjectPhase: (id: string) => Promise<void>;
+}) => {
+    const [localPhases, setLocalPhases] = useState<ProjectPhase[]>([]);
+    const [newPhaseName, setNewPhaseName] = useState('');
+
+    // Sync local phases with Context when it updates superficially
+    useEffect(() => {
+        setLocalPhases(projectPhases);
+    }, [projectPhases]);
+
+    const handleLocalNameChange = (id: string, newName: string) => {
+        setLocalPhases(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
+    };
+
+    const handleNameBlur = async (phase: ProjectPhase) => {
+        const original = projectPhases.find(p => p.id === phase.id);
+        if (original && original.name !== phase.name) {
+            await updateProjectPhase(phase);
+        }
+    };
+
+    const handleAddPhase = async () => {
+        if (!newPhaseName.trim()) return;
+
+        // Optimistically add to local UI
+        const newPhase = { name: newPhaseName, orderIndex: localPhases.length };
+        setNewPhaseName('');
+
+        await addProjectPhase(newPhase);
+    };
+
+    const handlePhaseReorder = async (index: number, direction: 'up' | 'down') => {
+        const newPhases = [...localPhases];
+        const swapIndex = direction === 'up' ? index - 1 : index + 1;
+        if (swapIndex < 0 || swapIndex >= newPhases.length) return;
+
+        const temp = newPhases[index];
+        newPhases[index] = newPhases[swapIndex];
+        newPhases[swapIndex] = temp;
+
+        setLocalPhases(newPhases);
+
+        // Execute updates
+        for (let i = 0; i < newPhases.length; i++) {
+            await updateProjectPhase({ ...newPhases[i], orderIndex: i });
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+            <div className="bg-[#1a1a1a] w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl p-8 relative">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-2xl font-black text-white tracking-tight">Project Phases Config</h3>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    {localPhases.map((phase, index) => (
+                        <div key={phase.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5 group">
+                            <div className="flex flex-col">
+                                <button onClick={() => handlePhaseReorder(index, 'up')} disabled={index === 0} className="text-slate-600 hover:text-white disabled:opacity-30">
+                                    <ChevronUp className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handlePhaseReorder(index, 'down')} disabled={index === localPhases.length - 1} className="text-slate-600 hover:text-white disabled:opacity-30">
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="flex-1">
+                                <input
+                                    type="text"
+                                    value={phase.name}
+                                    onChange={(e) => handleLocalNameChange(phase.id, e.target.value)}
+                                    onBlur={() => handleNameBlur(phase)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleNameBlur(phase)}
+                                    className="w-full bg-transparent border-none text-sm font-semibold text-white focus:ring-1 focus:ring-orange-500/50 rounded-lg px-2 py-1"
+                                />
+                            </div>
+                            <button onClick={async () => await deleteProjectPhase(phase.id)} className="p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                    {localPhases.length === 0 && <p className="text-sm text-slate-500 py-4 text-center">No phases defined. Please add some.</p>}
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-white/10">
+                    <input
+                        type="text"
+                        placeholder="New phase name..."
+                        value={newPhaseName}
+                        onChange={(e) => setNewPhaseName(e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddPhase()}
+                    />
+                    <button onClick={handleAddPhase} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all">
+                        Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const Projects: React.FC = () => {
     const { role, engineerId } = useAuth();
@@ -43,9 +160,6 @@ export const Projects: React.FC = () => {
 
     // Phase milestones (inline creation)
     const [phaseMilestones, setPhaseMilestones] = useState<Record<string, string>>({});
-
-    // Manage Phases State
-    const [newPhaseName, setNewPhaseName] = useState('');
 
     useEffect(() => {
         if (projectPhases.length > 0 && !phase && !editingId) {
@@ -167,27 +281,7 @@ export const Projects: React.FC = () => {
         await updateProjectOrder(orderedProjects);
     };
 
-    // --- Phase Management Logic ---
-    const handleAddPhase = async () => {
-        if (!newPhaseName.trim()) return;
-        await addProjectPhase({ name: newPhaseName, orderIndex: projectPhases.length });
-        setNewPhaseName('');
-    };
-
-    const handlePhaseReorder = async (index: number, direction: 'up' | 'down') => {
-        const newPhases = [...projectPhases];
-        const swapIndex = direction === 'up' ? index - 1 : index + 1;
-        if (swapIndex < 0 || swapIndex >= newPhases.length) return;
-
-        const temp = newPhases[index];
-        newPhases[index] = newPhases[swapIndex];
-        newPhases[swapIndex] = temp;
-
-        // Execute updates
-        for (let i = 0; i < newPhases.length; i++) {
-            await updateProjectPhase({ ...newPhases[i], orderIndex: i });
-        }
-    };
+    // --- Phase Management Logic handled in Component ---
 
     // Compute duration string
     const getDuration = (start?: string, end?: string) => {
@@ -237,57 +331,13 @@ export const Projects: React.FC = () => {
 
             {/* PHASE MANAGEMENT MODAL */}
             {isManagingPhases && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-                    <div className="bg-[#1a1a1a] w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl p-8 relative">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-black text-white tracking-tight">Project Phases Config</h3>
-                            <button onClick={() => setIsManagingPhases(false)} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all">
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {projectPhases.map((phase, index) => (
-                                <div key={phase.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5 group">
-                                    <div className="flex flex-col">
-                                        <button onClick={() => handlePhaseReorder(index, 'up')} disabled={index === 0} className="text-slate-600 hover:text-white disabled:opacity-30">
-                                            <ChevronUp className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => handlePhaseReorder(index, 'down')} disabled={index === projectPhases.length - 1} className="text-slate-600 hover:text-white disabled:opacity-30">
-                                            <ChevronDown className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                    <div className="flex-1">
-                                        <input
-                                            type="text"
-                                            value={phase.name}
-                                            onChange={(e) => updateProjectPhase({ ...phase, name: e.target.value })}
-                                            className="w-full bg-transparent border-none text-sm text-white focus:ring-1 focus:ring-orange-500/50 rounded-lg px-2 py-1"
-                                        />
-                                    </div>
-                                    <button onClick={() => deleteProjectPhase(phase.id)} className="p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
-                            {projectPhases.length === 0 && <p className="text-sm text-slate-500 py-4 text-center">No phases defined. Please add some.</p>}
-                        </div>
-
-                        <div className="flex gap-3 pt-4 border-t border-white/10">
-                            <input
-                                type="text"
-                                placeholder="New phase name..."
-                                value={newPhaseName}
-                                onChange={(e) => setNewPhaseName(e.target.value)}
-                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddPhase()}
-                            />
-                            <button onClick={handleAddPhase} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all">
-                                Add
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <PhaseConfigModal
+                    onClose={() => setIsManagingPhases(false)}
+                    projectPhases={projectPhases}
+                    addProjectPhase={addProjectPhase}
+                    updateProjectPhase={updateProjectPhase}
+                    deleteProjectPhase={deleteProjectPhase}
+                />
             )}
 
             {isAdding && (
