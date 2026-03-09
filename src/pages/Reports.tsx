@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { InvoiceTemplate } from '../components/InvoiceTemplate';
+import { categorizeApp } from '../utils/appCategorization';
 
 // Helper to determine if a date falls in Ramadan (approximate for 2026 for example, or generally checking a range)
 // Note: In a real app, you'd want a dynamic way to set Ramadan dates or an API.
@@ -79,6 +80,7 @@ export const Reports: React.FC = () => {
     const [view, setView] = useState<'projects' | 'engineers' | 'activity' | 'audit' | 'capacity' | 'productivity'>('projects');
     const [generatingInvoiceFor, setGeneratingInvoiceFor] = useState<string | null>(null);
     const invoiceRef = React.useRef<HTMLDivElement>(null);
+    const [expandedProductivity, setExpandedProductivity] = useState<string | null>(null);
 
     // Filters & Pagination
     const [filterEngineer, setFilterEngineer] = useState('');
@@ -193,17 +195,31 @@ export const Reports: React.FC = () => {
             let notWorkSeconds = 0;
             const IDLE_THRESHOLD = 300; // 5 minutes max per log entry
 
+            const appBreakdown: Record<string, { duration: number; category: string; isWork: boolean }> = {};
+
             logs.forEach(log => {
                 const isLock = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
                 if (isLock) return;
 
                 const duration = Math.min(log.durationSeconds, IDLE_THRESHOLD);
-                if (isWork(log.activeWindow)) {
+                const appIsWork = isWork(log.activeWindow);
+
+                if (appIsWork) {
                     workSeconds += duration;
                 } else {
                     notWorkSeconds += duration;
                 }
+
+                const titleKey = log.activeWindow.substring(0, 100);
+                if (!appBreakdown[titleKey]) {
+                    appBreakdown[titleKey] = { duration: 0, category: categorizeApp(log.activeWindow), isWork: appIsWork };
+                }
+                appBreakdown[titleKey].duration += duration;
             });
+
+            const detailedApps = Object.entries(appBreakdown)
+                .map(([title, data]) => ({ title, ...data }))
+                .sort((a, b) => b.duration - a.duration);
 
             return {
                 id: engineer.id,
@@ -212,6 +228,7 @@ export const Reports: React.FC = () => {
                 workHours: workSeconds / 3600,
                 notWorkHours: notWorkSeconds / 3600,
                 totalTrackedHours: (workSeconds + notWorkSeconds) / 3600,
+                detailedApps,
             };
         }).sort((a, b) => b.workHours - a.workHours);
     }, [engineers, appUsageLogs, filterFrom, filterTo, isWork]);
@@ -799,23 +816,72 @@ export const Reports: React.FC = () => {
                                     else if (percent < 80) pbColor = 'bg-amber-500';
 
                                     return (
-                                        <tr key={stat.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="py-4 px-4">
-                                                <p className="font-bold text-white">{stat.name}</p>
-                                                <p className="text-[10px] text-slate-500 uppercase">{stat.role}</p>
-                                            </td>
-                                            <td className="py-4 px-4 text-emerald-400 font-bold">{formatHours(stat.workHours)}</td>
-                                            <td className="py-4 px-4 text-rose-400 font-bold">{formatHours(stat.notWorkHours)}</td>
-                                            <td className="py-4 px-4 text-slate-300 font-bold">{formatHours(stat.totalTrackedHours)}</td>
-                                            <td className="py-4 px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-white font-bold w-12">{percent.toFixed(0)}%</span>
-                                                    <div className="w-32 h-2 bg-white/5 rounded-full overflow-hidden">
-                                                        <div className={`h-full ${pbColor}`} style={{ width: `${percent}%` }}></div>
+                                        <React.Fragment key={stat.id}>
+                                            <tr
+                                                className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                                                onClick={() => setExpandedProductivity(expandedProductivity === stat.id ? null : stat.id)}
+                                            >
+                                                <td className="py-4 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {expandedProductivity === stat.id ? <ChevronLeft className="w-4 h-4 text-orange-500 -rotate-90 transition-transform" /> : <ChevronRight className="w-4 h-4 text-slate-500 transition-transform" />}
+                                                        <div>
+                                                            <p className="font-bold text-white">{stat.name}</p>
+                                                            <p className="text-[10px] text-slate-500 uppercase">{stat.role}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td className="py-4 px-4 text-emerald-400 font-bold">{formatHours(stat.workHours)}</td>
+                                                <td className="py-4 px-4 text-rose-400 font-bold">{formatHours(stat.notWorkHours)}</td>
+                                                <td className="py-4 px-4 text-slate-300 font-bold">{formatHours(stat.totalTrackedHours)}</td>
+                                                <td className="py-4 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-white font-bold w-12">{percent.toFixed(0)}%</span>
+                                                        <div className="w-32 h-2 bg-white/5 rounded-full overflow-hidden">
+                                                            <div className={`h-full ${pbColor}`} style={{ width: `${percent}%` }}></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {expandedProductivity === stat.id && (
+                                                <tr className="bg-black/20 border-b border-white/5">
+                                                    <td colSpan={5} className="p-0">
+                                                        <div className="p-6">
+                                                            <h4 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                <FileText className="w-4 h-4 text-indigo-400" />
+                                                                Detailed Application Breakdown
+                                                            </h4>
+                                                            {stat.detailedApps.length > 0 ? (
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                                                                    {stat.detailedApps.map((app, idx) => (
+                                                                        <div key={idx} className="p-3 bg-white/5 rounded-xl border border-white/5 flex flex-col justify-between hover:border-white/10 transition-colors">
+                                                                            <p className="text-xs font-medium text-white line-clamp-2 mb-3" title={app.title}>{app.title || 'Unknown Window'}</p>
+                                                                            <div className="flex items-center justify-between mt-auto">
+                                                                                <span className="text-[10px] font-black text-slate-400">{formatHours(app.duration / 3600)}</span>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className={clsx(
+                                                                                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest",
+                                                                                        app.category === 'Deep Work' ? "bg-purple-500/20 text-purple-400" :
+                                                                                            app.category === 'Communication' ? "bg-blue-500/20 text-blue-400" :
+                                                                                                app.category === 'Admin/Doc' ? "bg-amber-500/20 text-amber-400" :
+                                                                                                    "bg-slate-500/20 text-slate-400"
+                                                                                    )}>{app.category}</span>
+                                                                                    <span className={clsx(
+                                                                                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest",
+                                                                                        app.isWork ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                                                                                    )}>{app.isWork ? 'Work' : 'Not Work'}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm text-slate-500 italic">No application data recorded for this period.</p>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     )
                                 })}
                             </tbody>
