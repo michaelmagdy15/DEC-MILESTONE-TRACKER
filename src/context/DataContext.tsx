@@ -321,13 +321,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProjects(orderedProjects);
 
         try {
-            const updates = orderedProjects.map((p, index) => ({
-                id: p.id,
-                order_index: index,
-            }));
+            const updatePromises = orderedProjects.map((p, index) =>
+                supabase.from('projects').update({ order_index: index }).eq('id', p.id)
+            );
 
-            const { error } = await supabase.from('projects').upsert(updates);
-            if (error) { toast.error(`Failed to reorder projects: ${error.message}`); return; }
+            const results = await Promise.all(updatePromises);
+            const errorResult = results.find(r => r.error);
+
+            if (errorResult && errorResult.error) {
+                toast.error(`Failed to reorder projects: ${errorResult.error.message}`);
+                return;
+            }
             await fetchSingleTable('projects');
         } catch (err) {
             console.error('Error reordering projects:', err);
