@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target, Copy, Calculator } from 'lucide-react';
+import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target, Copy, Calculator, Star } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import type { Engineer } from '../types';
 import { motion } from 'framer-motion';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { EvaluationsModal } from '../components/EvaluationsModal';
 
 export const Engineers = () => {
     const { engineers, projects, tasks, entries, addEngineer, updateEngineer, deleteEngineer } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [evaluatingEngineer, setEvaluatingEngineer] = useState<Engineer | null>(null);
 
     const GoalEditor = ({ engineer }: { engineer: Engineer }) => {
         const [isEditing, setIsEditing] = useState(false);
@@ -312,6 +314,13 @@ export const Engineers = () => {
                                         ) : (
                                             <>
                                                 <button
+                                                    onClick={() => setEvaluatingEngineer(engineer)}
+                                                    className="p-2.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-500/20 transition-all font-bold group/eval relative"
+                                                    title="Evaluate Performance"
+                                                >
+                                                    <Star className="w-4 h-4 group-hover/eval:fill-white transition-all shadow-amber-500/50" />
+                                                </button>
+                                                <button
                                                     onClick={() => startEdit(engineer)}
                                                     className="p-2.5 bg-white/5 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl border border-white/5 transition-all"
                                                 >
@@ -443,6 +452,12 @@ export const Engineers = () => {
                     </div>
                 )}
             </div>
+
+            <EvaluationsModal
+                isOpen={!!evaluatingEngineer}
+                onClose={() => setEvaluatingEngineer(null)}
+                engineer={evaluatingEngineer}
+            />
         </motion.div>
     );
 };
