@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 
 import { useParams, useNavigate } from 'react-router-dom';
@@ -17,13 +17,76 @@ import { ClientReportTemplate } from '../components/ClientReportTemplate';
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { projects, milestones, tasks, engineers, entries, addMilestone, addTask, updateTask, addNotification, isLoading } = useData();
+    const { projects, milestones, tasks, engineers, entries, appUsageLogs, addMilestone, addTask, updateTask, addNotification, isLoading } = useData();
     const { role, engineerId: currentEngineerId } = useAuth();
 
     const project = projects.find(p => p.id === id);
     const projectMilestones = milestones.filter(m => m.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const projectTasks = tasks.filter(t => t.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const projectEntries = entries.filter(e => e.projectId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // --- Smart Document Deliverable Verification ---
+    useEffect(() => {
+        if (!project || projectTasks.length === 0 || appUsageLogs.length === 0) return;
+
+        // Find recent export logs (e.g., within the last 5 minutes to avoid processing old ones on every load)
+        const recentExportLogs = appUsageLogs.filter(log =>
+            log.activeWindow.startsWith('Deliverable Exported:') &&
+            (new Date().getTime() - new Date(log.timestamp).getTime() < 5 * 60 * 1000)
+        );
+
+        if (recentExportLogs.length === 0) return;
+
+        // For each log, try to find a relevant task that is NOT done
+        recentExportLogs.forEach(log => {
+            const fileName = log.activeWindow.replace('Deliverable Exported: ', '').trim();
+            let fileExt = '';
+            if (fileName.includes('.')) {
+                fileExt = fileName.split('.').pop()?.toLowerCase() || '';
+            }
+
+            // We need a heuristic to match a file export to a task.
+            // Simple heuristic: if a task title mentions "PDF", "DWG", "Revit", "Export", "Deliverable"
+            // and the exported file matches the type.
+            const pendingTasks = projectTasks.filter(t => t.status !== 'done');
+
+            let taskToComplete: Task | undefined;
+
+            for (const task of pendingTasks) {
+                const titleLower = task.title.toLowerCase();
+                const descLower = (task.description || '').toLowerCase();
+
+                if (fileExt === 'pdf' && (titleLower.includes('pdf') || descLower.includes('pdf'))) {
+                    taskToComplete = task; break;
+                }
+                if (fileExt === 'dwg' && (titleLower.includes('dwg') || titleLower.includes('autocad') || descLower.includes('dwg'))) {
+                    taskToComplete = task; break;
+                }
+                if (fileExt === 'rvt' && (titleLower.includes('rvt') || titleLower.includes('revit') || descLower.includes('revit'))) {
+                    taskToComplete = task; break;
+                }
+                // Generic catch-all if task is explicitly named "Export Deliverable"
+                if (titleLower.includes('export deliverable') || titleLower.includes('final submission')) {
+                    taskToComplete = task; break;
+                }
+            }
+
+            if (taskToComplete) {
+                // To prevent infinite loops if the hook runs again before state updates,
+                // we should check if we already processed it (in a robust app, we'd mark the log as processed).
+                // Here, we just rely on the 'done' status check above and optimistic updates.
+                console.log(`Smart Verification: Completing task "${taskToComplete.title}" based on export: ${fileName}`);
+                updateTask({ ...taskToComplete, status: 'done' });
+                addNotification({
+                    id: crypto.randomUUID(),
+                    engineerId: currentEngineerId || '', // Notify the person looking at the page, or ideally the assigned engineer
+                    message: `Smart Scanner verified deliverable "${fileName}" and auto-completed task: "${taskToComplete.title}"`,
+                    isRead: false
+                });
+            }
+        });
+
+    }, [appUsageLogs, projectTasks, project, addNotification, currentEngineerId, updateTask]);
 
     const [activeTab, setActiveTab] = useState<'milestones' | 'gantt' | 'files' | 'entries'>('milestones');
 

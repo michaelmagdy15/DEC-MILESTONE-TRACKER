@@ -28,6 +28,7 @@ export interface Engineer {
     weeklyGoalHours?: number;
     location?: 'Abu Dhabi' | 'Cairo';
     skills?: string[]; // For Skill Growth Tracking
+    trackerVersion?: string;
 }
 
 export interface Milestone {
@@ -131,6 +132,7 @@ export interface AppUsageLog {
     timestamp: string;
     activeWindow: string;
     durationSeconds: number;
+    documentName?: string;
 }
 
 export interface AppData {

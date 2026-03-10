@@ -171,6 +171,7 @@ export const Reports: React.FC = () => {
                     rawTimestamp: log.timestamp,
                     engineerName: eng.name,
                     activeWindow: log.activeWindow,
+                    documentName: log.documentName,
                     durationSeconds: log.durationSeconds
                 });
             });
@@ -189,20 +190,30 @@ export const Reports: React.FC = () => {
             const logs = appUsageLogs
                 .filter(l => l.engineerId === engineer.id)
                 .filter(l => !filterFrom || (l.timestamp >= filterFrom))
-                .filter(l => !filterTo || (l.timestamp <= filterTo + 'T23:59:59'));
+                .filter(l => !filterTo || (l.timestamp <= filterTo + 'T23:59:59'))
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Sort chronologically
 
             let workSeconds = 0;
             let notWorkSeconds = 0;
+            let deepWorkSeconds = 0;
+
+            let currentDeepWorkBlock = 0;
             const IDLE_THRESHOLD = 300; // 5 minutes max per log entry
 
             const appBreakdown: Record<string, { duration: number; category: string; isWork: boolean }> = {};
 
             logs.forEach(log => {
                 const isLock = log.activeWindow.toLowerCase().includes('lock') || log.activeWindow.toLowerCase().includes('login');
-                if (isLock) return;
+                if (isLock) {
+                    // Lock screen breaks deep work block
+                    if (currentDeepWorkBlock > 15 * 60) deepWorkSeconds += currentDeepWorkBlock;
+                    currentDeepWorkBlock = 0;
+                    return;
+                }
 
                 const duration = Math.min(log.durationSeconds, IDLE_THRESHOLD);
                 const appIsWork = isWork(log.activeWindow);
+                const category = categorizeApp(log.activeWindow);
 
                 if (appIsWork) {
                     workSeconds += duration;
@@ -210,16 +221,34 @@ export const Reports: React.FC = () => {
                     notWorkSeconds += duration;
                 }
 
+                if (category === 'Deep Work') {
+                    currentDeepWorkBlock += duration;
+                } else {
+                    // Switching to another app breaks deep work
+                    if (currentDeepWorkBlock > 15 * 60) { // 15 mins minimum for deep work
+                        deepWorkSeconds += currentDeepWorkBlock;
+                    }
+                    currentDeepWorkBlock = 0;
+                }
+
                 const titleKey = log.activeWindow.substring(0, 100);
                 if (!appBreakdown[titleKey]) {
-                    appBreakdown[titleKey] = { duration: 0, category: categorizeApp(log.activeWindow), isWork: appIsWork };
+                    appBreakdown[titleKey] = { duration: 0, category, isWork: appIsWork };
                 }
                 appBreakdown[titleKey].duration += duration;
             });
 
+            // Add any remaining open deep work block at the end
+            if (currentDeepWorkBlock > 15 * 60) {
+                deepWorkSeconds += currentDeepWorkBlock;
+            }
+
             const detailedApps = Object.entries(appBreakdown)
                 .map(([title, data]) => ({ title, ...data }))
                 .sort((a, b) => b.duration - a.duration);
+
+            const totalTrackedSeconds = workSeconds + notWorkSeconds;
+            const focusScore = totalTrackedSeconds > 0 ? Math.round((deepWorkSeconds / totalTrackedSeconds) * 100) : 0;
 
             return {
                 id: engineer.id,
@@ -227,10 +256,12 @@ export const Reports: React.FC = () => {
                 role: engineer.role || 'Specialist',
                 workHours: workSeconds / 3600,
                 notWorkHours: notWorkSeconds / 3600,
-                totalTrackedHours: (workSeconds + notWorkSeconds) / 3600,
+                deepWorkHours: deepWorkSeconds / 3600,
+                totalTrackedHours: totalTrackedSeconds / 3600,
+                focusScore,
                 detailedApps,
             };
-        }).sort((a, b) => b.workHours - a.workHours);
+        }).sort((a, b) => b.focusScore - a.focusScore); // Sort by focus score
     }, [engineers, appUsageLogs, filterFrom, filterTo, isWork]);
 
     // Capacity Map Stats (Restored)
@@ -281,13 +312,13 @@ export const Reports: React.FC = () => {
         } else if (view === 'engineers') {
             headers = ['Engineer Name', 'Role', 'Projects', 'Location', 'Weekly Goal (Hrs)', 'Weekly Hours', 'Weekly Overtime', 'Weekly Payment (AED)'];
         } else if (view === 'activity') {
-            headers = ['Date', 'Time', 'Engineer Name', 'Active Window', 'Duration (Seconds)'];
+            headers = ['Date', 'Time', 'Engineer Name', 'Active Window', 'CAD File', 'Duration (Seconds)'];
             exportData = dailyActivityStats;
         } else if (view === 'capacity') {
             headers = ['Engineer Name', 'Role', 'Week 1', 'Week 2', 'Week 3', 'Week 4'];
             exportData = capacityStats;
         } else if (view === 'productivity') {
-            headers = ['Engineer Name', 'Role', 'Work Time', 'Not Work Time', 'Total Tracked'];
+            headers = ['Engineer Name', 'Role', 'Deep Work Time', 'Total Work Time', 'Not Work Time', 'Focus Score %'];
             exportData = productivityStats;
         }
 
@@ -301,11 +332,11 @@ export const Reports: React.FC = () => {
                     const weeklyGoal = eng?.location ? getExpectedWeeklyHours(new Date(), eng.location) : (eng?.weeklyGoalHours || 40);
                     return [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, `"${item.location || 'HQ'}"`, weeklyGoal.toFixed(1), item.weeklyHours.toFixed(2), item.weeklyOvertime.toFixed(2), item.weeklyPayment.toFixed(2)];
                 } else if (view === 'activity') {
-                    return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, item.durationSeconds];
+                    return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, `"${item.documentName || ''}"`, item.durationSeconds];
                 } else if (view === 'capacity') {
                     return [`"${item.name}"`, `"${item.role}"`, ...item.allocations];
                 } else if (view === 'productivity') {
-                    return [`"${item.name}"`, `"${item.role}"`, formatHours(item.workHours), formatHours(item.notWorkHours), formatHours(item.totalTrackedHours)];
+                    return [`"${item.name}"`, `"${item.role}"`, formatHours(item.deepWorkHours), formatHours(item.workHours), formatHours(item.notWorkHours), item.focusScore];
                 }
             }).filter((row): row is any[] => row !== undefined).map(row => row.join(','))
         ].join('\n');
@@ -627,6 +658,7 @@ export const Reports: React.FC = () => {
                                     <th className="py-4 font-bold text-left px-4">Time</th>
                                     <th className="py-4 font-bold text-left px-4">Engineer</th>
                                     <th className="py-4 font-bold text-left px-4">Active Application/Window</th>
+                                    <th className="py-4 font-bold text-left px-4">CAD File</th>
                                     <th className="py-4 font-bold text-left px-4">Duration</th>
                                 </tr>
                             </thead>
@@ -637,6 +669,7 @@ export const Reports: React.FC = () => {
                                         <td className="py-4 px-4 text-slate-400">{stat.timestamp}</td>
                                         <td className="py-4 px-4 font-bold text-white">{stat.engineerName}</td>
                                         <td className="py-4 px-4 text-indigo-400 max-w-[300px] truncate" title={stat.activeWindow}>{stat.activeWindow}</td>
+                                        <td className="py-4 px-4 text-orange-400 max-w-[200px] truncate">{stat.documentName || '-'}</td>
                                         <td className="py-4 px-4 text-emerald-400 font-black">{stat.durationSeconds} s</td>
                                     </tr>
                                 ))}
@@ -784,6 +817,7 @@ export const Reports: React.FC = () => {
                                 <RechartsTooltip
                                     cursor={{ fill: '#ffffff05' }}
                                     formatter={(value: any, name: any) => {
+                                        if (name === 'Focus Score') return [`${value}%`, name];
                                         return [formatHours(typeof value === 'number' ? value : 0), name];
                                     }}
                                     contentStyle={{ backgroundColor: '#0f0f0f', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
@@ -791,8 +825,9 @@ export const Reports: React.FC = () => {
                                     labelStyle={{ color: '#6366f1', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}
                                 />
                                 <Legend wrapperStyle={{ paddingTop: '40px' }} iconType="circle" formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>} />
-                                <Bar dataKey="workHours" name="Work Time" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={40} />
-                                <Bar dataKey="notWorkHours" name="Not Work Time" stackId="a" fill="#ef4444" radius={[10, 10, 0, 0]} maxBarSize={40} />
+                                <Bar dataKey="workHours" name="Total Work Time" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={40} />
+                                <Bar dataKey="notWorkHours" name="Not Work Time" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} maxBarSize={40} />
+                                <Bar dataKey="deepWorkHours" name="Deep Work Time" stackId="b" fill="#8b5cf6" radius={[10, 10, 0, 0]} maxBarSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -802,18 +837,19 @@ export const Reports: React.FC = () => {
                             <thead className="sticky top-0 bg-[#0a0a0a] z-10">
                                 <tr className="border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     <th className="py-4 font-bold text-left px-4">Engineer</th>
-                                    <th className="py-4 font-bold text-left px-4">Work Time</th>
+                                    <th className="py-4 font-bold text-left px-4">Deep Work Time</th>
+                                    <th className="py-4 font-bold text-left px-4">Total Work Time</th>
                                     <th className="py-4 font-bold text-left px-4">Not Work Time</th>
-                                    <th className="py-4 font-bold text-left px-4">Total Tracked</th>
-                                    <th className="py-4 font-bold text-left px-4">Productivity %</th>
+                                    <th className="py-4 font-bold text-left px-4">Focus Score %</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 text-sm font-medium whitespace-nowrap">
                                 {productivityStats.map(stat => {
-                                    const percent = stat.totalTrackedHours > 0 ? (stat.workHours / stat.totalTrackedHours) * 100 : 0;
-                                    let pbColor = 'bg-emerald-500';
+                                    const percent = stat.focusScore;
+                                    let pbColor = 'bg-purple-500';
                                     if (percent < 50) pbColor = 'bg-red-500';
-                                    else if (percent < 80) pbColor = 'bg-amber-500';
+                                    else if (percent < 70) pbColor = 'bg-amber-500';
+                                    else if (percent < 85) pbColor = 'bg-emerald-500';
 
                                     return (
                                         <React.Fragment key={stat.id}>
@@ -830,12 +866,12 @@ export const Reports: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </td>
+                                                <td className="py-4 px-4 text-purple-400 font-bold">{formatHours(stat.deepWorkHours)}</td>
                                                 <td className="py-4 px-4 text-emerald-400 font-bold">{formatHours(stat.workHours)}</td>
                                                 <td className="py-4 px-4 text-rose-400 font-bold">{formatHours(stat.notWorkHours)}</td>
-                                                <td className="py-4 px-4 text-slate-300 font-bold">{formatHours(stat.totalTrackedHours)}</td>
                                                 <td className="py-4 px-4">
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-white font-bold w-12">{percent.toFixed(0)}%</span>
+                                                        <span className={clsx("font-black w-12 tracking-widest", "text-" + pbColor.split('-')[1] + "-400")}>{percent}%</span>
                                                         <div className="w-32 h-2 bg-white/5 rounded-full overflow-hidden">
                                                             <div className={`h-full ${pbColor}`} style={{ width: `${percent}%` }}></div>
                                                         </div>

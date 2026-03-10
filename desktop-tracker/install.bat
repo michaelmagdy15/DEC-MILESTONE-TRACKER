@@ -11,12 +11,43 @@ echo This script will configure your PC to automatically download the
 echo latest tracker code on every boot, compile it, and run it invisibly.
 echo.
 
-set /p ENGINEER_ID="Enter Engineer ID for this PC: "
-if "%ENGINEER_ID%"=="" (
-    echo Error: Engineer ID cannot be empty!
+echo Fetching engineers from system...
+set PS_SCRIPT="%TEMP%\fetch_eng.ps1"
+echo $url = "https://wvzfjhovumhwlrcawcwf.supabase.co/rest/v1/engineers?select=id,name" > %PS_SCRIPT%
+echo $headers = @{ >> %PS_SCRIPT%
+echo     "apikey" = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2emZqaG92dW1od2xyY2F3Y3dmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MDM0MjIsImV4cCI6MjA4NzA3OTQyMn0.MbDtyyPPl3d_HQ7-qwYjYOFnSl6aS69GQCHhd6sjG-c" >> %PS_SCRIPT%
+echo     "Authorization" = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2emZqaG92dW1od2xyY2F3Y3dmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MDM0MjIsImV4cCI6MjA4NzA3OTQyMn0.MbDtyyPPl3d_HQ7-qwYjYOFnSl6aS69GQCHhd6sjG-c" >> %PS_SCRIPT%
+echo } >> %PS_SCRIPT%
+echo [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 >> %PS_SCRIPT%
+echo try { $response = Invoke-RestMethod -Uri $url -Headers $headers -ErrorAction Stop } catch { exit 1 } >> %PS_SCRIPT%
+echo Write-Host "" >> %PS_SCRIPT%
+echo Write-Host "=== Select Your Name ===" -ForegroundColor Cyan >> %PS_SCRIPT%
+echo for ($i=0; $i -lt $response.Length; $i++) { >> %PS_SCRIPT%
+echo     Write-Host " [$($i+1)] $($response[$i].name)" >> %PS_SCRIPT%
+echo } >> %PS_SCRIPT%
+echo Write-Host "========================" -ForegroundColor Cyan >> %PS_SCRIPT%
+echo $choice = Read-Host "Type the number next to your name" >> %PS_SCRIPT%
+echo $index = [int]$choice - 1 >> %PS_SCRIPT%
+echo if ($index -ge 0 -and $index -lt $response.Length) { >> %PS_SCRIPT%
+echo     [System.IO.File]::WriteAllText("$env:TEMP\my_eng_id.txt", $response[$index].id) >> %PS_SCRIPT%
+echo } else { >> %PS_SCRIPT%
+echo     Write-Host "Invalid Selection." -ForegroundColor Red >> %PS_SCRIPT%
+echo     exit 1 >> %PS_SCRIPT%
+echo } >> %PS_SCRIPT%
+
+powershell -ExecutionPolicy Bypass -File %PS_SCRIPT%
+del %PS_SCRIPT%
+
+if not exist "%TEMP%\my_eng_id.txt" (
+    echo Error: Engineer selection failed. Please try again.
     pause
     exit /b 1
 )
+
+set /p ENGINEER_ID=<"%TEMP%\my_eng_id.txt"
+del "%TEMP%\my_eng_id.txt"
+echo.
+echo Setup for Engineer ID: %ENGINEER_ID%
 
 set TRACKER_DIR=%APPDATA%\DecTracker
 if not exist "%TRACKER_DIR%" mkdir "%TRACKER_DIR%"

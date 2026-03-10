@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { supabase } from '../lib/supabase';
-import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2, AlertCircle, Camera } from 'lucide-react';
+import { FolderKanban, Users, Clock, TrendingUp, Activity, Briefcase, Settings, Trash2, CheckCircle2, AlertCircle, Camera, UploadCloud } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { format, startOfWeek as getStartOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +35,7 @@ const itemVariants: any = {
 
 
 export const Dashboard = () => {
-    const { projects, engineers, entries, clearMonthlyData, appUsageLogs, updateProject } = useData();
+    const { projects, engineers, entries, clearMonthlyData, appUsageLogs, updateProject, globalSettings, updateGlobalSetting } = useData();
     const { role } = useAuth();
 
     // Configurable target hours (Supabase app_settings with localStorage fallback)
@@ -44,6 +45,14 @@ export const Dashboard = () => {
     });
     const [isClearing, setIsClearing] = useState(false);
     const [clearSuccess, setClearSuccess] = useState(false);
+    const [isUpdatingTracker, setIsUpdatingTracker] = useState(false);
+    const [trackerVersion, setTrackerVersion] = useState('');
+    const [trackerUrl, setTrackerUrl] = useState('');
+
+    useEffect(() => {
+        if (globalSettings['tracker_version']) setTrackerVersion(globalSettings['tracker_version']);
+        if (globalSettings['tracker_update_url']) setTrackerUrl(globalSettings['tracker_update_url']);
+    }, [globalSettings]);
 
     // Load target hours from Supabase on mount
     useEffect(() => {
@@ -163,6 +172,18 @@ export const Dashboard = () => {
         setTimeout(() => setClearSuccess(false), 3000);
     };
 
+    const handleDeployTracker = async () => {
+        if (!trackerVersion || !trackerUrl) {
+            toast.error("Version and URL are required.");
+            return;
+        }
+        setIsUpdatingTracker(true);
+        await updateGlobalSetting('tracker_version', trackerVersion);
+        await updateGlobalSetting('tracker_update_url', trackerUrl);
+        setIsUpdatingTracker(false);
+        toast.success("Tracker update deployed! Trackers should auto-update shortly.");
+    };
+
     return (
         <motion.div
             variants={containerVariants}
@@ -212,7 +233,7 @@ export const Dashboard = () => {
                         </div>
                         <EditableText
                             settingKey="dashboard_metric_2_label"
-                            defaultText="Total Engineers"
+                            defaultText="Team Size"
                             as="p"
                             className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
                         />
@@ -228,7 +249,7 @@ export const Dashboard = () => {
                         </div>
                         <EditableText
                             settingKey="dashboard_metric_3_label"
-                            defaultText="Hours This Week"
+                            defaultText="Weekly Hours"
                             as="p"
                             className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
                         />
@@ -244,7 +265,7 @@ export const Dashboard = () => {
                         </div>
                         <EditableText
                             settingKey="dashboard_metric_4_label"
-                            defaultText="Total Logged"
+                            defaultText="All Time Hours"
                             as="p"
                             className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mb-2 font-mono"
                         />
@@ -264,12 +285,13 @@ export const Dashboard = () => {
                                 <Activity className="w-6 h-6 text-emerald-400" />
                                 <EditableText
                                     settingKey="dashboard_recent_updates_title"
-                                    defaultText="Recent Updates"
+                                    defaultText="Live Team Activity"
                                     as="span"
                                 />
                             </h3>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5 font-mono">Real-time Stream</span>
                         </div>
+                        <p className="text-xs text-slate-500 mb-6 -mt-4 border-l-2 border-emerald-500/30 pl-3">Watch real-time as team members log hours and update project tasks here.</p>
 
                         <div className="space-y-4 flex-1">
                             {recentEntries.length === 0 ? (
@@ -316,10 +338,11 @@ export const Dashboard = () => {
                         <div className="relative z-10">
                             <EditableText
                                 settingKey="dashboard_capacity_goal_title"
-                                defaultText="Capacity Goal"
+                                defaultText="Weekly Goal Tracker"
                                 as="h3"
-                                className="font-black text-lg mb-6 text-white tracking-tight"
+                                className="font-black text-lg mb-2 text-white tracking-tight"
                             />
+                            <p className="text-xs text-slate-500 mb-6">Monitor progress towards the weekly required hours target.</p>
                             <div className="flex items-end gap-3 mb-6 font-mono">
                                 <span className="text-3xl md:text-5xl font-black text-white">{weeklyHours.toFixed(0)}</span>
                                 <span className="text-slate-600 font-bold mb-2 uppercase tracking-widest text-[10px] md:text-xs">/ {targetHours} hrs</span>
@@ -347,10 +370,11 @@ export const Dashboard = () => {
                                 <Briefcase className="w-5 h-5 text-orange-400" />
                                 <EditableText
                                     settingKey="dashboard_active_focus_title"
-                                    defaultText="Active Focus"
+                                    defaultText="Current Projects"
                                     as="span"
                                 />
                             </h3>
+                            <p className="text-xs text-slate-500 mb-6 -mt-4">Quick list of the most recent active projects.</p>
                             <div className="space-y-4">
                                 {projects.slice(0, 4).map(p => (
                                     <div key={p.id} className="flex items-center justify-between p-4 bg-white/0 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-2xl transition-all duration-300 cursor-pointer group/status">
@@ -377,10 +401,11 @@ export const Dashboard = () => {
                                 <Activity className="w-5 h-5 text-purple-400" />
                                 <EditableText
                                     settingKey="dashboard_software_analytics_title"
-                                    defaultText="Software Analytics"
+                                    defaultText="App Time Breakdown"
                                     as="span"
                                 />
                             </h3>
+                            <p className="text-xs text-slate-500 mb-6 -mt-4">Understand where time is spent across different desktop apps.</p>
                             <div className="space-y-4">
                                 {(() => {
                                     const total = weeklyAppStats.deepWorkHours + weeklyAppStats.commsHours + weeklyAppStats.adminHours + weeklyAppStats.otherHours;
@@ -416,10 +441,11 @@ export const Dashboard = () => {
                                 <AlertCircle className="w-5 h-5" />
                                 <EditableText
                                     settingKey="dashboard_wellness_fatigue_title"
-                                    defaultText="Wellness & Fatigue"
+                                    defaultText="Health & Wellbeing"
                                     as="span"
                                 />
                             </h3>
+                            <p className="text-xs text-slate-500 mb-6 -mt-4">Automatic alerts for potential burnout or late-night operations.</p>
                             <div className="space-y-4">
                                 {(() => {
                                     const alerts = [];
@@ -467,10 +493,13 @@ export const Dashboard = () => {
                             <Camera className="w-5 h-5 text-orange-400" />
                             <EditableText
                                 settingKey="dashboard_office_cameras_title"
-                                defaultText="Office Cameras (Wisenet XRN)"
+                                defaultText="Office Cameras"
                                 as="span"
                             />
                         </h3>
+                        <div className="w-full flex-grow flex-shrink basis-full mt-2 -mb-2">
+                            <p className="text-xs text-slate-500">Live feed from the local office NVR box. You must be on the same network to view.</p>
+                        </div>
                         <div className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/10">
                             <input
                                 type="text"
@@ -539,8 +568,9 @@ export const Dashboard = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Target Hours */}
-                            <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
-                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Capacity Target (Hours)</h4>
+                            <div className="bg-white/5 rounded-2xl border border-white/5 p-6 relative">
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Set Weekly Target</h4>
+                                <p className="text-xs text-slate-500 mb-4 leading-relaxed">Adjust the expected working hours per week. This updates the goal bar for everyone.</p>
                                 <div className="flex items-center gap-4">
                                     <input
                                         type="number"
@@ -555,10 +585,10 @@ export const Dashboard = () => {
                             </div>
 
                             {/* Clear Monthly Data */}
-                            <div className="bg-white/5 rounded-2xl border border-white/5 p-6">
-                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Monthly Reset</h4>
+                            <div className="bg-white/5 rounded-2xl border border-white/5 p-6 relative group border-rose-500/20 hover:border-rose-500/50 transition-colors">
+                                <h4 className="text-sm font-black text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Clear All Data (Reset)</h4>
                                 <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                                    Clear all entries, attendance, tasks, milestones, time entries, notifications, leave requests, and meetings. <strong className="text-red-400">Projects, engineers, and files are kept.</strong>
+                                    Wipes all logged time and tasks for a fresh start. Use with caution! <strong className="text-rose-400">Projects, engineers, and files are kept.</strong>
                                 </p>
                                 {clearSuccess ? (
                                     <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm font-mono">
@@ -575,6 +605,81 @@ export const Dashboard = () => {
                                         Clear System Data
                                     </GlowButton>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Remote Tracker Updater & Version Monitoring */}
+                        <div className="bg-white/5 rounded-2xl border border-white/5 p-6 mt-6 relative">
+                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <UploadCloud className="w-4 h-4 text-orange-400" />
+                                Manage Tracker Updates
+                            </h4>
+                            <p className="text-xs text-slate-500 mb-6 leading-relaxed">View current app versions installed by engineers and remotely push automatic updates to their computers.</p>
+
+                            {/* Version Monitoring Table */}
+                            <div className="mb-6">
+                                <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">Currently Installed Versions</h5>
+                                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {engineers.map(eng => {
+                                        const isOutdated = eng.trackerVersion && globalSettings['tracker_version'] && eng.trackerVersion !== globalSettings['tracker_version'];
+                                        return (
+                                            <div key={eng.id} className="flex items-center justify-between bg-[#0a0a0a]/50 p-3 rounded-xl border border-white/5">
+                                                <span className="text-sm font-medium text-slate-300">{eng.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {eng.trackerVersion ? (
+                                                        <span className={`text-xs font-mono font-bold px-2 py-1 rounded-md ${isOutdated ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+                                                            v{eng.trackerVersion}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs font-mono text-slate-500 px-2 py-1 bg-white/5 rounded-md border border-white/5">Unknown</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {engineers.length === 0 && <p className="text-xs text-slate-500 italic">No engineers found.</p>}
+                                </div>
+                            </div>
+
+                            {/* Deployment Controls */}
+                            <div className="pt-6 border-t border-white/10">
+                                <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <UploadCloud className="w-3.5 h-3.5" /> Push Update to Engineers
+                                </h5>
+                                <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                                    Provide the new version number and executable download link. Background trackers check this setting and will silently self-update if their local version is older.
+                                </p>
+                                <div className="flex flex-col md:flex-row items-end gap-4">
+                                    <div className="flex-1 w-full">
+                                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 font-mono">New Version (e.g. 1.0.1)</label>
+                                        <input
+                                            type="text"
+                                            value={trackerVersion}
+                                            onChange={e => setTrackerVersion(e.target.value)}
+                                            placeholder="e.g. 1.0.1"
+                                            className="w-full bg-[#0a0a0a]/50 text-white font-mono text-sm border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex-[2] w-full">
+                                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 font-mono">Executable URL (.exe)</label>
+                                        <input
+                                            type="text"
+                                            value={trackerUrl}
+                                            onChange={e => setTrackerUrl(e.target.value)}
+                                            placeholder="https://..."
+                                            className="w-full bg-[#0a0a0a]/50 text-white font-mono text-sm border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <GlowButton
+                                        variant="primary"
+                                        icon={UploadCloud}
+                                        onClick={handleDeployTracker}
+                                        loading={isUpdatingTracker}
+                                        className="w-full md:w-auto h-[46px]"
+                                    >
+                                        Push Update
+                                    </GlowButton>
+                                </div>
                             </div>
                         </div>
                     </motion.div>

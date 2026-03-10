@@ -94,7 +94,7 @@ const TABLE_CONFIGS: Record<TableName, TableConfig> = {
         orderBy: 'order_index', ascending: true,
     },
     engineers: {
-        mapper: (e: any) => ({ id: e.id, name: e.name, role: e.role, hourlyRate: e.hourly_rate, weeklyGoalHours: e.weekly_goal_hours, location: e.location, skills: e.skills || [] }),
+        mapper: (e: any) => ({ id: e.id, name: e.name, role: e.role, hourlyRate: e.hourly_rate, weeklyGoalHours: e.weekly_goal_hours, location: e.location, skills: e.skills || [], trackerVersion: e.tracker_version }),
         orderBy: 'created_at', ascending: false,
     },
     entries: {

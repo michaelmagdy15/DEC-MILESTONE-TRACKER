@@ -125,7 +125,7 @@ const PhaseConfigModal = ({
 
 export const Projects: React.FC = () => {
     const { role, engineerId } = useAuth();
-    const { projects, projectPhases, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone, updateProjectOrder, addProjectPhase, updateProjectPhase, deleteProjectPhase } = useData();
+    const { projects, projectPhases, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone, updateProjectOrder, addProjectPhase, updateProjectPhase, deleteProjectPhase, addNotification } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isManagingPhases, setIsManagingPhases] = useState(false);
@@ -353,7 +353,82 @@ export const Projects: React.FC = () => {
                         {/* Row 1: Name + Budget */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Project Identity</label>
+                                <label className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">
+                                    <span>Project Identity</span>
+                                    {name.trim().length > 3 && (
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                // Historical Project Autopsy (AI Estimator)
+
+                                                // 1. Find similar past projects based on keywords in the name
+                                                const keywords = name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                                                const similarProjects = projects.filter(p => {
+                                                    if (p.id === editingId) return false;
+                                                    const pName = p.name.toLowerCase();
+                                                    return keywords.some(kw => pName.includes(kw));
+                                                });
+
+                                                if (similarProjects.length === 0) {
+                                                    alert("No sufficient historical data found for similar projects.");
+                                                    return;
+                                                }
+
+                                                // 2. Average the data
+                                                let totalBudget = 0;
+                                                let totalRate = 0;
+                                                let projectsWithBudget = 0;
+                                                let projectsWithRate = 0;
+
+                                                const phaseCounts: Record<string, number> = {};
+
+                                                similarProjects.forEach(p => {
+                                                    if (p.budget) {
+                                                        totalBudget += p.budget;
+                                                        projectsWithBudget++;
+                                                    }
+                                                    if (p.hourlyRate) {
+                                                        totalRate += p.hourlyRate;
+                                                        projectsWithRate++;
+                                                    }
+                                                    if (p.phase) {
+                                                        phaseCounts[p.phase] = (phaseCounts[p.phase] || 0) + 1;
+                                                    }
+                                                });
+
+                                                const avgBudget = projectsWithBudget > 0 ? Math.round(totalBudget / projectsWithBudget) : 0;
+                                                const avgRate = projectsWithRate > 0 ? Math.round(totalRate / projectsWithRate) : 0;
+
+                                                // Most common phase
+                                                let mostCommonPhase = projectPhases[0]?.name || 'Planning';
+                                                let maxPhaseCount = 0;
+                                                for (const [ph, count] of Object.entries(phaseCounts)) {
+                                                    if (count > maxPhaseCount) {
+                                                        maxPhaseCount = count;
+                                                        mostCommonPhase = ph;
+                                                    }
+                                                }
+
+                                                // 3. Auto-fill the form
+                                                if (avgBudget > 0) setBudget(avgBudget.toString());
+                                                if (avgRate > 0) setHourlyRate(avgRate.toString());
+                                                setPhase(mostCommonPhase);
+
+                                                addNotification({
+                                                    id: crypto.randomUUID(),
+                                                    engineerId: engineerId || '',
+                                                    message: `AI Estimator applied historical averages from ${similarProjects.length} similar project(s).`,
+                                                    isRead: false
+                                                });
+
+                                            }}
+                                            className="text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20"
+                                        >
+                                            <RefreshCw className="w-3 h-3" />
+                                            AI Estimate
+                                        </button>
+                                    )}
+                                </label>
                                 <input
                                     type="text"
                                     value={name}
