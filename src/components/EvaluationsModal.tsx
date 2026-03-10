@@ -46,18 +46,18 @@ export const EvaluationsModal: React.FC<Props> = ({ isOpen, onClose, engineer })
         return performanceEvaluations.filter(e => e.engineerId === engineer.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [performanceEvaluations, engineer]);
 
-    if (!isOpen || !engineer) return null;
-
-    const handleRatingChange = (id: string, value: number) => {
-        setRatings(prev => ({ ...prev, [id]: value }));
-    };
-
     const overallRating = useMemo(() => {
         const values = Object.values(ratings);
         if (values.length === 0) return 0;
         const sum = values.reduce((acc, curr) => acc + curr, 0);
         return Number((sum / values.length).toFixed(1));
     }, [ratings]);
+
+    if (!isOpen || !engineer) return null;
+
+    const handleRatingChange = (id: string, value: number) => {
+        setRatings(prev => ({ ...prev, [id]: value }));
+    };
 
     const handleSave = async () => {
         if (!user) return;
