@@ -171,3 +171,17 @@ export interface OfficeExpense {
     date: string; // ISO string YYYY-MM-DD
     createdAt?: string;
 }
+
+export interface PerformanceEvaluation {
+    id: string;
+    engineerId: string;
+    evaluatorId?: string;
+    date: string; // YYYY-MM-DD
+    ratings: Record<string, number>; // criteria name -> rating (1-5)
+    strengths?: string;
+    improvements?: string;
+    developmentPlan?: string;
+    overallRating: number;
+    createdAt?: string;
+}
+

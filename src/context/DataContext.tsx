@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog, AuditLog, OfficeExpense, ProjectPhase } from '../types';
+import type { Project, Engineer, LogEntry, AttendanceRecord, Milestone, Task, LeaveRequest, Notification, Meeting, ProjectFile, TimeEntry, AppUsageLog, AuditLog, OfficeExpense, ProjectPhase, PerformanceEvaluation } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
@@ -74,13 +74,18 @@ interface DataContextType {
     addProjectPhase: (phase: Omit<ProjectPhase, 'id'>) => Promise<void>;
     updateProjectPhase: (phase: ProjectPhase) => Promise<void>;
     deleteProjectPhase: (id: string) => Promise<void>;
+
+    performanceEvaluations: PerformanceEvaluation[];
+    addPerformanceEvaluation: (evaluation: PerformanceEvaluation) => Promise<void>;
+    updatePerformanceEvaluation: (evaluation: PerformanceEvaluation) => Promise<void>;
+    deletePerformanceEvaluation: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // ─── Table fetch configuration ───────────────────────────────────
 // Centralizes mappers so both initial fetch and realtime refresh use the same logic.
-type TableName = 'projects' | 'engineers' | 'entries' | 'attendance' | 'milestones' | 'tasks' | 'leave_requests' | 'notifications' | 'meetings' | 'project_files' | 'time_entries' | 'app_usage_log' | 'audit_log' | 'office_expenses' | 'project_phases';
+type TableName = 'projects' | 'engineers' | 'entries' | 'attendance' | 'milestones' | 'tasks' | 'leave_requests' | 'notifications' | 'meetings' | 'project_files' | 'time_entries' | 'app_usage_log' | 'audit_log' | 'office_expenses' | 'project_phases' | 'performance_evaluations';
 
 interface TableConfig {
     mapper: (row: any) => any;
@@ -149,6 +154,10 @@ const TABLE_CONFIGS: Record<TableName, TableConfig> = {
         mapper: (p: any) => ({ id: p.id, name: p.name, orderIndex: p.order_index, createdAt: p.created_at }),
         orderBy: 'order_index', ascending: true,
     },
+    performance_evaluations: {
+        mapper: (e: any) => ({ id: e.id, engineerId: e.engineer_id, evaluatorId: e.evaluator_id, date: e.date, ratings: e.ratings || {}, strengths: e.strengths, improvements: e.improvements, developmentPlan: e.development_plan, overallRating: e.overall_rating, createdAt: e.created_at }),
+        orderBy: 'created_at', ascending: false,
+    },
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -167,6 +176,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [appUsageLogs, setAppUsageLogs] = useState<AppUsageLog[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
     const [officeExpenses, setOfficeExpenses] = useState<OfficeExpense[]>([]);
+    const [performanceEvaluations, setPerformanceEvaluations] = useState<PerformanceEvaluation[]>([]);
     const [globalSettings, setGlobalSettings] = useState<Record<string, string>>({});
 
     const [isLoading, setIsLoading] = useState(true);
@@ -190,6 +200,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         app_usage_log: setAppUsageLogs,
         audit_log: setAuditLogs,
         office_expenses: setOfficeExpenses,
+        performance_evaluations: setPerformanceEvaluations,
     };
 
     // ─── Audit helper: silently log CRUD actions ─────────────────
@@ -303,7 +314,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchAllTables(true);
 
         // Subscribe to realtime changes — only refetch the affected table
-        const WATCHED_TABLES: TableName[] = ['projects', 'engineers', 'entries', 'attendance', 'milestones', 'tasks', 'leave_requests', 'notifications', 'meetings', 'project_files', 'time_entries', 'office_expenses', 'project_phases'];
+        const WATCHED_TABLES: TableName[] = ['projects', 'engineers', 'entries', 'attendance', 'milestones', 'tasks', 'leave_requests', 'notifications', 'meetings', 'project_files', 'time_entries', 'office_expenses', 'project_phases', 'performance_evaluations'];
 
         const channels = supabase.channel('custom-all-channel');
         for (const table of WATCHED_TABLES) {
@@ -755,6 +766,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.success('Phase deleted');
         await fetchSingleTable('project_phases');
     };
+    // Performance Evaluations
+    const addPerformanceEvaluation = async (evaluation: PerformanceEvaluation) => {
+        const { error } = await supabase.from('performance_evaluations').insert({
+            id: evaluation.id, engineer_id: evaluation.engineerId, evaluator_id: evaluation.evaluatorId,
+            date: evaluation.date, ratings: evaluation.ratings, strengths: evaluation.strengths,
+            improvements: evaluation.improvements, development_plan: evaluation.developmentPlan,
+            overall_rating: evaluation.overallRating
+        });
+        if (error) { toast.error(`Failed to add evaluation: ${error.message}`); return; }
+        toast.success('Performance evaluation submitted');
+        void logAudit('created', 'performance_evaluations', evaluation.id, { engineerId: evaluation.engineerId });
+        await fetchSingleTable('performance_evaluations');
+    };
+
+    const updatePerformanceEvaluation = async (evaluation: PerformanceEvaluation) => {
+        const { error } = await supabase.from('performance_evaluations').update({
+            engineer_id: evaluation.engineerId, evaluator_id: evaluation.evaluatorId,
+            date: evaluation.date, ratings: evaluation.ratings, strengths: evaluation.strengths,
+            improvements: evaluation.improvements, development_plan: evaluation.developmentPlan,
+            overall_rating: evaluation.overallRating
+        }).eq('id', evaluation.id);
+        if (error) { toast.error(`Failed to update evaluation: ${error.message}`); return; }
+        toast.success('Performance evaluation updated');
+        await fetchSingleTable('performance_evaluations');
+    };
+
+    const deletePerformanceEvaluation = async (id: string) => {
+        const { error } = await supabase.from('performance_evaluations').delete().eq('id', id);
+        if (error) { toast.error(`Failed to delete evaluation: ${error.message}`); return; }
+        toast.success('Performance evaluation deleted');
+        await fetchSingleTable('performance_evaluations');
+    };
 
     // Clear transient monthly data — keeps projects, engineers, and project files
     const clearMonthlyData = async () => {
@@ -803,6 +846,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addProjectPhase, updateProjectPhase, deleteProjectPhase,
             clearMonthlyData,
             appUsageLogs, auditLogs, officeExpenses, isLoading, projectPhases,
+            performanceEvaluations, addPerformanceEvaluation, updatePerformanceEvaluation, deletePerformanceEvaluation,
             globalSettings, updateGlobalSetting
         }}>
             {children}

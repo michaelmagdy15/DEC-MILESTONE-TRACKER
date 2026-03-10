@@ -170,6 +170,8 @@ export const Projects: React.FC = () => {
 
         const projectId = editingId || crypto.randomUUID();
 
+        const existingProject = editingId ? projects.find(p => p.id === editingId) : null;
+
         const projectData: Project = {
             id: projectId,
             name,
@@ -181,7 +183,7 @@ export const Projects: React.FC = () => {
             startDate: startDate || undefined,
             endDate: endDate || undefined,
             googleDriveLink: googleDriveLink || undefined,
-            orderIndex: projects.length, // Set order to bottom by default
+            orderIndex: existingProject?.orderIndex ?? projects.length, // Preserve order or set to bottom
         };
 
         if (editingId) {
