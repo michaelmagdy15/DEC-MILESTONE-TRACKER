@@ -11,7 +11,7 @@ namespace DecTracker
 {
     class Program
     {
-        const string CURRENT_VERSION = "1.0.1";
+        const string CURRENT_VERSION = "1.0.2";
 
         [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
@@ -220,16 +220,16 @@ namespace DecTracker
 
         static void CheckForUpdates()
         {
-            string versionJson = SupabaseGetRequest("app_settings?setting_key=eq.tracker_version&select=setting_value");
-            if (versionJson != null && versionJson.Contains("setting_value"))
+            string versionJson = SupabaseGetRequest("app_settings?key=eq.tracker_version&select=value");
+            if (versionJson != null && versionJson.Contains("value"))
             {
-                string remoteVersion = ExtractValue(versionJson, "setting_value");
+                string remoteVersion = ExtractValue(versionJson, "value");
                 if (!string.IsNullOrEmpty(remoteVersion) && remoteVersion != CURRENT_VERSION)
                 {
-                    string urlJson = SupabaseGetRequest("app_settings?setting_key=eq.tracker_update_url&select=setting_value");
-                    if (urlJson != null && urlJson.Contains("setting_value"))
+                    string urlJson = SupabaseGetRequest("app_settings?key=eq.tracker_update_url&select=value");
+                    if (urlJson != null && urlJson.Contains("value"))
                     {
-                        string url = ExtractValue(urlJson, "setting_value");
+                        string url = ExtractValue(urlJson, "value");
                         if (!string.IsNullOrEmpty(url))
                         {
                             PerformAutoUpdate(url);

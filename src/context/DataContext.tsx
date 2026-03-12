@@ -263,7 +263,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchGlobalSettings = async () => {
         try {
-            const { data, error } = await supabase.from('app_settings').select('setting_key, setting_value');
+            const { data, error } = await supabase.from('app_settings').select('key, value');
             if (error) {
                 console.error("Error fetching app_settings:", error);
                 return;
@@ -271,7 +271,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (data) {
                 const settingsMap: Record<string, string> = {};
                 data.forEach(item => {
-                    settingsMap[item.setting_key] = item.setting_value;
+                    settingsMap[item.key] = item.value;
                 });
                 setGlobalSettings(settingsMap);
             }
@@ -285,7 +285,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Upsert the setting
             const { error } = await supabase
                 .from('app_settings')
-                .upsert({ setting_key: key, setting_value: value }, { onConflict: 'setting_key' });
+                .upsert({ key: key, value: value }, { onConflict: 'key' });
 
             if (error) throw error;
 
