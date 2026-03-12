@@ -11,7 +11,7 @@ namespace DecTracker
 {
     class Program
     {
-        const string CURRENT_VERSION = "1.0.0";
+        const string CURRENT_VERSION = "1.0.1";
 
         [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
@@ -303,7 +303,7 @@ namespace DecTracker
                 string ext = Path.GetExtension(e.FullPath).ToLower();
                 if (ext == ".pdf" || ext == ".dwg" || ext == ".rvt")
                 {
-                    Console.WriteLine($"[Deliverable Detected] {e.Name} at {e.FullPath}");
+                    Console.WriteLine(string.Format("[Deliverable Detected] {0} at {1}", e.Name, e.FullPath));
                     
                     DateTime now = DateTime.UtcNow;
                     string now_iso = now.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
