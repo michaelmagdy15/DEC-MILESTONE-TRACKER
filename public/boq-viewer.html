@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEC BOQ VIEWER - v5.0 Site Hub</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        body { transition: background-color 0.3s, color 0.3s; }
+        .dataTables_wrapper .dataTables_filter { display: none; }
+        
+        table.dataTable thead th { font-weight: 700; text-transform: uppercase; font-size: 0.80rem; padding: 12px; background: #fafafa; border-bottom: 2px solid #e5e7eb;}
+        table.dataTable tbody td { padding: 8px 12px; font-size: 0.90rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6;}
+        table.dataTable tbody td:nth-child(4) { font-weight: 500; max-width: 300px; white-space: normal; } 
+        table.dataTable tbody td:nth-child(2) { font-weight: 700; color: #171717; font-size: 0.8rem; } 
+        
+        .cad-qty-input, .rate-input { width: 70px; padding: 4px 8px; border: 2px solid #e5e7eb; border-radius: 6px; text-align: center; font-weight: bold; transition: all 0.2s; background: transparent;}
+        .cad-qty-input:focus, .rate-input:focus, .tag-input:focus, .note-input:focus { border-color: #C5A059; outline: none; box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.2); }
+        
+        .tag-input { width: 90px; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 0.8rem; background: transparent;}
+        .note-input { width: 140px; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 0.8rem; background: transparent;}
+
+        .var-match { background-color: #f0fdf4; color: #166534; font-weight: bold; border-radius: 6px; padding: 4px 8px; border: 1px internal solid #bbf7d0;}
+        .var-over { background-color: #fef2f2; color: #991b1b; font-weight: bold; border-radius: 6px; padding: 4px 8px; border: 1px solid #fecaca;}
+        .var-under { background-color: #fffbeb; color: #92400e; font-weight: bold; border-radius: 6px; padding: 4px 8px; border: 1px solid #fde68a;}
+
+        .verified-row td { background-color: #fafafa !important; color: #a1a1aa !important; text-decoration: line-through; }
+        .dark .verified-row td { background-color: #0f0f0f !important; color: #52525b !important; }
+
+        /* Revision Highlight Classes */
+        .rev-new td { background-color: #eff6ff !important; border-left: 4px solid #3b82f6; }
+        .rev-changed td { background-color: #fff7ed !important; border-left: 4px solid #f97316; }
+        .dark .rev-new td { background-color: #172554 !important; }
+        .dark .rev-changed td { background-color: #431407 !important; }
+
+        .dark body { background-color: #0a0a0a; color: #f4f4f5; }
+        .dark .bg-white { background-color: #111111 !important; border-color: #27272a; }
+        .dark table.dataTable thead th { border-bottom: 2px solid #27272a; color: #d4d4d8; background: #111111;}
+        .dark table.dataTable tbody td { border-bottom: 1px solid #27272a; color: #e4e4e7; }
+        .dark table.dataTable tbody tr { background-color: #111111; }
+        .dark table.dataTable tbody tr:hover { background-color: #18181b; }
+        .dark .dataTables_wrapper select { background-color: #0a0a0a; border-color: #3f3f46; color: #f4f4f5; }
+        .dark .dataTables_info, .dark .paginate_button { color: #a1a1aa !important; }
+        .dark table.dataTable tbody td:nth-child(2) { color: #C5A059; } 
+        .dark .cad-qty-input, .dark .rate-input, .dark .tag-input, .dark .note-input { border-color: #3f3f46; color: #fff; }
+        
+        .verify-cb { accent-color: #C5A059; }
+        
+        #smartSearch { width: 100%; max-width: 250px; padding: 10px 16px; border-radius: 8px; border: 2px solid #e5e7eb; font-size: 0.95rem; transition: all 0.3s; background-color: #fafafa; }
+        #smartSearch:focus { border-color: #C5A059; box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.2); outline: none; background-color: #fff; }
+        .dark #smartSearch { background-color: #0a0a0a; border-color: #3f3f46; color: #fff; }
+        .dark #smartSearch:focus { border-color: #C5A059; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px;}
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+
+        /* Progress Bar Styles */
+        .progress-container { width: 100%; background-color: #e5e7eb; border-radius: 9999px; height: 0.5rem; overflow: hidden; }
+        .dark .progress-container { background-color: #27272a; }
+        .progress-fill { height: 100%; background-color: #C5A059; transition: width 0.5s ease-in-out; }
+        
+        /* Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #C5A059; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #C5A059; }
+
+        /* Tablet Mode Overrides */
+        .tablet-mode .appControl { display: none !important; }
+        .tablet-mode table.dataTable tbody td { padding: 18px 14px; font-size: 1.1rem; }
+        .tablet-mode .verify-cb { width: 35px; height: 35px; }
+        .tablet-mode .cad-qty-input { height: 45px; font-size: 1.2rem; width: 100px; }
+        .tablet-mode .note-input { height: 45px; font-size: 1.1rem; width: 200px; }
+    </style>
+</head>
+<body class="min-h-screen p-4 font-sans bg-gray-50 text-gray-900">
+
+<div class="max-w-[1900px] mx-auto flex flex-col xl:flex-row gap-6 items-start">
+    
+    <div class="flex-1 w-full bg-white p-4 md:p-6 rounded-2xl shadow-2xl border border-gray-200 transition-colors duration-300 dark:bg-[#111111] dark:border-zinc-800">
+        
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-6 border-b pb-6 dark:border-zinc-800">
+            <div class="flex items-center gap-6">
+                <img src="/dec-logo.svg" alt="DEC Logo" class="h-16 w-auto flex-shrink-0 object-contain max-w-[200px]">
+    
+                <div>
+                    <h1 class="text-3xl font-extrabold tracking-tight flex items-center gap-3 dark:text-white">
+                        DEC <span class="text-[#C5A059] font-light">BOQ VIEWER</span> <span class="bg-[#111111] dark:bg-[#C5A059] dark:text-black text-[#C5A059] border border-[#C5A059] text-xs px-2 py-1 rounded-sm uppercase tracking-widest ml-2">v5.0</span>
+                    </h1>
+                    <p class="text-gray-500 dark:text-zinc-400 mt-1 text-sm tracking-wide">Enterprise Commercial & Site Hub.</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2">
+                <input type="file" id="fileInput" accept=".xls,.xlsx,.csv" title="Upload Base BOQ" class="text-sm text-gray-700 file:mr-2 file:py-2 file:px-4 file:rounded-md file:border-0 file:font-bold file:bg-gray-100 file:text-gray-800 hover:file:bg-gray-200 cursor-pointer dark:text-zinc-300 dark:file:bg-zinc-800 dark:file:text-white transition-all w-[240px]"/>
+                
+                <input type="file" id="revFileInput" accept=".xls,.xlsx,.csv" class="hidden">
+                <button onclick="document.getElementById('revFileInput').click()" class="hidden appControl px-3 py-2 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-bold shadow-sm transition-colors dark:bg-orange-900/30 dark:text-orange-400" title="Upload a revised BOQ to see changes">
+                    🔄 Compare Revision
+                </button>
+
+                <button id="tabletBtn" class="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-bold shadow-sm transition-colors dark:bg-blue-900/30 dark:text-blue-400">
+                    📱 Tablet Mode
+                </button>
+
+                <button onclick="exportProgress()" class="hidden appControl px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-bold shadow-sm transition-colors dark:bg-indigo-900/30 dark:text-indigo-400" title="Export .dec Memory File">💾 Save</button>
+                <input type="file" id="importProgress" accept=".dec" class="hidden">
+                <button onclick="document.getElementById('importProgress').click()" class="hidden appControl px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-bold shadow-sm transition-colors dark:bg-indigo-900/30 dark:text-indigo-400" title="Load .dec Memory File">📂 Load</button>
+
+                <button onclick="exportPDF()" class="hidden appControl px-3 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm font-bold shadow-sm transition-colors dark:bg-red-900/30 dark:text-red-400">
+                    📄 PDF
+                </button>
+    
+                <button id="themeToggle" class="px-4 py-2 rounded-lg bg-gray-100 dark:bg-zinc-800 text-sm font-bold shadow-sm hover:scale-105 transition-transform border border-gray-200 dark:border-zinc-700">🌓</button>
+            </div>
+        </div>
+
+        <div id="riskDash" class="hidden appControl mb-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 p-4 rounded-xl shadow-inner">
+            <h3 class="text-red-800 dark:text-red-400 font-black mb-2 text-sm uppercase tracking-widest flex items-center gap-2">
+                ⚠️ Top Financial Risks (CAD > BOQ)
+            </h3>
+            <ul id="riskList" class="text-sm text-red-700 dark:text-red-300 flex flex-col gap-1">
+                </ul>
+        </div>
+    
+        <div id="filterBar" class="hidden appControl mb-6 flex flex-wrap gap-4 items-center bg-gray-50 dark:bg-[#0a0a0a] p-4 rounded-xl border border-gray-200 dark:border-zinc-800">
+            <input type="text" id="smartSearch" placeholder="Smart Search...">
+            
+            <select id="buildingFilter" class="border border-gray-300 rounded-lg px-2 py-2 text-sm font-medium focus:ring-2 focus:ring-[#C5A059] dark:bg-zinc-900 dark:border-zinc-700 w-40 shadow-sm">
+                <option value="">🏢 All Buildings</option>
+            </select>
+    
+            <select id="divisionFilter" class="border border-gray-300 rounded-lg px-2 py-2 text-sm font-medium focus:ring-2 focus:ring-[#C5A059] dark:bg-zinc-900 dark:border-zinc-700 w-40 shadow-sm">
+                <option value="">⚙️ All Divisions</option>
+                <option value="DIVISION 02">02 - Siteworks</option>
+                <option value="DIVISION 03">03 - Concrete</option>
+                <option value="DIVISION 04">04 - Masonry</option>
+                <option value="DIVISION 08">08 - Doors/Windows</option>
+                <option value="DIVISION 09">09 - Finishes</option>
+                <option value="DIVISION 21">21 - Fire Fighting</option>
+                <option value="DIVISION 22">22 - Plumbing</option>
+                <option value="DIVISION 23">23 - HVAC</option>
+                <option value="DIVISION 26">26 - Electrical</option>
+            </select>
+
+            <select id="tagFilter" class="border border-gray-300 rounded-lg px-2 py-2 text-sm font-medium focus:ring-2 focus:ring-[#C5A059] dark:bg-zinc-900 dark:border-zinc-700 w-36 shadow-sm">
+                <option value="">🏷️ All Tags</option>
+            </select>
+
+            <div class="flex items-center gap-3 ml-auto border-l pl-4 border-gray-300 dark:border-zinc-700">
+                <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox" name="toggle" id="varianceToggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 dark:border-zinc-600 z-10 top-0 bottom-0 m-auto"/>
+                    <label for="varianceToggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 dark:bg-zinc-700 cursor-pointer"></label>
+                </div>
+                <label for="varianceToggle" class="text-sm font-bold text-gray-700 dark:text-zinc-300 cursor-pointer">Variances Only</label>
+            </div>
+        </div>
+    
+        <div id="progressDash" class="hidden appControl mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white dark:bg-[#111111] p-4 rounded-xl border border-gray-200 dark:border-zinc-800 shadow-sm">
+                <div class="flex justify-between text-xs font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-zinc-400">
+                    <span>Task Completion</span>
+                    <span id="progItemsText">0 / 0 Verified</span>
+                </div>
+                <div class="progress-container"><div id="progItemsBar" class="progress-fill" style="width: 0%"></div></div>
+            </div>
+            <div class="bg-white dark:bg-[#111111] p-4 rounded-xl border border-gray-200 dark:border-zinc-800 shadow-sm">
+                <div class="flex justify-between text-xs font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-zinc-400">
+                    <span>Financial Approval</span>
+                    <span id="progAmtText">AED 0.00 Verified</span>
+                </div>
+                <div class="progress-container"><div id="progAmtBar" class="progress-fill" style="width: 0%"></div></div>
+            </div>
+        </div>
+
+        <div id="dashboard" class="hidden appControl mb-8 grid grid-cols-1 xl:grid-cols-4 gap-4">
+            <div class="xl:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white dark:bg-[#111111] border border-gray-200 dark:border-zinc-800 p-5 rounded-xl flex flex-col justify-center shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-gray-800 dark:bg-zinc-600"></div>
+                    <span class="text-gray-500 dark:text-zinc-400 font-bold text-xs uppercase tracking-widest pl-3">Visible Items</span>
+                    <span id="rowCount" class="text-3xl font-light text-gray-900 dark:text-white mt-2 pl-3">0</span>
+                </div>
+                <div class="bg-white dark:bg-[#111111] border border-gray-200 dark:border-zinc-800 p-5 rounded-xl flex flex-col justify-center shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-[#C5A059]"></div>
+                    <span class="text-gray-500 dark:text-zinc-400 font-bold text-xs uppercase tracking-widest pl-3">Auto-Sum: Qty</span>
+                    <span id="qtyTotal" class="text-3xl font-light text-[#C5A059] mt-2 pl-3">0.00</span>
+                </div>
+                <div class="bg-gray-900 dark:bg-[#0a0a0a] border border-gray-900 dark:border-zinc-800 p-5 rounded-xl flex flex-col justify-center shadow-md relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-[#C5A059]"></div>
+                    <span class="text-gray-400 dark:text-zinc-500 font-bold text-xs uppercase tracking-widest pl-3">Total Value (AED)</span>
+                    <span id="amtTotal" class="text-3xl font-light text-white mt-2 pl-3">0.00</span>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-[#111111] border border-gray-200 dark:border-zinc-800 p-3 rounded-xl shadow-sm flex items-center justify-center h-40">
+                <canvas id="budgetChart"></canvas>
+            </div>
+        </div>
+    
+        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-[#111111]">
+            <table id="boqTable" class="w-full text-left border-collapse display" style="width:100%"></table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Theme setup
+    const htmlEl = document.documentElement;
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { htmlEl.classList.add('dark'); }
+    document.getElementById('themeToggle').addEventListener('click', () => { htmlEl.classList.toggle('dark'); localStorage.theme = htmlEl.classList.contains('dark') ? 'dark' : 'light'; if(budgetChart) budgetChart.update(); });
+
+    let dataTable;
+    let budgetChart;
+    // Updated Indices for Tag and Note columns
+    const locColIdx = 1, divColIdx = 2, refColIdx = 3, descColIdx = 4, qtyColIdx = 5, amtColIdx = 10, tagColIdx = 11, noteColIdx = 12;
+    let sessionMemory = JSON.parse(localStorage.getItem('boqMemory_v5')) || {};
+    let isTablet = false;
+    let originalBOQData = {}; // For Revision Clashing
+
+    // ==========================================
+    // TABLET MODE (Site Walk)
+    // ==========================================
+    $('#tabletBtn').click(function() {
+        isTablet = !isTablet;
+        if(isTablet) {
+            $('body').addClass('tablet-mode');
+            $(this).addClass('bg-blue-600 text-white').removeClass('bg-blue-50 text-blue-700');
+            dataTable.columns([8, 9, 10, 11]).visible(false); // Hide Unit, Rate, Amount, Tag
+        } else {
+            $('body').removeClass('tablet-mode');
+            $(this).removeClass('bg-blue-600 text-white').addClass('bg-blue-50 text-blue-700');
+            dataTable.columns([8, 9, 10, 11]).visible(true); // Show
+            // Hide if truly empty
+            [8, 9, 10].forEach(idx => {
+                let colData = dataTable.column(idx).data().toArray();
+                if(colData.every(val => val === null || val === "" || String(val).trim() === "")) dataTable.column(idx).visible(false);
+            });
+        }
+    });
+
+    // ==========================================
+    // REVISION CLASH ENGINE
+    // ==========================================
+    document.getElementById('revFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            
+            let newRows = 0, changedRows = 0;
+
+            workbook.SheetNames.forEach(sheetName => {
+                if(sheetName.toLowerCase().includes("cover") || sheetName.toLowerCase().includes("summary")) return;
+                const worksheet = workbook.Sheets[sheetName];
+                let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                
+                rows.forEach(row => {
+                    if (row.every(cell => cell === null || cell === "")) return;
+                    let ref = String(row[0] || "").trim();
+                    let desc = String(row[2] !== undefined && row[2] !== "" ? row[2] : (row[1] || "")).trim();
+                    let qty = String(row[4] || "").trim();
+                    let rate = String(row[6] || "").trim();
+                    if(desc === "" && ref === "" && qty === "") return;
+                    if (desc.toUpperCase().startsWith("DIVISION")) return;
+
+                    // Generate ID to match against original
+                    let rowId = sheetName + "_" + ref + "_" + desc.substring(0, 20);
+                    
+                    if(originalBOQData[rowId]) {
+                        // Exists. Did it change?
+                        if(parseFloat(originalBOQData[rowId].qty) !== parseFloat(qty) || parseFloat(originalBOQData[rowId].rate) !== parseFloat(rate)) {
+                            sessionMemory[rowId] = sessionMemory[rowId] || {};
+                            sessionMemory[rowId].revStatus = "changed";
+                            changedRows++;
+                        }
+                    } else {
+                        // Brand new item in this revision! (Requires adding to table, but for simplicity, we flag memory so next upload shows it)
+                        // In a full backend system, we'd inject the row. Here we alert the PM.
+                        newRows++;
+                    }
+                });
+            });
+            saveMemory();
+            dataTable.draw(false);
+            alert(`Revision Comparison Complete.\n\nChanged Items: ${changedRows}\nNew Items: ${newRows}\n\nChanged items are highlighted in Orange.`);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // ==========================================
+    // SMART SEARCH & VARIANCE FILTER
+    // ==========================================
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        let showVariancesOnly = document.getElementById('varianceToggle').checked;
+        if(showVariancesOnly) {
+            let rowId = data[locColIdx] + "_" + data[refColIdx] + "_" + String(data[descColIdx]).substring(0, 20);
+            let boqQty = parseFloat(data[qtyColIdx]);
+            let cadQty = parseFloat(sessionMemory[rowId]?.cadQty);
+            if(isNaN(boqQty) || isNaN(cadQty) || boqQty === cadQty) return false;
+        }
+
+        let searchBox = document.getElementById('smartSearch');
+        if(!searchBox) return true;
+        let searchTerm = searchBox.value.toLowerCase().trim();
+        if (!searchTerm) return true;
+
+        let rowText = (data[locColIdx] + " " + data[refColIdx] + " " + data[descColIdx]).toLowerCase();
+        let compressedRowText = rowText.replace(/[\s\-\_]/g, '');
+        let searchWords = searchTerm.split(/\s+/);
+
+        for (let word of searchWords) {
+            let stem = word.replace(/es$/, '').replace(/s$/, ''); 
+            if(stem === 'conrete') stem = 'concrete'; 
+            if(stem === 'alluminum' || stem === 'alumium') stem = 'aluminum';
+            let compressedStem = stem.replace(/[\s\-\_]/g, '');
+            if (!rowText.includes(stem) && !compressedRowText.includes(compressedStem)) { return false; }
+        }
+        return true; 
+    });
+
+    $('#varianceToggle').on('change', function() { dataTable.draw(); });
+
+    // ==========================================
+    // EXPORT / IMPORT PROGRESS (.DEC files)
+    // ==========================================
+    window.exportProgress = function() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sessionMemory));
+        const anchor = document.createElement('a');
+        anchor.setAttribute("href", dataStr); anchor.setAttribute("download", "DEC-Team-Progress.dec");
+        document.body.appendChild(anchor); anchor.click(); anchor.remove();
+    };
+
+    document.getElementById('importProgress').addEventListener('change', function(e) {
+        let file = e.target.files[0];
+        if(!file) return;
+        let reader = new FileReader(); reader.readAsText(file);
+        reader.onload = re => {
+            try {
+                let imported = JSON.parse(re.target.result);
+                sessionMemory = { ...sessionMemory, ...imported }; 
+                saveMemory(); dataTable.draw(); updateTagFilter();
+                alert("Team Progress Imported Successfully!");
+            } catch(err) { alert("Invalid .dec file format."); }
+        }
+    });
+
+    // ==========================================
+    // EXPORT TO PDF REPORT
+    // ==========================================
+    window.exportPDF = function() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'pt', 'a4'); 
+        let exportData = [];
+        dataTable.rows({ search: 'applied' }).every(function() {
+            let row = this.data(); let rowId = getRowId(row);
+            let boqQty = row[5], cadQty = sessionMemory[rowId]?.cadQty || "";
+            let diff = (parseFloat(cadQty) - parseFloat(boqQty)) || 0;
+            let varText = cadQty === "" ? "" : (diff === 0 ? "Match" : (diff > 0 ? "+"+diff.toFixed(2) : diff.toFixed(2)));
+            let rate = sessionMemory[rowId]?.customRate || row[9];
+            let amt = (parseFloat(rate) * parseFloat(boqQty)); amt = isNaN(amt) ? row[10] : amt;
+            let note = sessionMemory[rowId]?.notes || "";
+            
+            exportData.push([
+                row[1], row[3], row[4].length > 50 ? row[4].substring(0, 47) + "..." : row[4], 
+                boqQty, cadQty, varText, row[8], rate, 
+                typeof amt === 'number' ? amt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : amt,
+                note
+            ]);
+        });
+
+        doc.setFontSize(18); doc.setTextColor(197, 160, 89); doc.text('DEC Engineering - BOQ Takeoff Report', 40, 40);
+        doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text('Auto-Generated from DEC BOQ Viewer v5.0', 40, 55);
+
+        doc.autoTable({
+            startY: 70, head: [['Location', 'Ref', 'Description', 'BOQ', 'CAD', 'Var', 'Unit', 'Rate', 'Amount', 'Notes']],
+            body: exportData, theme: 'grid', styles: { fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [197, 160, 89], textColor: [255,255,255], fontStyle: 'bold' },
+            columnStyles: { 2: { cellWidth: 160 }, 5: { fontStyle: 'bold', textColor: [200, 50, 50] }, 9: { cellWidth: 100 } }
+        });
+        doc.save('DEC-BOQ-Executive-Report.pdf');
+    };
+
+    // ==========================================
+    // EXCEL PARSER
+    // ==========================================
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            let allRows = [], buildingTotals = {}, uniqueBuildings = new Set();
+            originalBOQData = {}; // Reset baseline
+
+            workbook.SheetNames.forEach(sheetName => {
+                if(sheetName.toLowerCase().includes("cover") || sheetName.toLowerCase().includes("summary")) return;
+                uniqueBuildings.add(sheetName); buildingTotals[sheetName] = 0;
+
+                const worksheet = workbook.Sheets[sheetName];
+                let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                let currentDiv = "General";
+
+                rows.forEach(row => {
+                    if (row.every(cell => cell === null || cell === "")) return;
+                    let ref = String(row[0] || "").trim();
+                    let desc = String(row[2] !== undefined && row[2] !== "" ? row[2] : (row[1] || "")).trim();
+                    let qty = String(row[4] || "").trim();
+                    let unit = String(row[5] || "").trim();
+                    let rate = String(row[6] || "").trim();
+                    let amt = String(row[7] || "").trim();
+
+                    if (desc.toUpperCase().startsWith("DIVISION")) currentDiv = desc.toUpperCase();
+                    if(desc === "" && ref === "" && qty === "") return;
+
+                    let rowId = sheetName + "_" + ref + "_" + desc.substring(0, 20);
+                    originalBOQData[rowId] = { qty: qty, rate: rate }; // Save baseline for clash engine
+
+                    allRows.push(["", sheetName, currentDiv, ref, desc, qty, "", "", unit, rate, amt, "", ""]);
+                    let possibleAmt = parseFloat(amt);
+                    if(!isNaN(possibleAmt)) buildingTotals[sheetName] += possibleAmt;
+                });
+            });
+
+            const bldgSelect = document.getElementById('buildingFilter');
+            bldgSelect.innerHTML = '<option value="">🏢 All Buildings</option>';
+            uniqueBuildings.forEach(b => {
+                let opt = document.createElement('option'); opt.value = b; opt.textContent = b; bldgSelect.appendChild(opt);
+            });
+
+            if ($.fn.DataTable.isDataTable('#boqTable')) { $('#boqTable').DataTable().destroy(); $('#boqTable').empty(); }
+
+            dataTable = $('#boqTable').DataTable({
+                data: allRows,
+                columns: [
+                    { title: "✔", orderable: false, width: "30px" },
+                    { title: "Location", width: "120px" },
+                    { title: "Division", visible: false }, 
+                    { title: "Ref", width: "50px" },
+                    { title: "Description", width: "300px" },
+                    { title: "BOQ Qty", width: "60px" },
+                    { title: "CAD Qty", orderable: false, width: "70px" },
+                    { title: "Variance", orderable: false, width: "70px" },
+                    { title: "Unit", width: "50px" },
+                    { title: "Rate", width: "70px" }, 
+                    { title: "Amount", width: "80px" },
+                    { title: "Tag / Pkg", width: "90px" }, // Feature 4
+                    { title: "Notes / RFI", width: "140px" } // Feature 3
+                ],
+                pageLength: 50, deferRender: true, autoWidth: false, ordering: false, dom: 'lrtip',
+                columnDefs: [
+                    { targets: 0, render: function(data, type, row) {
+                        let checked = sessionMemory[getRowId(row)]?.verified ? "checked" : "";
+                        return `<input type="checkbox" class="verify-cb h-5 w-5 rounded border-gray-300 cursor-pointer" ${checked}>`;
+                    }},
+                    { targets: 6, render: function(data, type, row) {
+                        if(isNaN(parseFloat(row[qtyColIdx]))) return "";
+                        let savedVal = sessionMemory[getRowId(row)]?.cadQty || "";
+                        return `<input type="number" class="cad-qty-input" value="${savedVal}" placeholder="Qty">`;
+                    }},
+                    { targets: 7, render: function(data, type, row) {
+                        if(isNaN(parseFloat(row[qtyColIdx]))) return "";
+                        return `<span class="variance-badge"></span>`;
+                    }},
+                    { targets: 9, render: function(data, type, row) {
+                        let baseRate = parseFloat(row[9]); if(isNaN(baseRate)) return row[9] || "";
+                        let savedRate = sessionMemory[getRowId(row)]?.customRate || baseRate;
+                        return `<input type="number" class="rate-input" value="${savedRate}" placeholder="Rate">`;
+                    }},
+                    { targets: 10, render: function(data, type, row) {
+                        let baseRate = parseFloat(row[9]), qty = parseFloat(row[5]);
+                        if(isNaN(baseRate) || isNaN(qty)) return row[10] || "";
+                        let activeRate = parseFloat(sessionMemory[getRowId(row)]?.customRate || baseRate);
+                        return (activeRate * qty).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }},
+                    { targets: 11, render: function(data, type, row) { // Tags
+                        if(isNaN(parseFloat(row[qtyColIdx]))) return "";
+                        let savedTag = sessionMemory[getRowId(row)]?.tag || "";
+                        return `<input type="text" class="tag-input" value="${savedTag}" placeholder="e.g. Civil">`;
+                    }},
+                    { targets: 12, render: function(data, type, row) { // Notes
+                        if(isNaN(parseFloat(row[qtyColIdx]))) return "";
+                        let savedNote = sessionMemory[getRowId(row)]?.notes || "";
+                        return `<input type="text" class="note-input" value="${savedNote}" placeholder="Add RFI/Note...">`;
+                    }}
+                ],
+                rowCallback: function(rowEl, rowData) {
+                    let rowId = getRowId(rowData);
+                    if(sessionMemory[rowId]?.verified) $(rowEl).addClass('verified-row');
+                    if(sessionMemory[rowId]?.revStatus === "changed") $(rowEl).addClass('rev-changed');
+                    let input = $(rowEl).find('.cad-qty-input');
+                    if(input.length) calculateVariance(input, rowData[qtyColIdx]);
+                },
+                initComplete: function() {
+                    let api = this.api();
+                    [8, 9, 10].forEach(idx => {
+                        let colData = api.column(idx).data().toArray();
+                        if(colData.every(val => val === null || val === "" || String(val).trim() === "")) api.column(idx).visible(false);
+                    });
+                    updateTagFilter();
+                },
+                drawCallback: function() {
+                    let api = this.api();
+                    let totalQty = 0, totalAmt = 0;
+                    let verifiedCount = 0, totalCount = 0, verifiedAmt = 0, actualTotalAmt = 0;
+                    let risks = []; // For Risk Dashboard
+
+                    api.rows({ search: 'applied' }).every(function() {
+                        let row = this.data(), rowId = getRowId(row);
+                        let q = parseFloat(row[qtyColIdx]), cadQty = parseFloat(sessionMemory[rowId]?.cadQty);
+                        let activeRate = parseFloat(sessionMemory[rowId]?.customRate || row[9]);
+                        let a = isNaN(activeRate) || isNaN(q) ? parseFloat(row[amtColIdx]) : (activeRate * q);
+
+                        if(!isNaN(q)) {
+                            totalCount++; totalQty += q;
+                            if(!isNaN(a)) {
+                                totalAmt += a; actualTotalAmt += a;
+                                if(sessionMemory[rowId]?.verified) { verifiedCount++; verifiedAmt += a; }
+                            }
+                            // Risk Calculation
+                            if(!isNaN(cadQty) && !isNaN(activeRate)) {
+                                let diff = cadQty - q;
+                                if(diff > 0) { risks.push({ desc: row[4], loc: row[1], excessCost: diff * activeRate }); }
+                            }
+                        }
+                    });
+                    
+                    $('#rowCount').text(totalCount.toLocaleString());
+                    $('#qtyTotal').text(totalQty.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+                    $('#amtTotal').text('AED ' + totalAmt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+
+                    let countPct = totalCount === 0 ? 0 : Math.round((verifiedCount / totalCount) * 100);
+                    let amtPct = actualTotalAmt === 0 ? 0 : Math.round((verifiedAmt / actualTotalAmt) * 100);
+                    $('#progItemsBar').css('width', countPct + '%');
+                    $('#progItemsText').text(`${verifiedCount} / ${totalCount} Items Verified (${countPct}%)`);
+                    $('#progAmtBar').css('width', amtPct + '%');
+                    $('#progAmtText').text(`AED ${verifiedAmt.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} / AED ${actualTotalAmt.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} Verified (${amtPct}%)`);
+
+                    // Render Risk Dashboard
+                    risks.sort((a,b) => b.excessCost - a.excessCost);
+                    let riskHtml = "";
+                    for(let i=0; i<3 && i<risks.length; i++) {
+                        riskHtml += `<li><strong>${risks[i].loc}:</strong> ${risks[i].desc.substring(0,40)}... (Over Budget by <strong>AED ${risks[i].excessCost.toLocaleString()}</strong>)</li>`;
+                    }
+                    if(riskHtml !== "") { document.getElementById('riskDash').classList.remove('hidden'); document.getElementById('riskList').innerHTML = riskHtml; }
+                    else { document.getElementById('riskDash').classList.add('hidden'); }
+                }
+            });
+
+            renderChart(buildingTotals);
+            $('.appControl').removeClass('hidden'); 
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    $('#smartSearch').on('keyup', function() { dataTable.draw(); });
+
+    function getRowId(row) { return row[locColIdx] + "_" + row[refColIdx] + "_" + String(row[descColIdx]).substring(0, 20); }
+    function saveMemory() { localStorage.setItem('boqMemory_v5', JSON.stringify(sessionMemory)); }
+
+    // Memory Event Listeners
+    $('#boqTable').on('change', '.verify-cb', function() {
+        let tr = $(this).closest('tr'); let rowId = getRowId(dataTable.row(tr).data());
+        if(!sessionMemory[rowId]) sessionMemory[rowId] = {};
+        sessionMemory[rowId].verified = this.checked;
+        if(this.checked) tr.addClass('verified-row'); else tr.removeClass('verified-row');
+        saveMemory(); dataTable.draw(false); 
+    });
+
+    $('#boqTable').on('input', '.cad-qty-input', function() {
+        let tr = $(this).closest('tr'); let rowData = dataTable.row(tr).data(); let rowId = getRowId(rowData);
+        if(!sessionMemory[rowId]) sessionMemory[rowId] = {};
+        sessionMemory[rowId].cadQty = $(this).val();
+        saveMemory(); calculateVariance($(this), rowData[qtyColIdx]); dataTable.draw(false);
+    });
+
+    $('#boqTable').on('input', '.rate-input', function() {
+        let tr = $(this).closest('tr'); let rowId = getRowId(dataTable.row(tr).data());
+        if(!sessionMemory[rowId]) sessionMemory[rowId] = {};
+        sessionMemory[rowId].customRate = $(this).val();
+        saveMemory(); dataTable.cell(tr, 10).invalidate().draw(false); 
+    });
+
+    $('#boqTable').on('input', '.tag-input', function() {
+        let tr = $(this).closest('tr'); let rowId = getRowId(dataTable.row(tr).data());
+        if(!sessionMemory[rowId]) sessionMemory[rowId] = {};
+        sessionMemory[rowId].tag = $(this).val().trim();
+        saveMemory(); updateTagFilter();
+    });
+
+    $('#boqTable').on('input', '.note-input', function() {
+        let tr = $(this).closest('tr'); let rowId = getRowId(dataTable.row(tr).data());
+        if(!sessionMemory[rowId]) sessionMemory[rowId] = {};
+        sessionMemory[rowId].notes = $(this).val();
+        saveMemory();
+    });
+
+    function calculateVariance(inputEl, boqQty) {
+        let cadVal = parseFloat(inputEl.val()), badge = inputEl.closest('tr').find('.variance-badge'), bQty = parseFloat(boqQty);
+        if(isNaN(cadVal)) { badge.text("").removeClass('var-match var-over var-under'); return; }
+        let diff = cadVal - bQty; badge.removeClass('var-match var-over var-under');
+        if(diff === 0) badge.text("Match").addClass('var-match');
+        else if (diff > 0) badge.text("+" + diff.toFixed(2)).addClass('var-over'); 
+        else badge.text(diff.toFixed(2)).addClass('var-under'); 
+    }
+
+    // Filters
+    $('#buildingFilter').on('change', function() { dataTable.column(locColIdx).search(this.value, true, false).draw(); });
+    $('#divisionFilter').on('change', function() { dataTable.column(divColIdx).search(this.value).draw(); });
+    
+    // Custom Tag Filter Logic
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        let tagFilterVal = document.getElementById('tagFilter').value.toLowerCase();
+        if(!tagFilterVal) return true;
+        let rowId = data[locColIdx] + "_" + data[refColIdx] + "_" + String(data[descColIdx]).substring(0, 20);
+        let rowTag = (sessionMemory[rowId]?.tag || "").toLowerCase();
+        return rowTag === tagFilterVal;
+    });
+    $('#tagFilter').on('change', function() { dataTable.draw(); });
+
+    function updateTagFilter() {
+        let tags = new Set();
+        Object.values(sessionMemory).forEach(item => { if(item.tag) tags.add(item.tag); });
+        let select = document.getElementById('tagFilter');
+        let currentVal = select.value;
+        select.innerHTML = '<option value="">🏷️ All Tags</option>';
+        tags.forEach(t => { select.innerHTML += `<option value="${t}">${t}</option>`; });
+        select.value = currentVal;
+    }
+
+    function renderChart(buildingData) {
+        const ctx = document.getElementById('budgetChart').getContext('2d');
+        if(budgetChart) budgetChart.destroy();
+        let labels = [], data = [];
+        Object.keys(buildingData).forEach(key => {
+            if(buildingData[key] > 0) { labels.push(key.replace("BOQ-civil defense 24-1-2026.xls - ", "").replace(".csv", "")); data.push(buildingData[key]); }
+        });
+        const isDark = document.documentElement.classList.contains('dark');
+        budgetChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: ['#C5A059', '#171717', '#52525b', '#a1a1aa', '#3f3f46', '#e4e4e7', '#09090b'], borderWidth: isDark ? 2 : 1, borderColor: isDark ? '#111111' : '#ffffff' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.label + ': AED ' + context.raw.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}); } } } } }
+        });
+    }
+</script>
+</body>
+</html>

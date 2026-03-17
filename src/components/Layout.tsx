@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign, Mail, Calendar } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign, Mail, Calendar, Calculator } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
@@ -158,6 +158,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <nav className="space-y-2 flex-1">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         {role !== 'client' && <NavItem to="/projects" icon={FolderKanban} label="Projects" />}
+                        {role !== 'client' && <NavItem to="/boq" icon={Calculator} label="BOQ Viewer" />}
                         {role !== 'client' && <NavItem to="/meetings" icon={Calendar} label="Meetings" />}
                         {role === 'admin' && <NavItem to="/engineers" icon={Users} label="Engineers" />}
                         {role !== 'client' && <NavItem to="/entries" icon={FileText} label="Daily Entries" />}

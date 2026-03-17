@@ -11,6 +11,7 @@ import { Engineers } from './pages/Engineers';
 import { Entries } from './pages/Entries';
 import { Reports } from './pages/Reports';
 import { Attendance } from './pages/Attendance';
+import { BOQViewer } from './pages/BOQViewer';
 import { Login } from './pages/Login';
 import { ResetPassword } from './pages/ResetPassword';
 import { ClientDashboard } from './pages/ClientDashboard';
@@ -111,6 +112,7 @@ function App() {
                       <Route path="/reports" element={<ProtectedRoute requireAdmin><Reports /></ProtectedRoute>} />
                       <Route path="/projects" element={<ProtectedRoute requireEngineerOrAdmin><Projects /></ProtectedRoute>} />
                       <Route path="/projects/:id" element={<ProjectDetails />} />
+                      <Route path="/boq" element={<ProtectedRoute requireEngineerOrAdmin><BOQViewer /></ProtectedRoute>} />
                       <Route path="/meetings" element={<ProtectedRoute requireEngineerOrAdmin><Meetings /></ProtectedRoute>} />
                       <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
                       <Route path="/emails/*" element={<ProtectedRoute requireEngineerOrAdmin skipDataWait><Emails /></ProtectedRoute>} />
