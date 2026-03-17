@@ -15,8 +15,8 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
             return (a.createdAt || '').localeCompare(b.createdAt || '');
         });
 
-        const activeTasks = tasks.filter(t => t.status === 'in_progress');
-        const doneTasks = tasks.filter(t => t.status === 'done');
+        const activeTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'not_started');
+        const doneTasks = tasks.filter(t => t.status === 'completed');
         const recentDoneTasks = [...doneTasks].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 5);
 
         const projectProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
@@ -58,7 +58,7 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
                     <div className="space-y-4">
                         {sortedMilestones.map((milestone) => {
                             const mTasks = tasks.filter(t => t.milestoneId === milestone.id);
-                            const mDone = mTasks.filter(t => t.status === 'done').length;
+                            const mDone = mTasks.filter(t => t.status === 'completed').length;
                             const mProgress = mTasks.length > 0 ? Math.round((mDone / mTasks.length) * 100) : 0;
 
                             return (

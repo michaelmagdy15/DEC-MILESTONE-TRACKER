@@ -269,7 +269,7 @@ export const Reports: React.FC = () => {
         return engineers.map(engineer => {
             const allocations = [0, 0, 0, 0];
             tasks
-                .filter(t => t.engineerId === engineer.id && t.status !== 'done')
+                .filter(t => t.engineerId === engineer.id && t.status !== 'completed')
                 .forEach(task => {
                     const dueDate = task.dueDate ? new Date(task.dueDate) : null;
                     if (!dueDate) return;

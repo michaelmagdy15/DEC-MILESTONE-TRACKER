@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Project, ProjectPhase } from '../types';
 import { motion } from 'framer-motion';
 import { RiskIndicator } from '../components/RiskIndicator';
+import { decWorkflowTemplate } from '../utils/workflowTemplate';
 
 // --- Separate Component for Phase Management ---
 const PhaseConfigModal = ({
@@ -125,7 +126,7 @@ const PhaseConfigModal = ({
 
 export const Projects: React.FC = () => {
     const { role, engineerId } = useAuth();
-    const { projects, projectPhases, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone, updateProjectOrder, addProjectPhase, updateProjectPhase, deleteProjectPhase, addNotification } = useData();
+    const { projects, projectPhases, engineers, milestones, entries, addProject, updateProject, deleteProject, addMilestone, addTask, updateProjectOrder, addProjectPhase, updateProjectPhase, deleteProjectPhase, addNotification } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isManagingPhases, setIsManagingPhases] = useState(false);
@@ -155,6 +156,7 @@ export const Projects: React.FC = () => {
 
     // Phase milestones (inline creation)
     const [phaseMilestones, setPhaseMilestones] = useState<Record<string, string>>({});
+    const [applyDecWorkflow, setApplyDecWorkflow] = useState(false);
 
     const currentPhase = phase || projectPhases[0]?.name || 'Planning';
 
@@ -191,16 +193,40 @@ export const Projects: React.FC = () => {
         } else {
             await addProject(projectData);
 
-            // Create milestones for each phase that has a deadline
-            for (const [phaseName, deadline] of Object.entries(phaseMilestones)) {
-                if (deadline) {
+            if (applyDecWorkflow) {
+                // Generate milestones and tasks from DEC template
+                for (const phaseTpl of decWorkflowTemplate) {
+                    const milestoneId = crypto.randomUUID();
                     await addMilestone({
-                        id: crypto.randomUUID(),
+                        id: milestoneId,
                         projectId,
-                        name: `${phaseName} Phase`,
-                        targetDate: deadline,
+                        name: phaseTpl.name,
+                        targetDate: phaseMilestones[phaseTpl.name] || undefined,
                         completedPercentage: 0,
                     });
+
+                    for (const taskName of phaseTpl.tasks) {
+                        await addTask({
+                            id: crypto.randomUUID(),
+                            projectId,
+                            milestoneId,
+                            title: taskName,
+                            status: 'not_started',
+                        });
+                    }
+                }
+            } else {
+                // Create milestones for each phase that has a deadline
+                for (const [phaseName, deadline] of Object.entries(phaseMilestones)) {
+                    if (deadline) {
+                        await addMilestone({
+                            id: crypto.randomUUID(),
+                            projectId,
+                            name: `${phaseName} Phase`,
+                            targetDate: deadline,
+                            completedPercentage: 0,
+                        });
+                    }
                 }
             }
         }
@@ -236,6 +262,7 @@ export const Projects: React.FC = () => {
         setEndDate('');
         setGoogleDriveLink('');
         setPhaseMilestones({});
+        setApplyDecWorkflow(false);
     };
 
     const handleDelete = (id: string) => {
@@ -562,15 +589,32 @@ export const Projects: React.FC = () => {
                         {/* Row 5: Phase Milestones (only for new projects) */}
                         {!editingId && projectPhases.length > 0 && (
                             <div className="space-y-3 border-t border-white/5 pt-6">
+                                <label className="flex items-center gap-3 cursor-pointer group mb-6">
+                                    <div className="relative flex items-center justify-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={applyDecWorkflow}
+                                            onChange={(e) => setApplyDecWorkflow(e.target.checked)}
+                                            className="sr-only"
+                                        />
+                                        <div className={`w-5 h-5 rounded border transition-all ${applyDecWorkflow ? 'bg-orange-500 border-orange-500' : 'bg-white/5 border-white/20 group-hover:border-white/50'}`}>
+                                            {applyDecWorkflow && <Check className="w-3.5 h-3.5 text-white absolute top-0.5 left-0.5" />}
+                                        </div>
+                                    </div>
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em] group-hover:text-white transition-colors">
+                                        Apply DEC Architectural Workflow Template (Auto-generate phases & tasks)
+                                    </span>
+                                </label>
+
                                 <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">
                                     <Target className="w-3.5 h-3.5 text-orange-400" />
                                     Phase Milestones — Set Deadlines
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {projectPhases.map(p => (
+                                    {(applyDecWorkflow ? decWorkflowTemplate.map(p => ({ id: p.name, name: p.name })) : projectPhases).map(p => (
                                         <div key={p.id} className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
                                             <div className="flex-1">
-                                                <div className="text-xs font-bold text-white tracking-tight mb-2 truncate" title={p.name}>{p.name}</div>
+                                                <div className="text-[10px] font-bold text-white tracking-tight mb-2 truncate leading-relaxed" title={p.name}>{p.name}</div>
                                                 <input
                                                     type="date"
                                                     value={phaseMilestones[p.name] || ''}

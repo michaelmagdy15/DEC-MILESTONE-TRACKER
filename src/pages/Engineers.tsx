@@ -363,7 +363,7 @@ export const Engineers = () => {
                                 <div className="grid grid-cols-2 gap-4 py-4 border-t border-white/5 mt-4">
                                     <div>
                                         <div className="text-2xl font-black text-emerald-400">
-                                            {tasks.filter(t => t.engineerId === engineer.id && t.status !== 'done').length}
+                                            {tasks.filter(t => t.engineerId === engineer.id && t.status !== 'completed').length}
                                         </div>
                                         <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Active Tasks</div>
                                     </div>

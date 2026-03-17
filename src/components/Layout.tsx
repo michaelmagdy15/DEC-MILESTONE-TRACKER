@@ -69,7 +69,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         if (!engineerId || tasks.length === 0) return;
         const now = new Date();
         tasks.forEach(task => {
-            if (task.status !== 'done' && task.dueDate && new Date(task.dueDate) < now) {
+            if (task.status !== 'completed' && task.dueDate && new Date(task.dueDate) < now) {
                 if (task.engineerId === engineerId) {
                     const alreadyInDb = notifications.some(n => n.type === 'overdue_task' && n.projectId === task.id && n.engineerId === engineerId);
                     if (!alreadyInDb && !notifiedTasksRef.current.has(task.id)) {
