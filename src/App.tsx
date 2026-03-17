@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './context/DataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Projects } from './pages/Projects';
@@ -79,8 +80,9 @@ const HomeRoute = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <AuthProvider>
+      <LanguageProvider>
+        <Router>
+          <AuthProvider>
           <DataProvider>
             <Toaster
               position="bottom-right"
@@ -124,6 +126,7 @@ function App() {
           </DataProvider>
         </AuthProvider>
       </Router>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }

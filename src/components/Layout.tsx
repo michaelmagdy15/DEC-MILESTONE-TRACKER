@@ -6,6 +6,8 @@ import { Logo } from './Logo';
 import { MailNotifier } from './MailNotifier';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import { useLanguage } from '../context/LanguageContext';
+import { Globe } from 'lucide-react';
 
 const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) => {
     const location = useLocation();
@@ -37,6 +39,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { role, signOut, user, engineerId } = useAuth();
     const { projects, engineers, tasks, entries, notifications, markNotificationRead, addNotification } = useData();
+    const { language, toggleLanguage } = useLanguage();
     const navigate = useNavigate();
 
     const notifiedTasksRef = useRef<Set<string>>(new Set());
@@ -194,6 +197,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={toggleLanguage}
+                            className="flex items-center gap-2 p-2 px-3 text-slate-400 font-bold text-xs uppercase hover:bg-white/5 hover:text-white rounded-lg transition-colors border border-white/5"
+                        >
+                            <Globe className="w-4 h-4" />
+                            {language === 'en' ? 'EN' : 'AR'}
+                        </button>
+                        <button
                             onClick={() => setIsNotifOpen(!isNotifOpen)}
                             className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
                         >
@@ -295,10 +305,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         )}
                     </div>
 
-                    {/* Notifications Desktop */}
-                    <div ref={notifRef} className="relative z-30 ml-4 hidden lg:block">
+                    {/* Desktop Controls (Toggle & Notifications) */}
+                    <div className="relative z-30 ml-4 hidden lg:flex items-center gap-4">
                         <button
-                            onClick={() => setIsNotifOpen(!isNotifOpen)}
+                            onClick={toggleLanguage}
+                            className="flex items-center gap-2 px-4 py-2 text-slate-400 font-bold text-xs uppercase hover:bg-white/5 hover:text-white rounded-xl transition-all border border-white/5 bg-[#1a1a1a]/50"
+                        >
+                            <Globe className="w-4 h-4" />
+                            {language === 'en' ? 'English' : 'عربي'}
+                        </button>
+                        
+                        <div ref={notifRef} className="relative">
+                            <button
+                                onClick={() => setIsNotifOpen(!isNotifOpen)}
                             className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                         >
                             <Bell className="w-6 h-6" />
@@ -334,6 +353,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                                 </div>
                             </div>
                         )}
+                        </div>
                     </div>
                 </div>
 

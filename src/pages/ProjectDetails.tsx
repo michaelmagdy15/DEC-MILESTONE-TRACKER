@@ -13,12 +13,15 @@ import { differenceInDays, format, startOfWeek, endOfWeek, eachDayOfInterval, ad
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { ClientReportTemplate } from '../components/ClientReportTemplate';
+import { useLanguage } from '../context/LanguageContext';
+import { getLocalizedText } from '../utils/languageUtils';
 
 export const ProjectDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { projects, milestones, tasks, engineers, entries, appUsageLogs, addMilestone, addTask, updateTask, addNotification, isLoading } = useData();
     const { role, engineerId: currentEngineerId } = useAuth();
+    const { language } = useLanguage();
 
     const project = projects.find(p => p.id === id);
     const projectMilestones = milestones.filter(m => m.projectId === id).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
@@ -225,6 +228,48 @@ export const ProjectDetails: React.FC = () => {
         const taskToUpdate = tasks.find(t => t.id === taskId);
         if (taskToUpdate) {
             handleStatusMove(taskToUpdate, newStatus);
+        }
+    };
+
+    // --- Drag and Drop Handlers ---
+    const handleDragStart = (e: React.DragEvent, taskId: string) => {
+        e.dataTransfer.setData('text/plain', taskId);
+        // Optional: add a class for styling while dragging
+        if (e.currentTarget instanceof HTMLElement) {
+            e.currentTarget.classList.add('opacity-50');
+        }
+    };
+
+    const handleDragEnd = (e: React.DragEvent) => {
+        if (e.currentTarget instanceof HTMLElement) {
+            e.currentTarget.classList.remove('opacity-50');
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault(); // Required to allow dropping
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e: React.DragEvent, newStatus: Task['status'], targetMilestoneId: string) => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (!taskId) return;
+
+        const taskToUpdate = tasks.find(t => t.id === taskId);
+        if (taskToUpdate && (taskToUpdate.status !== newStatus || taskToUpdate.milestoneId !== targetMilestoneId)) {
+            // Update the task status and potentially the milestone if dragged across milestones
+            updateTask({ ...taskToUpdate, status: newStatus, milestoneId: targetMilestoneId });
+            
+            if (taskToUpdate.engineerId && taskToUpdate.engineerId !== currentEngineerId) {
+                const statusLabel = newStatus.replace('_', ' ');
+                addNotification({
+                    id: crypto.randomUUID(),
+                    engineerId: taskToUpdate.engineerId,
+                    message: `Status of your task "${taskToUpdate.title}" was moved to ${statusLabel}.`,
+                    isRead: false
+                });
+            }
         }
     };
 
@@ -464,7 +509,7 @@ export const ProjectDetails: React.FC = () => {
                     </div>
                 )}
 
-                {projectMilestones.length === 0 && !isAddingMilestone && (
+                {projectMilestones.length === 0 && !isAddingMilestone && activeTab === 'milestones' && (
                     <div className="text-center py-20 bg-[#1a1a1a]/40 rounded-[40px] border border-dashed border-white/5 backdrop-blur-3xl">
                         <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/5">
                             <FolderKanban className="w-10 h-10 text-slate-700" />
@@ -474,7 +519,7 @@ export const ProjectDetails: React.FC = () => {
                     </div>
                 )}
 
-                {projectMilestones.map(milestone => {
+                {activeTab === 'milestones' && projectMilestones.map(milestone => {
                     const mTasks = projectTasks.filter(t => t.milestoneId === milestone.id);
                     const completedTasks = mTasks.filter(t => t.status === 'completed');
 
@@ -484,7 +529,7 @@ export const ProjectDetails: React.FC = () => {
                         <div key={milestone.id} className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 overflow-hidden backdrop-blur-3xl shadow-2xl relative group">
                             <div className="p-8 border-b border-white/5 bg-white/0 flex justify-between items-center relative z-10">
                                 <div>
-                                    <h3 className="text-2xl font-black text-white tracking-tight mb-2 group-hover:text-orange-400 transition-colors">{milestone.name}</h3>
+                                    <h3 className="text-3xl font-black text-white tracking-tight mb-2 group-hover:text-orange-400 transition-colors">{getLocalizedText(milestone.name, language)}</h3>
                                     {milestone.targetDate && (
                                         <div className="flex items-center gap-3">
                                             <div className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md">
@@ -511,7 +556,12 @@ export const ProjectDetails: React.FC = () => {
                                     { id: 'authority_approved', label: 'Auth Apprv.', icon: CheckCircle2, color: 'text-indigo-400', bg: 'bg-indigo-500', shadow: 'shadow-[0_0_10px_rgba(99,102,241,0.5)]', containerBg: 'bg-indigo-500/[0.02]', tasks: mTasks.filter(t => t.status === 'authority_approved'), next: 'completed' },
                                     { id: 'completed', label: 'Completed', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500', shadow: 'shadow-[0_0_10px_rgba(16,185,129,0.5)]', containerBg: 'bg-emerald-500/[0.02]', tasks: mTasks.filter(t => t.status === 'completed'), next: null },
                                 ].map((col, colIndex) => (
-                                    <div key={col.id} className={`p-6 ${col.containerBg} min-w-[300px]`}>
+                                    <div 
+                                        key={col.id} 
+                                        className={`p-6 ${col.containerBg} min-w-[300px] transition-colors`}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, col.id as Task['status'], milestone.id)}
+                                    >
                                         <div className="flex justify-between items-center mb-8">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-1.5 h-1.5 rounded-full ${col.bg} ${col.shadow}`}></div>
@@ -591,9 +641,15 @@ export const ProjectDetails: React.FC = () => {
                                             )}
 
                                             {col.tasks.map(task => (
-                                                <div key={task.id} className={`group/task ${col.id === 'completed' ? 'bg-white/5 opacity-60' : 'bg-[#1a1a1a]/40'} p-5 rounded-[20px] border border-white/5 hover:border-${col.id === 'not_started' ? 'slate' : col.bg.split('-')[1]}-500/30 transition-all duration-300 shadow-xl`}>
+                                                <div 
+                                                    key={task.id} 
+                                                    draggable={true}
+                                                    onDragStart={(e) => handleDragStart(e, task.id)}
+                                                    onDragEnd={handleDragEnd}
+                                                    className={`group/task ${col.id === 'completed' ? 'bg-white/5 opacity-60' : 'bg-[#1a1a1a]/40'} p-5 rounded-[20px] border border-white/5 hover:border-${col.id === 'not_started' ? 'slate' : col.bg.split('-')[1]}-500/30 transition-all duration-300 shadow-xl cursor-grab active:cursor-grabbing`}
+                                                >
                                                     <div className="flex justify-between items-start mb-3">
-                                                        <p className={`${col.id === 'completed' ? 'text-slate-400 line-through' : 'text-white'} font-bold text-sm leading-relaxed`}>{task.title}</p>
+                                                        <p className={`${col.id === 'completed' ? 'text-slate-400 line-through' : 'text-white'} font-bold text-lg leading-relaxed`}>{getLocalizedText(task.title, language)}</p>
                                                         <button className="text-slate-600 hover:text-white transition-colors shrink-0 ml-2">
                                                             <MoreHorizontal className="w-4 h-4" />
                                                         </button>
@@ -725,7 +781,7 @@ export const ProjectDetails: React.FC = () => {
                                                     {/* Task Info Cell */}
                                                     <div className={`border-b border-r border-white/10 p-3 flex items-center justify-between gap-2 bg-white/[0.01] hover:bg-white/[0.05] transition-colors ${tIndex === scheduledTasks.length - 1 ? 'border-b-0' : ''}`}>
                                                         <div className="truncate flex-1">
-                                                            <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-slate-200'} truncate text-xs`} title={task.title}>{task.title}</p>
+                                                            <p className={`font-bold ${isOverdue ? 'text-red-400' : 'text-slate-200'} truncate text-sm`} title={getLocalizedText(task.title, language)}>{getLocalizedText(task.title, language)}</p>
                                                         </div>
                                                         <div className="shrink-0 w-6 h-6 bg-white/10 rounded-full flex items-center justify-center text-[9px] font-black text-white" title={assignee}>
                                                             {assignee.charAt(0)}

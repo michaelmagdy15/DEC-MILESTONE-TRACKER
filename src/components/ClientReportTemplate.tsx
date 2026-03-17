@@ -1,6 +1,9 @@
 import { forwardRef } from 'react';
 import { format } from 'date-fns';
 import type { Project, Milestone, Task } from '../types';
+import { useLanguage } from '../context/LanguageContext';
+import { getLocalizedText } from '../utils/languageUtils';
+import logo from '../assets/logo.png';
 
 interface ClientReportTemplateProps {
     project: Project;
@@ -10,6 +13,8 @@ interface ClientReportTemplateProps {
 
 export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTemplateProps>(
     ({ project, milestones, tasks }, ref) => {
+        const { language } = useLanguage();
+
         const sortedMilestones = [...milestones].sort((a, b) => {
             if (a.targetDate && b.targetDate) return new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime();
             return (a.createdAt || '').localeCompare(b.createdAt || '');
@@ -29,12 +34,10 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
                         <h1 className="text-3xl font-black tracking-tight text-slate-800 mb-1">PROJECT STATUS REPORT</h1>
                         <h2 className="text-xl font-bold text-orange-600 mb-2">{project.name}</h2>
                         <p className="text-slate-500 font-medium text-sm">Report Date: {format(new Date(), 'MMMM d, yyyy')}</p>
-                        <p className="text-slate-500 font-medium text-sm">Project Phase: {project.phase || 'Planning'}</p>
+                        <p className="text-slate-500 font-medium text-sm">Project Phase: {getLocalizedText(project.phase || 'Planning', language)}</p>
                     </div>
-                    <div className="text-right">
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tighter">DEC <span className="text-orange-600">ENGINEERING</span></h2>
-                        <p className="text-slate-500 mt-1 text-sm">123 Corporate Ave, Suite 400</p>
-                        <p className="text-slate-500 text-sm">Dubai, United Arab Emirates</p>
+                    <div className="text-right flex flex-col items-end">
+                        <img src={logo} alt="DEC Logo" className="h-16 w-auto object-contain" />
                     </div>
                 </div>
 
@@ -43,7 +46,7 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
                     <div>
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Overall Progress</h3>
                         <p className="text-slate-600 text-sm max-w-sm">
-                            The project is currently advancing through the {project.phase || 'Planning'} phase with {activeTasks.length} operations actively in progress.
+                            The project is currently advancing through the {getLocalizedText(project.phase || 'Planning', language)} phase with {activeTasks.length} operations actively in progress.
                         </p>
                     </div>
                     <div className="text-right">
@@ -64,7 +67,7 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
                             return (
                                 <div key={milestone.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl">
                                     <div className="w-1/2">
-                                        <p className="font-bold text-slate-800">{milestone.name}</p>
+                                        <p className="font-bold text-slate-800">{getLocalizedText(milestone.name, language)}</p>
                                         <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
                                             Target: {milestone.targetDate ? format(new Date(milestone.targetDate), 'MMM d, yyyy') : 'TBD'}
                                         </p>
@@ -95,7 +98,7 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
                             {recentDoneTasks.map(task => (
                                 <li key={task.id} className="flex items-start gap-2">
                                     <div className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                                    <p className="text-sm text-slate-600 font-medium">{task.title}</p>
+                                    <p className="text-sm text-slate-600 font-medium">{getLocalizedText(task.title, language)}</p>
                                 </li>
                             ))}
                             {recentDoneTasks.length === 0 && (
@@ -110,7 +113,7 @@ export const ClientReportTemplate = forwardRef<HTMLDivElement, ClientReportTempl
                             {activeTasks.slice(0, 5).map(task => (
                                 <li key={task.id} className="flex items-start gap-2">
                                     <div className="mt-1 w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />
-                                    <p className="text-sm text-slate-600 font-medium">{task.title}</p>
+                                    <p className="text-sm text-slate-600 font-medium">{getLocalizedText(task.title, language)}</p>
                                 </li>
                             ))}
                             {activeTasks.length > 5 && (
