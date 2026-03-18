@@ -92,7 +92,11 @@ export const Reports: React.FC = () => {
 
     // Calculate Project Stats
     const projectStats = projects.map(project => {
-        const projectEntries = entries.filter(e => e.projectId === project.id);
+        const projectEntries = entries.filter(e => e.projectId === project.id).filter(e => {
+            if (filterFrom && e.date < filterFrom) return false;
+            if (filterTo && e.date > filterTo) return false;
+            return true;
+        });
         const totalHours = projectEntries.reduce((sum, e) => sum + e.timeSpent, 0);
         const cost = totalHours * (project.hourlyRate || 0);
         const uniqueEngineers = new Set(projectEntries.map(e => e.engineerId)).size;
@@ -108,8 +112,13 @@ export const Reports: React.FC = () => {
         const engineerEntries = entries.filter(e => e.engineerId === engineer.id);
         const engineerLogs = appUsageLogs.filter(l => l.engineerId === engineer.id);
 
-        const calculateActiveHours = (logs: any[], sinceDate?: Date) => {
-            const filtered = sinceDate ? logs.filter(l => new Date(l.timestamp) >= sinceDate) : logs;
+        const calculateActiveHours = (logs: any[], sinceDate?: Date, toDate?: Date) => {
+            const filtered = logs.filter(l => {
+                const d = new Date(l.timestamp);
+                if (sinceDate && d < sinceDate) return false;
+                if (toDate && d > toDate) return false;
+                return true;
+            });
             const IDLE_THRESHOLD = 300;
             let activeSecs = 0;
             filtered.forEach(log => {
@@ -120,8 +129,18 @@ export const Reports: React.FC = () => {
             return activeSecs / 3600;
         };
 
-        const totalAppHours = calculateActiveHours(engineerLogs);
-        const totalHours = engineerEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalAppHours;
+        const fromDate = filterFrom ? new Date(filterFrom) : undefined;
+        const toDate = filterTo ? new Date(filterTo + 'T23:59:59') : undefined;
+
+        const filteredEntries = engineerEntries.filter(e => {
+            const tz = new Date(e.date);
+            if (fromDate && tz < fromDate) return false;
+            if (toDate && tz > toDate) return false;
+            return true;
+        });
+
+        const totalAppHours = calculateActiveHours(engineerLogs, fromDate, toDate);
+        const totalHours = filteredEntries.reduce((sum, e) => sum + e.timeSpent, 0) + totalAppHours;
         const projectCount = new Set(engineerEntries.map(e => e.projectId)).size;
 
         const now = new Date();
@@ -311,7 +330,7 @@ export const Reports: React.FC = () => {
         if (view === 'projects') {
             headers = ['Project Name', 'Total Hours', 'Total Cost (AED)', 'Engineers', 'Last Activity'];
         } else if (view === 'engineers') {
-            headers = ['Engineer Name', 'Role', 'Projects', 'Location', 'Weekly Goal (Hrs)', 'Weekly Hours', 'Weekly Overtime', 'Weekly Payment (AED)'];
+            headers = ['Engineer Name', 'Role', 'Projects', 'Location', 'Weekly Goal (Hrs)', 'Total Hours', 'Weekly Overtime', 'Weekly Payment (AED)'];
         } else if (view === 'activity') {
             headers = ['Date', 'Time', 'Engineer Name', 'Active Window', 'CAD File', 'Duration (Seconds)'];
             exportData = dailyActivityStats;
@@ -331,7 +350,7 @@ export const Reports: React.FC = () => {
                 } else if (view === 'engineers') {
                     const eng = engineers.find(e => e.id === item.id);
                     const weeklyGoal = eng?.location ? getExpectedWeeklyHours(new Date(), eng.location) : (eng?.weeklyGoalHours || 40);
-                    return [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, `"${item.location || 'HQ'}"`, weeklyGoal.toFixed(1), item.weeklyHours.toFixed(2), item.weeklyOvertime.toFixed(2), item.weeklyPayment.toFixed(2)];
+                    return [`"${item.name}"`, `"${item.role || 'Engineer'}"`, item.projectCount, `"${item.location || 'HQ'}"`, weeklyGoal.toFixed(1), item.totalHours.toFixed(2), item.weeklyOvertime.toFixed(2), item.weeklyPayment.toFixed(2)];
                 } else if (view === 'activity') {
                     return [item.date, item.timestamp, `"${item.engineerName}"`, `"${item.activeWindow.replace(/"/g, '""')}"`, `"${item.documentName || ''}"`, item.durationSeconds];
                 } else if (view === 'capacity') {
@@ -470,7 +489,7 @@ export const Reports: React.FC = () => {
             {view !== 'activity' && view !== 'audit' && view !== 'capacity' && view !== 'productivity' && (
                 <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-orange-600/10 transition-colors"></div>
-                    <div className="flex items-center justify-between mb-10 relative z-10">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 relative z-10 gap-4">
                         <div>
                             <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
                                 <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20">
@@ -481,6 +500,19 @@ export const Reports: React.FC = () => {
                             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">
                                 Visualizing Resource Distribution
                             </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            <span className="text-slate-600 text-xs font-bold">→</span>
+                            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
+                                className="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all" />
+                            {(filterFrom || filterTo) && (
+                                <button onClick={() => { setFilterFrom(''); setFilterTo(''); }}
+                                    className="px-3 py-2 text-[10px] font-bold text-orange-400 hover:text-white bg-orange-500/10 border border-orange-500/20 rounded-xl uppercase tracking-widest transition-all">
+                                    Clear
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -522,8 +554,8 @@ export const Reports: React.FC = () => {
                                     formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{value}</span>}
                                 />
                                 <Bar
-                                    dataKey={view === 'projects' ? "totalHours" : "weeklyHours"}
-                                    name={view === 'projects' ? "Resource Hours" : "Weekly Activity"}
+                                    dataKey="totalHours"
+                                    name={view === 'projects' ? "Resource Hours" : "Total Engineer Hours"}
                                     fill="#6366f1"
                                     radius={[10, 10, 0, 0]}
                                     maxBarSize={40}
@@ -971,9 +1003,9 @@ export const Reports: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4 py-6 border-y border-white/5">
                                         <div>
                                             <div className="text-2xl font-black text-white">
-                                                {view === 'projects' ? formatHours((stat as any).totalHours) : formatHours((stat as any).weeklyHours)}
+                                                {formatHours((stat as any).totalHours)}
                                             </div>
-                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{view === 'projects' ? 'Total Hours' : 'Weekly Activity'}</div>
+                                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Total Hours</div>
                                         </div>
                                         <div>
                                             <div className="text-2xl font-black text-white">
