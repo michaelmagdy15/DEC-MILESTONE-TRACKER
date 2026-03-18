@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import clsx from 'clsx';
 import { EditableText } from '../components/EditableText';
+import { SystemHint } from '../components/SystemHint';
 
 const OfficeOperations: React.FC = () => {
     const { engineers, entries, officeExpenses, addOfficeExpense, deleteOfficeExpense } = useData();
@@ -664,6 +665,11 @@ export const Financials: React.FC = () => {
                     />
                 </div>
             </div>
+
+            <SystemHint>
+                <p><strong>Financial Oversight:</strong> Track project budgets against actual operational costs based on engineer logged time and hourly rates.</p>
+                <p><strong>Invoicing:</strong> Generate formal, styled PDF/Excel invoices for clients covering specific date ranges. The system automatically calculates total hours multiplied by the project rates.</p>
+            </SystemHint>
 
             {/* Inner Tabs */}
             <div className="flex p-1 bg-[#1a1a1a]/40 backdrop-blur-xl border border-white/5 rounded-2xl w-max mb-8">

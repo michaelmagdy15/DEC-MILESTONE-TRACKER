@@ -10,6 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { categorizeApp } from '../utils/appCategorization';
 import { GlowButton } from '../components/GlowButton';
 import { EditableText } from '../components/EditableText';
+import { LiveOperationsMonitor } from '../components/LiveOperationsMonitor';
+import { SystemHint } from '../components/SystemHint';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -20,7 +22,6 @@ const containerVariants = {
         }
     }
 };
-
 const itemVariants: any = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -207,6 +208,11 @@ export const Dashboard = () => {
                 />
             </div>
 
+            <SystemHint>
+                <p><strong>Dashboard:</strong> This is your command center. It acts as a real-time aggregator combining data from the Desktop Trackers (Live Operations & App Time Breakdown) and manual Milestones (Active Projects & Weekly Goals).</p>
+                <p>The <strong>Weekly Goal Tracker</strong> is fueled by each engineer's total accumulated tracked hours against their required weekly minimum.</p>
+            </SystemHint>
+
             {/* Metric Cards */}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 <div className="glass-card p-3 md:p-8 rounded-2xl md:rounded-[32px] relative overflow-hidden group hover:border-orange-500/30 hover:-translate-y-1">
@@ -273,6 +279,9 @@ export const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Live Operations Central Monitor */}
+            <LiveOperationsMonitor />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">

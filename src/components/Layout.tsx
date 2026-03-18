@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign, Mail, Calendar, Calculator } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Users, FileText, PieChart, Menu, X, LogOut, CalendarCheck, Search, Bell, User, DollarSign, Mail, Calendar, Calculator, BookOpen } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from './Logo';
@@ -166,6 +166,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         {role === 'admin' && <NavItem to="/financials" icon={DollarSign} label="Financials" />}
                         {role === 'admin' && <NavItem to="/reports" icon={PieChart} label="Reports" />}
                         {role !== 'client' && <NavItem to="/emails" icon={Mail} label="Emails" />}
+                        <NavItem to="/help" icon={BookOpen} label="Help Guide" />
                         <NavItem to="/profile" icon={User} label="My Profile" />
                     </nav>
 

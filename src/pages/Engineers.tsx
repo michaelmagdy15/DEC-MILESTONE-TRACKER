@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Users, X, Check, ShieldCheck, Mail, DollarSign, Target, Copy, Calculator, Star } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { SystemHint } from '../components/SystemHint';
 import type { Engineer } from '../types';
 import { motion } from 'framer-motion';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { EvaluationsModal } from '../components/EvaluationsModal';
+import { ResourceHeatmap } from '../components/ResourceHeatmap';
 
 export const Engineers = () => {
     const { engineers, projects, tasks, entries, addEngineer, updateEngineer, deleteEngineer } = useData();
@@ -171,6 +173,13 @@ export const Engineers = () => {
                     </button>
                 )}
             </div>
+
+            <SystemHint>
+                <p><strong>Roster:</strong> Manage engineering talent and monitor current workloads.</p>
+                <p><strong>Resource Allocation:</strong> Use the Resource Heatmap to identify over-utilized or available engineers across different projects and tasks.</p>
+            </SystemHint>
+
+            <ResourceHeatmap engineers={engineers} tasks={tasks} />
 
             {isAdding && (
                 <div className="bg-[#1a1a1a]/60 p-10 rounded-[32px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">

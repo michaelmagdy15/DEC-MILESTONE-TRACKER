@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { InvoiceTemplate } from '../components/InvoiceTemplate';
+import { SystemHint } from '../components/SystemHint';
 import { categorizeApp } from '../utils/appCategorization';
 
 // Helper to determine if a date falls in Ramadan (approximate for 2026 for example, or generally checking a range)
@@ -459,6 +460,11 @@ export const Reports: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            <SystemHint>
+                <p><strong>Intelligence Reports:</strong> Generate insightful analytics across different dimensions of the platform.</p>
+                <p><strong>Available Views:</strong> Toggle between Projects (overall progress), Engineers (individual performance), App Activity (software usage), Audit Trail (system events), and Capacity Map.</p>
+            </SystemHint>
 
             {/* CHARTS SECTION */}
             {view !== 'activity' && view !== 'audit' && view !== 'capacity' && view !== 'productivity' && (

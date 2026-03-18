@@ -6,6 +6,7 @@ import type { Project, ProjectPhase } from '../types';
 import { motion } from 'framer-motion';
 import { RiskIndicator } from '../components/RiskIndicator';
 import { decWorkflowTemplate } from '../utils/workflowTemplate';
+import { SystemHint } from '../components/SystemHint';
 
 // --- Separate Component for Phase Management ---
 const PhaseConfigModal = ({
@@ -352,6 +353,12 @@ export const Projects: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <SystemHint>
+                <p><strong>Projects:</strong> Every engineering project lives here. You can assign Lead Designers, define budgets in AED, and allocate team members.</p>
+                <p><strong>Workflow:</strong> Projects are structured into Phases (e.g., Concept, Schematic). When instantiating a new project, you can toggle the 'DEC Architectural Workflow Template' to auto-populate standard phases and sequential tasks under the hood.</p>
+                <p><em>Pro Tip: Admin users can drag and drop project cards to reorder them via the grip icon.</em></p>
+            </SystemHint>
 
             {/* PHASE MANAGEMENT MODAL */}
             {isManagingPhases && (

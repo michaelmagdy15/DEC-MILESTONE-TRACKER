@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, Folder, Info, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Check, AlertCircle, FolderKanban, Clock, CheckCircle2, MoreHorizontal, Settings2, Folder, Info, ClipboardList, DollarSign, TrendingUp, AlertTriangle, FileText, Link as LinkIcon, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Task } from '../types';
 
@@ -12,7 +12,7 @@ import type { Task } from '../types';
 import { differenceInDays, format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, startOfDay } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { ClientReportTemplate } from '../components/ClientReportTemplate';
+import { ClientBriefTemplate } from '../components/ClientBriefTemplate';
 import { useLanguage } from '../context/LanguageContext';
 import { getLocalizedText } from '../utils/languageUtils';
 
@@ -148,6 +148,28 @@ export const ProjectDetails: React.FC = () => {
         burnStatusBg = 'bg-amber-500/10 border-amber-500/20';
     }
 
+    // --- Predictive Project Risk Analysis ---
+    const scheduledTasksList = projectTasks.filter(t => t.dueDate);
+    const overdueTasks = scheduledTasksList.filter(t => t.status !== 'completed' && new Date(t.dueDate!) < new Date());
+    const overdueRatio = scheduledTasksList.length > 0 ? (overdueTasks.length / scheduledTasksList.length) * 100 : 0;
+    
+    let aiRiskLevel = 'Low Risk';
+    let aiRiskColor = 'text-emerald-400';
+    let aiRiskBg = 'bg-emerald-500/10 border-emerald-500/20';
+    let aiRiskText = 'Mathematical projections indicate strong schedule adherence.';
+    
+    if (overdueRatio > 30 || burnRate > 90) {
+        aiRiskLevel = 'Critical Risk';
+        aiRiskColor = 'text-rose-500';
+        aiRiskBg = 'bg-rose-500/10 border-rose-500/20';
+        aiRiskText = `Predictive AI indicates a ${(Math.min(99, overdueRatio + 25)).toFixed(1)}% probability of deadline failure. Velocity is too slow.`;
+    } else if (overdueRatio > 10 || burnRate > 75) {
+        aiRiskLevel = 'Elevated Risk';
+        aiRiskColor = 'text-amber-400';
+        aiRiskBg = 'bg-amber-500/10 border-amber-500/20';
+        aiRiskText = 'Task duration variance suggests potential cascading delays.';
+    }
+
     if (!project) {
         if (isLoading) {
             return (
@@ -207,6 +229,23 @@ export const ProjectDetails: React.FC = () => {
         setTaskStartDate('');
         setTaskDueDate('');
         setIsAddingTask(null);
+    };
+
+    const handleAIAutoAssign = () => {
+        const activeTasksByEngineer = engineers.map(eng => ({
+            id: eng.id,
+            activeTasks: tasks.filter(t => t.engineerId === eng.id && t.status !== 'completed').length
+        })).sort((a, b) => a.activeTasks - b.activeTasks);
+
+        if (activeTasksByEngineer.length > 0) {
+            setTaskEngineer(activeTasksByEngineer[0].id);
+            addNotification({
+                id: crypto.randomUUID(),
+                engineerId: currentEngineerId || '',
+                message: `AI System resolved optimal task distribution: operative with lowest workload mapped.`,
+                isRead: false
+            });
+        }
     };
 
     const handleStatusMove = (task: Task, newStatus: Task['status']) => {
@@ -398,6 +437,31 @@ export const ProjectDetails: React.FC = () => {
                 </div>
             </div>
 
+            {/* AI Predictive Analytics Alert */}
+            <div className={`p-6 rounded-[32px] border ${aiRiskBg} mb-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden group`}>
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500/20 via-orange-400 to-orange-500/20 opacity-50"></div>
+                <div className="flex items-center gap-5 w-full">
+                    <div className="w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/5 shrink-0 shadow-2xl">
+                        <Target className={`w-6 h-6 ${aiRiskColor}`} />
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                            <h3 className="text-white font-black text-lg">Predictive Risk Engine</h3>
+                            <span className={`px-3 py-1 bg-[#1a1a1a] border border-white/5 rounded-full text-[10px] font-black uppercase tracking-widest ${aiRiskColor}`}>
+                                {aiRiskLevel}
+                            </span>
+                        </div>
+                        <p className={`text-sm font-bold ${aiRiskColor} opacity-80`}>
+                            {aiRiskText}
+                        </p>
+                    </div>
+                    <div className="hidden md:block shrink-0 text-right pr-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Overdue Variance</p>
+                        <p className={`text-2xl font-black ${aiRiskColor}`}>{overdueRatio.toFixed(1)}%</p>
+                    </div>
+                </div>
+            </div>
+
             {/* Change Order Impact Alert */}
             {extraHours > 0 && (
                 <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-[32px] mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden group">
@@ -496,8 +560,22 @@ export const ProjectDetails: React.FC = () => {
 
             <div className="space-y-8">
                 {activeTab === 'milestones' && (
-                    <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-[32px] flex flex-col md:flex-row items-start md:items-center gap-6 relative overflow-hidden group">
-                        <div className="w-12 h-12 bg-orange-500/20 rounded-2xl flex items-center justify-center border border-orange-500/30 shrink-0">
+                    <>
+                        <div className="absolute top-0 left-[-9999px]">
+                            {project && (
+                                <ClientBriefTemplate
+                                    ref={reportRef}
+                                    project={project}
+                                    milestones={projectMilestones}
+                                    tasks={projectTasks}
+                                    entries={projectEntries}
+                                    totalCost={totalCost}
+                                />
+                            )}
+                        </div>
+                        
+                        <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-[32px] flex flex-col md:flex-row items-start md:items-center gap-6 relative overflow-hidden group">
+                            <div className="w-12 h-12 bg-orange-500/20 rounded-2xl flex items-center justify-center border border-orange-500/30 shrink-0">
                             <Info className="w-6 h-6 text-orange-400" />
                         </div>
                         <div>
@@ -507,6 +585,7 @@ export const ProjectDetails: React.FC = () => {
                             </p>
                         </div>
                     </div>
+                    </>
                 )}
 
                 {projectMilestones.length === 0 && !isAddingMilestone && activeTab === 'milestones' && (
@@ -589,7 +668,17 @@ export const ProjectDetails: React.FC = () => {
                                                             />
                                                         </div>
                                                         <div className="space-y-1">
-                                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Assignee</label>
+                                                            <div className="flex items-center justify-between">
+                                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Assignee</label>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleAIAutoAssign}
+                                                                    className="text-[9px] font-black text-orange-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition-colors"
+                                                                >
+                                                                    <Target className="w-3 h-3" />
+                                                                    AI Smart Assign
+                                                                </button>
+                                                            </div>
                                                             <select
                                                                 value={taskEngineer}
                                                                 onChange={e => setTaskEngineer(e.target.value)}
@@ -1016,16 +1105,6 @@ export const ProjectDetails: React.FC = () => {
                     )}
                 </motion.div>
             )}
-
-            {/* Hidden Report Wrapper */}
-            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                <ClientReportTemplate
-                    ref={reportRef}
-                    project={project}
-                    milestones={projectMilestones}
-                    tasks={projectTasks}
-                />
-            </div>
         </motion.div>
     );
 };

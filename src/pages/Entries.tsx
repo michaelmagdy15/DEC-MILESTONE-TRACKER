@@ -7,6 +7,7 @@ import type { LogEntry } from '../types';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
+import { SystemHint } from '../components/SystemHint';
 
 const COMMON_SOFTWARE = ['AutoCAD', 'Revit', 'Excel', 'Word', 'Civil 3D', 'SAP2000', 'ETABS', 'SAFE', 'Primavera'];
 
@@ -184,6 +185,11 @@ export const Entries: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            <SystemHint>
+                <p><strong>Activity Ledger:</strong> The core time-tracking module where engineers log explicit work hours against projects and milestones.</p>
+                <p><strong>Efficiency Engine:</strong> The system passively monitors active application usage locally (e.g., AutoCAD, Revit) and uses AI to suggest accurate log entries to save time and reduce friction.</p>
+            </SystemHint>
 
             {isAdding && suggestions.length > 0 && (
                 <motion.div

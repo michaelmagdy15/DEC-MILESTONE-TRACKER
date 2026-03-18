@@ -1,8 +1,9 @@
 
 import { useData } from '../context/DataContext';
-import { FolderKanban, Activity, Briefcase, Calendar, ChevronRight, Award } from 'lucide-react';
+import { FolderKanban, Activity, Briefcase, Calendar, ChevronRight, Award, Box } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { SystemHint } from '../components/SystemHint';
 
 export const ClientDashboard = () => {
     const { projects, entries, milestones, updateMilestone } = useData();
@@ -42,6 +43,11 @@ export const ClientDashboard = () => {
                 </div>
             </div>
 
+            <SystemHint>
+                <p><strong>Partner Portal:</strong> A simplified, high-level view designed for clients and external stakeholders to monitor engineering progress without operational clutter.</p>
+                <p><strong>Milestone Clearance:</strong> Clients can review project milestones and mark them as 'Approved' or 'Flag for Revision'.</p>
+            </SystemHint>
+
             {/* Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-[#1a1a1a]/40 p-8 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl relative overflow-hidden group">
@@ -70,6 +76,33 @@ export const ClientDashboard = () => {
                             <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-1">Recent Intelligence</p>
                             <p className="text-4xl font-black text-white tracking-tighter">{recentEntries.length}</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Interactive 3D BIM Viewer Placeholder */}
+            <div className="bg-[#1a1a1a]/40 rounded-[40px] border border-white/5 backdrop-blur-3xl shadow-2xl p-8 relative overflow-hidden group">
+                <div className="flex items-center justify-between mb-8 relative z-10">
+                    <div>
+                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-4">
+                            <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+                                <Box className="w-6 h-6 text-blue-400" />
+                            </div>
+                            Interactive 3D / BIM Viewer
+                        </h3>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-14">Powered by WebGL Spatial Engine</p>
+                    </div>
+                </div>
+                <div className="relative w-full aspect-video md:aspect-[21/9] bg-black/50 rounded-[24px] border border-white/10 overflow-hidden flex flex-col items-center justify-center">
+                    {/* Placeholder Grid lines */}
+                    <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                    <Box className="w-16 h-16 text-blue-500/30 mb-4 animate-pulse relative z-10" />
+                    <p className="text-white font-bold text-lg relative z-10 tracking-wide">3D Model Space</p>
+                    <p className="text-slate-500 font-medium text-sm relative z-10 mt-1">Select a venture to render the architectural framework</p>
+                    <div className="absolute bottom-6 right-6 flex gap-3 z-10">
+                        <button className="px-6 py-3 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-500/30 transition-all shadow-xl">
+                            Load Sample IFC
+                        </button>
                     </div>
                 </div>
             </div>

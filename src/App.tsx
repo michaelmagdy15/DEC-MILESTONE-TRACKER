@@ -19,6 +19,7 @@ import { Profile } from './pages/Profile';
 import { Financials } from './pages/Financials';
 import { Emails } from './pages/Emails';
 import { Meetings } from './pages/Meetings';
+import { HelpGuide } from './pages/HelpGuide';
 import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -117,6 +118,7 @@ function App() {
                       <Route path="/engineers" element={<ProtectedRoute requireAdmin><Engineers /></ProtectedRoute>} />
                       <Route path="/emails/*" element={<ProtectedRoute requireEngineerOrAdmin skipDataWait><Emails /></ProtectedRoute>} />
                       <Route path="/financials" element={<ProtectedRoute requireAdmin><Financials /></ProtectedRoute>} />
+                      <Route path="/help" element={<HelpGuide />} />
                       <Route path="/profile" element={<Profile />} />
                       {/* Fallback for authenticated users */}
                       <Route path="*" element={<Navigate to="/" replace />} />

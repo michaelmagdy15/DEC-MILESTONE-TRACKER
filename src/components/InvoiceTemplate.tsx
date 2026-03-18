@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { format } from 'date-fns';
 import type { Project, LogEntry } from '../types';
+import logo from '../assets/logo.png';
 
 interface InvoiceTemplateProps {
     project: Project;
@@ -22,11 +23,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                         <p className="text-slate-500 font-medium">Ref: {project.id.slice(0, 8).toUpperCase()}</p>
                         <p className="text-slate-500 font-medium">Date: {format(new Date(), 'MMMM d, yyyy')}</p>
                     </div>
-                    <div className="text-right">
-                        <h2 className="text-2xl font-bold text-slate-800">DEC Engineering</h2>
-                        <p className="text-slate-500 mt-1">123 Corporate Ave, Suite 400</p>
-                        <p className="text-slate-500">Dubai, United Arab Emirates</p>
-                        <p className="text-slate-500">contact@deceng.com</p>
+                    <div className="text-right flex flex-col items-end">
+                        <img src={logo} alt="DEC Logo" className="h-12 w-auto object-contain mb-2" />
+                        <h2 className="text-xl font-bold text-slate-800">DEC Engineering</h2>
+                        <p className="text-slate-500 text-sm mt-1">123 Corporate Ave, Suite 400</p>
+                        <p className="text-slate-500 text-sm">Dubai, United Arab Emirates</p>
+                        <p className="text-slate-500 text-sm">contact@deceng.com</p>
                     </div>
                 </div>
 
