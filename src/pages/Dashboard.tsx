@@ -174,13 +174,13 @@ export const Dashboard = () => {
     };
 
     const handleDeployTracker = async () => {
-        if (!trackerVersion || !trackerUrl) {
-            toast.error("Version and URL are required.");
+        if (!trackerVersion) {
+            toast.error("Version is required.");
             return;
         }
         setIsUpdatingTracker(true);
         await updateGlobalSetting('tracker_version', trackerVersion);
-        await updateGlobalSetting('tracker_update_url', trackerUrl);
+        await updateGlobalSetting('tracker_update_url', trackerUrl || 'https://github.com');
         setIsUpdatingTracker(false);
         toast.success("Tracker update deployed! Trackers should auto-update shortly.");
     };

@@ -232,25 +232,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchSingleTable = useCallback(async (tableName: TableName) => {
         const config = TABLE_CONFIGS[tableName];
         const setter = setterMap[tableName];
-        // Use higher limits for log/audit tables to support 1 month of tracking
-        const limit = (tableName === 'app_usage_log' || tableName === 'audit_log') ? 200000 : 1000;
+        
         try {
-            let query = supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending }).limit(limit);
+            if (tableName === 'app_usage_log' || tableName === 'audit_log') {
+                // High-volume tables: Fetch iteratively to bypass Supabase 1000 row max API limit
+                let allData: any[] = [];
+                let from = 0;
+                const step = 1000;
+                let fetchMore = true;
+                const maxLogs = 100000; // Hard cap
+                
+                while (fetchMore && allData.length < maxLogs) {
+                    let query = supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending }).range(from, from + step - 1);
+                    
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    
+                    if (tableName === 'app_usage_log') {
+                        query = query.gte('timestamp', thirtyDaysAgo.toISOString());
+                    } else if (tableName === 'audit_log') {
+                        query = query.gte('created_at', thirtyDaysAgo.toISOString());
+                    }
 
-            // Fetch only the last 30 days for very noisy logs to prevent browser crashes
-            if (tableName === 'app_usage_log') {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                query = query.gte('timestamp', thirtyDaysAgo.toISOString());
-            } else if (tableName === 'audit_log') {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                query = query.gte('created_at', thirtyDaysAgo.toISOString());
+                    const { data, error } = await query;
+                    if (error) { console.error(`Error fetching ${tableName}:`, error); break; }
+                    
+                    if (data && data.length > 0) {
+                        allData.push(...data);
+                        from += step;
+                        if (data.length < step) fetchMore = false;
+                    } else {
+                        fetchMore = false;
+                    }
+                }
+                setter(allData.map(config.mapper));
+            } else {
+                // Standard tables
+                const { data, error } = await supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending }).limit(1000);
+                if (error) { console.error(`Error fetching ${tableName}:`, error); return; }
+                if (data) setter(data.map(config.mapper));
             }
-
-            const { data, error } = await query;
-            if (error) { console.error(`Error fetching ${tableName}:`, error); return; }
-            if (data) setter(data.map(config.mapper));
         } catch (err) {
             console.error(`Exception fetching ${tableName}:`, err);
         }
