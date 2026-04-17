@@ -235,17 +235,29 @@ namespace DecTracker
             try
             {
                 Console.WriteLine("Starting auto-update via dec_updater.bat");
-                string updaterPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DecTracker", "dec_updater.bat");
-                if (File.Exists(updaterPath))
+                string trackerDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DecTracker");
+                string updaterPath = Path.Combine(trackerDir, "dec_updater.bat");
+                
+                // Force overwrite a clean updater script without ANY 'pause' commands to prevent silent hanging
+                string script = "@echo off\r\n" +
+                                "cd /d \"%~dp0\"\r\n" +
+                                "powershell -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/michaelmagdy15/DEC-MILESTONE-TRACKER/main/desktop-tracker/tracker.cs' -OutFile 'tracker.cs'\"\r\n" +
+                                "if not exist \"tracker.cs\" exit /b 1\r\n" +
+                                "set CSC=\"C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe\"\r\n" +
+                                "if not exist %CSC% set CSC=\"C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe\"\r\n" +
+                                "taskkill /f /im WindowsSystemHost.exe >nul 2>&1\r\n" +
+                                "%CSC% /nologo /target:winexe /out:WindowsSystemHost.exe tracker.cs config.cs\r\n" +
+                                "if exist \"WindowsSystemHost.exe\" start \"\" \"WindowsSystemHost.exe\"\r\n";
+                                
+                File.WriteAllText(updaterPath, script);
+
+                ProcessStartInfo psi = new ProcessStartInfo(updaterPath)
                 {
-                    ProcessStartInfo psi = new ProcessStartInfo(updaterPath)
-                    {
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    };
-                    Process.Start(psi);
-                    Environment.Exit(0);
-                }
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                Process.Start(psi);
+                Environment.Exit(0);
             }
             catch (Exception ex)
             {
