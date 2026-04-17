@@ -11,7 +11,9 @@ namespace DecTracker
 {
     class Program
     {
-        const string CURRENT_VERSION = "1.0.2";
+        const string CURRENT_VERSION = "1.0.3";
+
+        static System.Collections.Generic.List<FileSystemWatcher> watchers = new System.Collections.Generic.List<FileSystemWatcher>();
 
         [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
@@ -83,7 +85,7 @@ namespace DecTracker
             return false;
         }
 
-        static bool SupabaseRequest(string method, string endpoint, string body)
+        static bool SupabaseRequest(string method, string endpoint, string body, bool isRetry = false)
         {
             try
             {
@@ -129,7 +131,55 @@ namespace DecTracker
                 }
                 
                 File.AppendAllText("tracker_debug.log", "[" + DateTime.Now.ToString() + "] " + ex.Message + "\n");
+                
+                if (!isRetry && method != "GET")
+                {
+                    try { File.AppendAllText("unsent.queue", method + "|" + endpoint + "|" + body.Replace("\n", " ").Replace("\r", "") + "\n"); } catch { }
+                }
+
                 return false;
+            }
+        }
+
+        static void FlushOfflineQueue()
+        {
+            string queuePath = "unsent.queue";
+            if (!File.Exists(queuePath)) return;
+
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(queuePath);
+                File.Delete(queuePath);
+            }
+            catch { return; }
+
+            bool isOnline = true;
+
+            foreach (string line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                
+                if (!isOnline) 
+                {
+                    try { File.AppendAllText(queuePath, line + "\n"); } catch { }
+                    continue;
+                }
+
+                string[] parts = line.Split(new char[] { '|' }, 3);
+                if (parts.Length == 3)
+                {
+                    bool success = SupabaseRequest(parts[0], parts[1], parts[2], true);
+                    if (!success)
+                    {
+                        isOnline = false;
+                        try { File.AppendAllText(queuePath, line + "\n"); } catch { }
+                    }
+                    else
+                    {
+                        Thread.Sleep(500);
+                    }
+                }
             }
         }
 
@@ -180,36 +230,22 @@ namespace DecTracker
             return null;
         }
 
-        static void PerformAutoUpdate(string downloadUrl)
+        static void PerformAutoUpdate()
         {
             try
             {
-                Console.WriteLine("Starting auto-update from: " + downloadUrl);
-                string tempExe = Path.Combine(Path.GetTempPath(), "dec_tracker_update.exe");
-                
-                using (WebClient client = new WebClient())
+                Console.WriteLine("Starting auto-update via dec_updater.bat");
+                string updaterPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DecTracker", "dec_updater.bat");
+                if (File.Exists(updaterPath))
                 {
-                    client.DownloadFile(downloadUrl, tempExe);
+                    ProcessStartInfo psi = new ProcessStartInfo(updaterPath)
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    Process.Start(psi);
+                    Environment.Exit(0);
                 }
-
-                string currentExe = Assembly.GetExecutingAssembly().Location;
-                string batPath = Path.Combine(Path.GetTempPath(), "update_tracker.bat");
-                
-                string batContent = "@echo off\r\n" +
-                                    "timeout /t 2 /nobreak > NUL\r\n" +
-                                    "move /Y \"" + tempExe + "\" \"" + currentExe + "\"\r\n" +
-                                    "start \"\" \"" + currentExe + "\"\r\n" +
-                                    "del \"%~f0\"\r\n";
-                File.WriteAllText(batPath, batContent);
-
-                ProcessStartInfo psi = new ProcessStartInfo(batPath)
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                Process.Start(psi);
-
-                Environment.Exit(0);
             }
             catch (Exception ex)
             {
@@ -226,15 +262,7 @@ namespace DecTracker
                 string remoteVersion = ExtractValue(versionJson, "value");
                 if (!string.IsNullOrEmpty(remoteVersion) && remoteVersion != CURRENT_VERSION)
                 {
-                    string urlJson = SupabaseGetRequest("app_settings?key=eq.tracker_update_url&select=value");
-                    if (urlJson != null && urlJson.Contains("value"))
-                    {
-                        string url = ExtractValue(urlJson, "value");
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            PerformAutoUpdate(url);
-                        }
-                    }
+                    PerformAutoUpdate();
                 }
             }
         }
@@ -276,23 +304,36 @@ namespace DecTracker
 
         static void SetupDeliverableWatcher()
         {
-            var folder = "C:\\Projects\\Exports";
-            try {
-                if (!Directory.Exists(folder))
-                    Directory.CreateDirectory(folder);
+            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string[] folders = new string[] 
+            { 
+                "C:\\Projects\\Exports",
+                Path.Combine(userProfile, "Desktop"),
+                Path.Combine(userProfile, "Documents"),
+                Path.Combine(userProfile, "Downloads")
+            };
 
-                var watcher = new FileSystemWatcher(folder);
-                watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite;
-                watcher.Filter = "*.*";
-                watcher.Created += (s, e) => {
-                    if (e.FullPath.EndsWith(".pdf") || e.FullPath.EndsWith(".dwg")) {
-                        string payload = "{\"projectId\":\"\", \"file\":\"" + e.Name + "\"}";
-                        SupabaseRequest("POST", "deliverable_events", payload);
-                    }
-                };
-                watcher.EnableRaisingEvents = true;
-            } catch (Exception ex) {
-                Console.WriteLine("Watcher failed: " + ex.Message);
+            foreach (string folder in folders)
+            {
+                try 
+                {
+                    if (!Directory.Exists(folder)) continue;
+
+                    var watcher = new FileSystemWatcher(folder);
+                    watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite;
+                    watcher.Filter = "*.*";
+                    watcher.IncludeSubdirectories = false;
+                    watcher.Created += (s, e) => {
+                        OnDeliverableExported(s, e);
+                    };
+                    watcher.EnableRaisingEvents = true;
+                    watchers.Add(watcher);
+                    Console.WriteLine("Watching for deliverables in: " + folder);
+                } 
+                catch (Exception ex) 
+                {
+                    Console.WriteLine("Watcher failed for " + folder + ": " + ex.Message);
+                }
             }
         }
 
@@ -343,6 +384,11 @@ namespace DecTracker
             int loopCounter = 0;
             while (true)
             {
+                if (loopCounter % 6 == 0) // Every 1 minute
+                {
+                    FlushOfflineQueue();
+                }
+
                 if (loopCounter % 60 == 0) // Every 10 minutes (60 iterations * 10 seconds)
                 {
                     CheckForUpdates();

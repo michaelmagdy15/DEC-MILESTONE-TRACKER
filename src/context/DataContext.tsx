@@ -232,10 +232,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchSingleTable = useCallback(async (tableName: TableName) => {
         const config = TABLE_CONFIGS[tableName];
         const setter = setterMap[tableName];
-        // Use higher limits for log/audit tables, bounded limits for everything else
-        const limit = (tableName === 'app_usage_log' || tableName === 'audit_log') ? 5000 : 1000;
+        // Use higher limits for log/audit tables to support 1 month of tracking
+        const limit = (tableName === 'app_usage_log' || tableName === 'audit_log') ? 200000 : 1000;
         try {
-            const { data, error } = await supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending }).limit(limit);
+            let query = supabase.from(tableName).select('*').order(config.orderBy, { ascending: config.ascending }).limit(limit);
+
+            // Fetch only the last 30 days for very noisy logs to prevent browser crashes
+            if (tableName === 'app_usage_log') {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                query = query.gte('timestamp', thirtyDaysAgo.toISOString());
+            } else if (tableName === 'audit_log') {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                query = query.gte('created_at', thirtyDaysAgo.toISOString());
+            }
+
+            const { data, error } = await query;
             if (error) { console.error(`Error fetching ${tableName}:`, error); return; }
             if (data) setter(data.map(config.mapper));
         } catch (err) {
