@@ -11,7 +11,7 @@ namespace DecTracker
 {
     class Program
     {
-        const string CURRENT_VERSION = "1.0.3";
+        const string CURRENT_VERSION = "1.0.4";
 
         static System.Collections.Generic.List<FileSystemWatcher> watchers = new System.Collections.Generic.List<FileSystemWatcher>();
 
@@ -89,46 +89,40 @@ namespace DecTracker
         {
             try
             {
-                // Force TLS 1.2 (SecurityProtocolType.Tls12 is 3072)
-                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
-
                 string url = Config.SUPABASE_URL + "/rest/v1/" + endpoint;
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
-                req.Method = method;
-                req.Headers.Add("apikey", Config.SUPABASE_KEY);
-                req.Headers.Add("Authorization", "Bearer " + Config.SUPABASE_KEY);
-                req.Headers.Add("Prefer", "return=minimal");
-                req.ContentType = "application/json";
-                req.Timeout = 10000;
+                string tempFile = Path.GetTempFileName();
+                File.WriteAllText(tempFile, body);
 
-                byte[] data = Encoding.UTF8.GetBytes(body);
-                req.ContentLength = data.Length;
-
-                using (Stream stream = req.GetRequestStream())
+                ProcessStartInfo psi = new ProcessStartInfo("curl.exe")
                 {
-                    stream.Write(data, 0, data.Length);
-                }
+                    Arguments = string.Format("-sS -X {0} \"{1}\" -H \"apikey: {2}\" -H \"Authorization: Bearer {2}\" -H \"Prefer: return=minimal\" -H \"Content-Type: application/json\" -d @\"{3}\"", method, url, Config.SUPABASE_KEY, tempFile),
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
 
-                using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
+                using (Process process = Process.Start(psi))
                 {
-                    Console.WriteLine("Supabase Success: " + endpoint + " - " + method);
-                    return true;
+                    process.WaitForExit();
+                    int exitCode = process.ExitCode;
+                    string errorOut = process.StandardError.ReadToEnd();
+                    try { File.Delete(tempFile); } catch { }
+
+                    if (exitCode == 0)
+                    {
+                        Console.WriteLine("Supabase Success: " + endpoint + " - " + method);
+                        return true;
+                    }
+                    else
+                    {
+                        throw new Exception("curl exit code " + exitCode + ": " + errorOut);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Supabase Error [" + endpoint + "]: " + ex.Message);
-                if (ex is WebException)
-                {
-                    WebException wex = (WebException)ex;
-                    if (wex.Response != null)
-                    {
-                        using (StreamReader reader = new StreamReader(wex.Response.GetResponseStream()))
-                        {
-                            Console.WriteLine("Response Body: " + reader.ReadToEnd());
-                        }
-                    }
-                }
                 
                 File.AppendAllText("tracker_debug.log", "[" + DateTime.Now.ToString() + "] " + ex.Message + "\n");
                 
@@ -193,19 +187,28 @@ namespace DecTracker
         {
             try
             {
-                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
                 string url = Config.SUPABASE_URL + "/rest/v1/" + endpoint;
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
-                req.Method = "GET";
-                req.Headers.Add("apikey", Config.SUPABASE_KEY);
-                req.Headers.Add("Authorization", "Bearer " + Config.SUPABASE_KEY);
-                req.Timeout = 10000;
 
-                using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
+                ProcessStartInfo psi = new ProcessStartInfo("curl.exe")
                 {
-                    using (StreamReader reader = new StreamReader(res.GetResponseStream()))
+                    Arguments = string.Format("-sS -X GET \"{0}\" -H \"apikey: {1}\" -H \"Authorization: Bearer {1}\"", url, Config.SUPABASE_KEY),
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using (Process process = Process.Start(psi))
+                {
+                    string output = process.StandardOutput.ReadToEnd();
+                    process.WaitForExit();
+                    if (process.ExitCode == 0)
                     {
-                        return reader.ReadToEnd();
+                        return output;
+                    }
+                    else
+                    {
+                        throw new Exception("curl returned code " + process.ExitCode + ": " + process.StandardError.ReadToEnd());
                     }
                 }
             }
